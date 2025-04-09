@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "228061821545",
+    "project_id": "otp-app-zalo-8d8a8",
+    "storage_bucket": "otp-app-zalo-8d8a8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:228061821545:android:06406ba2665abb9ea900f8",
+        "android_client_info": {
+          "package_name": "otp.zalo.androi"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBpo_q7-67zZTppdtDRGVPRNoa8RGSie8I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

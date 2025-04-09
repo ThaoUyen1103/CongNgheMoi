@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "MobileZola",
+    "slug": "mobile-zola",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "custom photos permission",
+          "cameraPermission": "Allow Zola to open the camera",
+          "//": "Disables the microphone permission",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Allow Zola to access your microphone."
+        }
+      ],
+      [
+        "expo-document-picker",
+        {
+          "iCloudContainerEnvironment": "Production"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "1ca08309-0974-4441-b131-4e8ec44e615c"
+      }
+    },
+    "android": {
+      "googleServicesFile": "./google-services.json",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.heartnet.mobilezola"
+    }
+  }
+}

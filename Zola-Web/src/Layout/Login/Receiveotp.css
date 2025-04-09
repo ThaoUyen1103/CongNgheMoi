@@ -1,0 +1,139 @@
+.phone_body {
+  background-image: url('../../Assets/background.png');
+  font-family: 'Roboto', sans-serif;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+.phone-123 {
+  justify-content: center; /* Căn giữa theo chiều ngang */
+  align-items: center; /* Căn giữa theo chiều dọc */
+  /* Đảm bảo phần tử nằm ở giữa trang */
+}
+.phone-content {
+  text-align: center;
+}
+/* styles.css */
+
+.h1-name {
+  text-align: center;
+  line-height: 1.5;
+  color: black;
+  font-weight: 500;
+  font-size: 1.875rem; /* 3xl size in Tailwind CSS */
+  margin-bottom: 1.5rem; /* 6 in Tailwind CSS */
+}
+/* styles.css */
+
+.bg-emerald-500 {
+  background-color: #009282; /* Mã màu emerald-500 trong Tailwind CSS */
+}
+
+.flex {
+  display: flex;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.justify-center {
+  justify-content: center;
+}
+
+.h-screen {
+  height: 100vh;
+}
+/* styles.css */
+
+.bg-white {
+  background-color: #ffffff; /* Màu nền white trong Tailwind CSS */
+}
+
+.text-emerald-500 {
+  color: #10b981; /* Mã màu emerald-500 trong Tailwind CSS */
+}
+
+.w-fit {
+  width: fit-content; /* Chiều rộng phù hợp với nội dung */
+}
+
+.mx-auto {
+  margin-left: auto; /* Canh lề trái tự động */
+  margin-right: auto; /* Canh lề phải tự động */
+}
+
+.p-4 {
+  padding: 1rem; /* Padding 4 trong Tailwind CSS */
+}
+
+.rounded-full {
+  border-radius: 9999px; /* Border-radius full trong Tailwind CSS */
+}
+/* styles.css */
+
+/* Đặt kích thước cho biểu tượng */
+.SiZalo {
+  width: 30px; /* Đặt chiều rộng */
+  height: 30px; /* Đặt chiều cao */
+}
+.custom-class {
+  font-weight: bold; /* Đặt độ đậm */
+  font-size: 1.25rem; /* Đặt kích thước chữ */
+  color: blue; /* Đặt màu chữ */
+  text-align: center; /* Căn giữa */
+}
+.flex-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+/* Trong file CSS của bạn (ví dụ: styles.css hoặc phoneSignin123.css) */
+/* file custom.css */
+
+.mt-1 {
+  margin-top: 0.25rem; /* hoặc giá trị tương đương với 1 đơn vị bạn mong muốn */
+}
+
+.animate-spin {
+  /* Định nghĩa keyframes cho hiệu ứng quay */
+  @keyframes spin {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* Áp dụng hiệu ứng quay */
+  animation: spin 1s linear infinite;
+}
+.h1-name div {
+  color: #f1eaab;
+  /* 6 in Tailwind CSS */
+}
+.span-eyers {
+  margin-top: 10px;
+  padding-left: 5px;
+  cursor: pointer;
+}
+.div-texteye {
+  display: flex;
+  align-items: center;
+  border-radius: 10px;
+}
+.span-eyers svg {
+  fill: white;
+}
+/* .friendinput input.form-control {
+  /* width: 100%; */
+/* margin-left: 55px;
+} */
+.friendinput {
+  /* width: 100%; */
+  margin-left: 55px;
+}
