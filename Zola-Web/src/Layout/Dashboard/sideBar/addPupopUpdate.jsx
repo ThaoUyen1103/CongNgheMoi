@@ -278,7 +278,7 @@ const AddPupopUpdate = () => {
           height: '7%',
           display: 'flex',
           marginTop: 5,
-          marginLeft: 15,
+          marginLeft: 5,
         }}
       >
         <div

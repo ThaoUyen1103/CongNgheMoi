@@ -114,7 +114,8 @@ const AddPupopSetting = () => {
               width: '100%',
               height: '100%',
               marginLeft: 20,
-              marginTop: 20
+              marginTop: 20,
+              cursor:"pointer"
             }}
           >
             <IoLockClosedOutline size="1.1rem" />
@@ -123,7 +124,8 @@ const AddPupopSetting = () => {
                 fontSize: 15,
                 fontWeight: 'bold',
                 color: '#000',
-                marginLeft: 10
+                marginLeft: 10,
+                cursor:"pointer"
               }}
             >
               Riêng tư & bảo mật

@@ -6,10 +6,10 @@ import { TiBusinessCard } from 'react-icons/ti'
 import { MdBlock } from 'react-icons/md'
 import { LuAlertTriangle } from 'react-icons/lu'
 import { FaRegTrashAlt } from 'react-icons/fa'
-import PopupYou from './pupopYou'
+// import PopupYou from './pupopYou'
 import PopupStranger from './pupopStranger'
 import axios from 'axios'
-import toast from 'react-hot-toast'
+// import toast from 'react-hot-toast'
 const AddPupopYou = ({ friend_id }) => {
   const [friendDetails, setFriendDetails] = useState('')
   //const friend_id = localStorage.getItem('friend_id')

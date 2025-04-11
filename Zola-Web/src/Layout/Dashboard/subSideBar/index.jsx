@@ -257,26 +257,29 @@ const SubSideBar = ({
                 style={{
                     width: '100%',
                     height: '100%',
-                    // display: 'flex',
+                
                     gap: 10,
                     overflowY: 'auto',
                     paddingBottom: 100,
                     scrollbarWidth: 'thin', // Đặt chiều rộng của thanh cuộn
-                    scrollbarColor: '#888 #f5f5f5', // Đặt màu của thanh cuộn và đường ray
-                    // Tùy chỉnh thanh cuộn cho Webkit browsers
+                    scrollbarColor: '#888 #f5f5f5', 
+                    
                 }}
             >
-                {/* My cloud cloud của tôi */}
+                {/* My  cloud của tôi */}
                 <button
                     style={{
                         border: 'none',
-                        backgroundColor: 'transparent',
+                        backgroundColor: 'white', // Đặt màu nền mặc định
+                        // backgroundColor: 'whitesmoke',
                         display: 'flex',
                         gap: 10,
                         width: '90%',
                         height: 55,
                         alignItems: 'center',
                         margin: 17,
+                        
+                        
                     }}
                     onMouseEnter={(e) => {
                         e.target.style.backgroundColor = '#ebf5f6'
@@ -290,13 +293,12 @@ const SubSideBar = ({
                         <button
                             style={{
                                 border: 'none',
-                                backgroundColor: 'transparent',
                                 display: 'flex',
                                 gap: 10,
-                                width: '90%',
+                                width: '100%',
                                 height: 55,
                                 alignItems: 'center',
-                                margin: 17,
+                                
                             }}
                             onMouseEnter={(e) => {
                                 e.target.style.backgroundColor = '#ebf5f6'
@@ -340,10 +342,10 @@ const SubSideBar = ({
                                             )
                                         })
                                     ) : (
-                                        <div>Không có cuộc trò chuyện Cloud</div>
+                                        <div >Cloud của tôi</div>
                                     )}
 
-
+                                    {/* Cloud của tôi    */}
                                 </label>
                                 <label
                                     style={{
@@ -363,7 +365,7 @@ const SubSideBar = ({
                     )}
 
 
-                    <div
+                    {/* <div
                         style={{
                             display: 'flex',
                             flexDirection: 'column',
@@ -393,7 +395,7 @@ const SubSideBar = ({
                         >
                             {lastMessageMyCloud}
                         </label>
-                    </div>
+                    </div> */}
                 </button>
                 {friend_list.map((friend) => (
                     <button

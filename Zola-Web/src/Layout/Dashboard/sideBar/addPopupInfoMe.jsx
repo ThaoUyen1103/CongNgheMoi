@@ -187,6 +187,7 @@ const AddPopupInfoMe = ({ user }) => {
                                 top: '43%',
                                 left: '18%',
                                 position: 'absolute',
+                                cursor:"pointer"
                             }}
                             onClick={handleCameraClick}
                         >
@@ -195,7 +196,7 @@ const AddPopupInfoMe = ({ user }) => {
                         <input
                             type="file"
                             accept="image/*"
-                            style={{ display: 'none' }}
+                            style={{ display: 'none',cursor:"pointer" }}
                             ref={inputRef}
                             onChange={handleFileChange}
                         />
@@ -261,11 +262,11 @@ const AddPopupInfoMe = ({ user }) => {
                             paddingLeft: 10,
                             fontSize: 15,
                             color: 'black',
-                            fontWeight: 'bold',
+                            
                             marginTop: 8,
                         }}
                     >
-                        Thông tin cá nhân
+                        Thông tin cá nhân 
                     </div>
                 </div>
                 <div
@@ -338,7 +339,7 @@ const AddPopupInfoMe = ({ user }) => {
                             marginTop: 10,
                         }}
                     >
-                        Điện thoại
+                        Điện thoại 
                     </label>
                     <label
                         style={{
@@ -368,7 +369,7 @@ const AddPopupInfoMe = ({ user }) => {
                         }}
                     >
                         Chỉ bạn bè có lưu số của bạn trong danh bạ máy xem được
-                        số này
+                        số này 
                     </label>
                 </div>
                 <div
@@ -410,7 +411,7 @@ const AddPopupInfoMe = ({ user }) => {
                         >
                             <AiOutlineEdit size="1.3rem" />
                         </label>
-                        Cập nhật
+                        Cập nhật 
                     </button>
                 </div>
                 {openUpdate && (

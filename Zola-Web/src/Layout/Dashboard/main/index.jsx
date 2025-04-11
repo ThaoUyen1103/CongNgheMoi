@@ -295,6 +295,7 @@ const Main = ({
                 console.error(error)
             })
     }, [currentFriend_Id, user_id])
+    
     useEffect(() => {
         if (currentConversationGroup != null) {
             setCurrentSource({
@@ -1810,6 +1811,7 @@ const Main = ({
                                 <SlPicture
                                     size="1.4rem"
                                     onClick={handleIconImageClick}
+                                    style={{cursor: 'pointer'}}
                                 />
                                 <input
                                     id="fileInput"
@@ -1823,6 +1825,7 @@ const Main = ({
                                 <ImAttachment
                                     size="1.3rem"
                                     onClick={handleIconClick}
+                                    style={{cursor: 'pointer'}}
                                 />
                                 <input
                                     id="fileInput"
@@ -1991,6 +1994,7 @@ const Main = ({
                         <div style={{ position: 'relative' }}>
                             <MdOutlineAddReaction
                                 size="1.3rem"
+                                style={{cursor: 'pointer'}}
                                 onClick={() => {
                                     setPickerVisible((prevState) => !prevState)
                                 }}

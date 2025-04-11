@@ -1,22 +1,22 @@
 .container {
   display: flex;
   flex-direction: column;
-  margin: auto;
-  width: 500px;
-  height: 630px;
-  margin-top: 45px;
-  padding-bottom: 10px;
-  background-color: #f5f5f5;
-  border: 1px solid #b1aaaa;
+  background-color: #f8f6f6;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  margin: 50px;
+  justify-content: center;
+  align-items: center;
 }
+
+
 .header-re {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 5px;
-  width: 100%;
-  margin-left: 10px;
-  margin-top: 5px;
+  
 }
 .text {
   font-size: 35px;
@@ -46,7 +46,10 @@
 .form {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   margin-top: 5px;
+  
+  
 }
 .input {
   display: flex;
@@ -96,6 +99,15 @@
   margin-top: 8px;
   background: #eaeaea;
   border-radius: 10px;
+}
+.register-container{
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  margin-top: 20px;
+  width: 100%;
+  
 }
 .inputA {
   display: flex;
@@ -242,3 +254,4 @@
 .login-style {
   color: blue;
 }
+

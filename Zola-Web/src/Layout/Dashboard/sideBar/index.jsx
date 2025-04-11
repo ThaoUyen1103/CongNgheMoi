@@ -152,6 +152,7 @@ const SideBar = ({ user }) => {
                             height: 50,
                             borderRadius: 30,
                             backgroundColor: 'grey',
+                            cursor: 'pointer',
                         }}
                     />
                 </div>
@@ -209,6 +210,7 @@ const SideBar = ({ user }) => {
                                         color: 'black',
                                         fontSize: 15,
                                         marginLeft: 10,
+                                        cursor: 'pointer',
                                     }}
                                 >
                                     Hồ sơ của bạn
@@ -231,6 +233,7 @@ const SideBar = ({ user }) => {
                                     marginLeft: 10,
                                     marginTop: 10,
                                     borderBottom: '1px solid lightgrey',
+                                    
                                 }}
                                 onClick={() => {
                                     setOpenSetting(!openSetting)
@@ -240,7 +243,7 @@ const SideBar = ({ user }) => {
                                     style={{
                                         color: 'black',
                                         fontSize: 15,
-
+                                        cursor: 'pointer',
                                         marginLeft: 10,
                                     }}
                                 >
@@ -469,28 +472,29 @@ const SideBar = ({ user }) => {
                     color: 'white',
                     fontSize: 20,
                     marginBottom: 20,
+                    cursor: 'pointer',
                 }}
                 onClick={() => {
                     setOpen(!open)
                 }}
             >
                 {' '}
-                <IoSettingsOutline size="2rem" />
+                <IoSettingsOutline size="1.5rem" />
             </div>
             {open && (
                 <div
                     style={{
                         position: 'absolute',
                         bottom: '7%',
-                        left: '0%',
+                        left: '2.5%',
                         background: 'whitesmoke',
-                        height: '17rem',
+                        height: '15rem',
                         width: '13rem',
                         borderRadius: 5,
                     }}
                 >
                     {/* code here */}
-                    <div>
+                    <div >
                         <div
                             style={{
                                 width: '100%',
@@ -499,6 +503,7 @@ const SideBar = ({ user }) => {
                                 gap: 10,
                                 marginLeft: 10,
                                 marginTop: 10,
+                                cursor:"pointer"
                             }}
                             onClick={() => {
                                 setOpenInfoMe(!openInfoMe)
@@ -509,6 +514,7 @@ const SideBar = ({ user }) => {
                                 style={{
                                     color: 'black',
                                     fontSize: 15,
+                                    cursor:"pointer"
                                 }}
                             >
                                 Thông tin tài khoản
@@ -517,349 +523,352 @@ const SideBar = ({ user }) => {
                         {openInfoMe && (
                             <Popup
                                 content={
-                                    <div
-                                        style={{
-                                            width: '100%',
-                                            height: '100%',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                        }}
-                                    >
-                                        <div
-                                            style={{
-                                                width: '100%',
-                                                height: 30,
-                                                display: 'flex',
-                                                gap: 10,
-                                                marginLeft: 15,
-                                                marginTop: 10,
-                                            }}
-                                        >
-                                            <label
-                                                style={{
-                                                    color: 'black',
-                                                    fontSize: 16,
-                                                    fontWeight: 'bold',
-                                                }}
-                                            >
-                                                Thông tin tài khoản
-                                            </label>
-                                        </div>
-                                        <div
-                                            style={{
-                                                width: '100%',
-                                                height: '30%',
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                            }}
-                                        >
-                                            <img
-                                                src={user.coverImage}
-                                                alt="demo"
-                                                style={{
-                                                    width: '100%',
-                                                    height: '100%',
-                                                    backgroundColor: 'grey',
-                                                    position: 'relative',
-                                                }}
-                                            />
-                                            {/* <label
-                        style={{
-                          width: 25,
-                          height: 25,
-                          borderRadius: 100,
-                          backgroundColor: 'whitesmoke',
-                          top: '73%',
-                          left: '48%',
-                          position: 'absolute',
-                        }}
-                        onClick={handleCameraClick}
-                      >
-                        <CiCamera size="1.3rem" />
-                      </label> */}
+                                    <>
+                                    <AddPopupInfoMe user={user} />
+                                    </>
+                                    // <div
+                                    //     style={{
+                                    //         width: '100%',
+                                    //         height: '100%',
+                                    //         display: 'flex',
+                                    //         flexDirection: 'column',
+                                    //     }}
+                                    // >
+                                    //     <div
+                                    //         style={{
+                                    //             width: '100%',
+                                    //             height: 30,
+                                    //             display: 'flex',
+                                    //             gap: 10,
+                                    //             marginLeft: 15,
+                                    //             marginTop: 10,
+                                    //         }}
+                                    //     >
+                                    //         <label
+                                    //             style={{
+                                    //                 color: 'black',
+                                    //                 fontSize: 16,
+                                    //                 fontWeight: 'bold',
+                                    //             }}
+                                    //         >
+                                    //             Thông tin tài khoản
+                                    //         </label>
+                                    //     </div>
+                                    //     <div
+                                    //         style={{
+                                    //             width: '100%',
+                                    //             height: '30%',
+                                    //             display: 'flex',
+                                    //             flexDirection: 'column',
+                                    //         }}
+                                    //     >
+                                    //         <img
+                                    //             src={user.coverImage}
+                                    //             alt="demo"
+                                    //             style={{
+                                    //                 width: '100%',
+                                    //                 height: '100%',
+                                    //                 backgroundColor: 'grey',
+                                    //                 position: 'relative',
+                                    //             }}
+                                    //         />
+                                    //         {/* <label
+                                    //             style={{
+                                    //             width: 25,
+                                    //             height: 25,
+                                    //             borderRadius: 100,
+                                    //             backgroundColor: 'whitesmoke',
+                                    //             top: '73%',
+                                    //             left: '48%',
+                                    //             position: 'absolute',
+                                    //             }}
+                                    //             onClick={handleCameraClick}
+                                    //         >
+                                    //             <CiCamera size="1.3rem" />
+                                    //         </label> */}
 
-                                            <div
-                                                style={{
-                                                    width: '100%',
-                                                    height: 30,
-                                                    display: 'flex',
-                                                    gap: 10,
-                                                    marginLeft: 10,
-                                                }}
-                                            >
-                                                <div
-                                                    style={{
-                                                        width: '5%',
-                                                        height: '20%',
-                                                        display: 'flex',
-                                                        flexDirection: 'column',
-                                                    }}
-                                                >
-                                                    <img
-                                                        src={avatarURL}
-                                                        alt="demo"
-                                                        style={{
-                                                            width: 70,
-                                                            height: 70,
-                                                            backgroundColor:
-                                                                'grey',
-                                                            borderRadius: '50%',
-                                                            position:
-                                                                'absolute',
-                                                            top: '33%',
-                                                            left: '5%',
-                                                        }}
-                                                    />
-                                                    <label
-                                                        style={{
-                                                            width: 25,
-                                                            height: 25,
-                                                            borderRadius: 100,
-                                                            backgroundColor:
-                                                                'whitesmoke',
-                                                            top: '43%',
-                                                            left: '18%',
-                                                            position:
-                                                                'absolute',
-                                                        }}
-                                                    >
-                                                        <CiCamera size="1.3rem" />
-                                                    </label>
-                                                </div>
+                                    //         <div
+                                    //             style={{
+                                    //                 width: '100%',
+                                    //                 height: 30,
+                                    //                 display: 'flex',
+                                    //                 gap: 10,
+                                    //                 marginLeft: 10,
+                                    //             }}
+                                    //         >
+                                    //             <div
+                                    //                 style={{
+                                    //                     width: '5%',
+                                    //                     height: '20%',
+                                    //                     display: 'flex',
+                                    //                     flexDirection: 'column',
+                                    //                 }}
+                                    //             >
+                                    //                 <img
+                                    //                     src={avatarURL}
+                                    //                     alt="demo"
+                                    //                     style={{
+                                    //                         width: 70,
+                                    //                         height: 70,
+                                    //                         backgroundColor:
+                                    //                             'grey',
+                                    //                         borderRadius: '50%',
+                                    //                         position:
+                                    //                             'absolute',
+                                    //                         top: '33%',
+                                    //                         left: '5%',
+                                    //                     }}
+                                    //                 />
+                                    //                 <label
+                                    //                     style={{
+                                    //                         width: 25,
+                                    //                         height: 25,
+                                    //                         borderRadius: 100,
+                                    //                         backgroundColor:
+                                    //                             'whitesmoke',
+                                    //                         top: '43%',
+                                    //                         left: '18%',
+                                    //                         position:
+                                    //                             'absolute',
+                                    //                     }}
+                                    //                 >
+                                    //                     <CiCamera size="1.3rem" />
+                                    //                 </label>
+                                    //             </div>
 
-                                                <div
-                                                    style={{
-                                                        display: 'flex',
-                                                        width: '100%',
-                                                        height: 30,
-                                                        gap: 10,
+                                    //             <div
+                                    //                 style={{
+                                    //                     display: 'flex',
+                                    //                     width: '100%',
+                                    //                     height: 30,
+                                    //                     gap: 10,
 
-                                                        marginTop: 10,
-                                                    }}
-                                                >
-                                                    <label
-                                                        style={{
-                                                            color: 'black',
-                                                            fontSize: 17,
-                                                            marginLeft: '20%',
-                                                            fontWeight: 'bold',
-                                                        }}
-                                                    >
-                                                        {user.userName}
-                                                    </label>
-                                                    <label
-                                                        style={{
-                                                            width: 25,
-                                                            height: 25,
-                                                            borderRadius: 100,
+                                    //                     marginTop: 10,
+                                    //                 }}
+                                    //             >
+                                    //                 <label
+                                    //                     style={{
+                                    //                         color: 'black',
+                                    //                         fontSize: 17,
+                                    //                         marginLeft: '20%',
+                                    //                         fontWeight: 'bold',
+                                    //                     }}
+                                    //                 >
+                                    //                     {user.userName}
+                                    //                 </label>
+                                    //                 <label
+                                    //                     style={{
+                                    //                         width: 25,
+                                    //                         height: 25,
+                                    //                         borderRadius: 100,
 
-                                                            alignItems:
-                                                                'center',
-                                                            display: 'flex',
-                                                            flexDirection:
-                                                                'column',
-                                                        }}
-                                                    >
-                                                        <AiOutlineEdit size="1.3rem" />
-                                                    </label>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div
-                                            style={{
-                                                width: '100%',
-                                                height: '30%',
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                marginTop: '15%',
-                                            }}
-                                        >
-                                            <div
-                                                style={{
-                                                    flex: 'row',
-                                                    width: '100%',
-                                                    borderTopWidth: 5,
-                                                    borderTopStyle: 'solid',
-                                                    borderTopColor:
-                                                        'whitesmoke',
-                                                    gap: 10,
-                                                }}
-                                            >
-                                                <div
-                                                    style={{
-                                                        paddingLeft: 10,
-                                                        fontSize: 15,
-                                                        color: 'black',
-                                                        fontWeight: 'bold',
-                                                        marginTop: 8,
-                                                    }}
-                                                >
-                                                    Thông tin cá nhân
-                                                </div>
-                                            </div>
-                                            <div
-                                                style={{
-                                                    display: 'flex',
-                                                    flexDirection: 'row',
-                                                }}
-                                            >
-                                                <label
-                                                    style={{
-                                                        paddingLeft: 10,
-                                                        fontSize: 13,
-                                                        color: 'grey',
-                                                        marginTop: 10,
-                                                    }}
-                                                >
-                                                    Giới tính
-                                                </label>
-                                                <label
-                                                    style={{
-                                                        paddingLeft: 10,
-                                                        fontSize: 14,
-                                                        color: 'black',
-                                                        marginTop: 10,
-                                                        marginLeft: 35,
-                                                    }}
-                                                >
-                                                    {user.gender}
-                                                </label>
-                                            </div>
-                                            <div
-                                                style={{
-                                                    display: 'flex',
-                                                    flexDirection: 'row',
-                                                }}
-                                            >
-                                                <label
-                                                    style={{
-                                                        paddingLeft: 10,
-                                                        fontSize: 13,
-                                                        color: 'grey',
-                                                        marginTop: 10,
-                                                    }}
-                                                >
-                                                    Ngày sinh
-                                                </label>
-                                                <label
-                                                    style={{
-                                                        paddingLeft: 10,
-                                                        fontSize: 14,
-                                                        color: 'black',
-                                                        marginTop: 10,
-                                                        marginLeft: 25,
-                                                    }}
-                                                >
-                                                    {formattedDateOfBirth}
-                                                </label>
-                                            </div>
-                                            <div
-                                                style={{
-                                                    display: 'flex',
-                                                    flexDirection: 'row',
-                                                }}
-                                            >
-                                                <label
-                                                    style={{
-                                                        paddingLeft: 10,
-                                                        fontSize: 13,
-                                                        color: 'grey',
-                                                        marginTop: 10,
-                                                    }}
-                                                >
-                                                    Điện thoại
-                                                </label>
-                                                <label
-                                                    style={{
-                                                        paddingLeft: 10,
-                                                        fontSize: 14,
-                                                        color: 'black',
-                                                        marginTop: 10,
-                                                        marginLeft: 23,
-                                                    }}
-                                                >
-                                                    {/* {formattedPhoneNumber} */}
-                                                    {user.phoneNumber.replace(
-                                                        /^0/,
-                                                        '+84 ',
-                                                    )}
-                                                </label>
-                                            </div>
-                                            <div
-                                                style={{
-                                                    display: 'flex',
-                                                    flexDirection: 'row',
-                                                }}
-                                            >
-                                                <label
-                                                    style={{
-                                                        paddingLeft: 10,
-                                                        fontSize: 13,
-                                                        color: 'grey',
-                                                        marginTop: 10,
-                                                    }}
-                                                >
-                                                    Chỉ bạn bè có lưu số của bạn
-                                                    trong danh bạ máy xem được
-                                                    số này
-                                                </label>
-                                            </div>
-                                            <div
-                                                style={{
-                                                    display: 'flex',
-                                                    flexDirection: 'column',
-                                                    justifyContent: 'center',
-                                                    alignContent: 'center',
-                                                    alignItems: 'center',
-                                                }}
-                                                onClick={() => {
-                                                    setOpenUpdate(!openUpdate)
-                                                }}
-                                            >
-                                                <button
-                                                    style={{
-                                                        backgroundColor:
-                                                            'white',
-                                                        color: 'black',
-                                                        border: '1px solid lightgrey',
-                                                        borderRadius: 5,
-                                                        width: '100%',
-                                                        height: 43,
-                                                        marginTop: 10,
-                                                        marginBottom: 10,
-                                                        display: 'flex',
-                                                        justifyContent:
-                                                            'center',
-                                                        alignContent: 'center',
-                                                        alignItems: 'center',
-                                                        fontWeight: 'bold',
-                                                        fontSize: 14,
-                                                    }}
-                                                >
-                                                    <label
-                                                        style={{
-                                                            width: 25,
-                                                            height: 25,
-                                                            borderRadius: 100,
-                                                        }}
-                                                    >
-                                                        <AiOutlineEdit size="1.3rem" />
-                                                    </label>
-                                                    Cập nhật
-                                                </button>
-                                            </div>
-                                            {openUpdate && (
-                                                <PopupUpdate
-                                                    content={<AddPupopUpdate />}
-                                                    handleClose={() => {
-                                                        setOpenUpdate(
-                                                            !openUpdate,
-                                                        )
-                                                    }}
-                                                />
-                                            )}
-                                        </div>
-                                    </div>
+                                    //                         alignItems:
+                                    //                             'center',
+                                    //                         display: 'flex',
+                                    //                         flexDirection:
+                                    //                             'column',
+                                    //                     }}
+                                    //                 >
+                                    //                     <AiOutlineEdit size="1.3rem" />
+                                    //                 </label>
+                                    //             </div>
+                                    //         </div>
+                                    //     </div>
+                                    //     <div
+                                    //         style={{
+                                    //             width: '100%',
+                                    //             height: '30%',
+                                    //             display: 'flex',
+                                    //             flexDirection: 'column',
+                                    //             marginTop: '15%',
+                                    //         }}
+                                    //     >
+                                    //         <div
+                                    //             style={{
+                                    //                 flex: 'row',
+                                    //                 width: '100%',
+                                    //                 borderTopWidth: 5,
+                                    //                 borderTopStyle: 'solid',
+                                    //                 borderTopColor:
+                                    //                     'whitesmoke',
+                                    //                 gap: 10,
+                                    //             }}
+                                    //         >
+                                    //             <div
+                                    //                 style={{
+                                    //                     paddingLeft: 10,
+                                    //                     fontSize: 15,
+                                    //                     color: 'black',
+                                    //                     fontWeight: 'bold',
+                                    //                     marginTop: 8,
+                                    //                 }}
+                                    //             >
+                                    //                 Thông tin cá nhân
+                                    //             </div>
+                                    //         </div>
+                                    //         <div
+                                    //             style={{
+                                    //                 display: 'flex',
+                                    //                 flexDirection: 'row',
+                                    //             }}
+                                    //         >
+                                    //             <label
+                                    //                 style={{
+                                    //                     paddingLeft: 10,
+                                    //                     fontSize: 13,
+                                    //                     color: 'grey',
+                                    //                     marginTop: 10,
+                                    //                 }}
+                                    //             >
+                                    //                 Giới tính
+                                    //             </label>
+                                    //             <label
+                                    //                 style={{
+                                    //                     paddingLeft: 10,
+                                    //                     fontSize: 14,
+                                    //                     color: 'black',
+                                    //                     marginTop: 10,
+                                    //                     marginLeft: 35,
+                                    //                 }}
+                                    //             >
+                                    //                 {user.gender}
+                                    //             </label>
+                                    //         </div>
+                                    //         <div
+                                    //             style={{
+                                    //                 display: 'flex',
+                                    //                 flexDirection: 'row',
+                                    //             }}
+                                    //         >
+                                    //             <label
+                                    //                 style={{
+                                    //                     paddingLeft: 10,
+                                    //                     fontSize: 13,
+                                    //                     color: 'grey',
+                                    //                     marginTop: 10,
+                                    //                 }}
+                                    //             >
+                                    //                 Ngày sinh
+                                    //             </label>
+                                    //             <label
+                                    //                 style={{
+                                    //                     paddingLeft: 10,
+                                    //                     fontSize: 14,
+                                    //                     color: 'black',
+                                    //                     marginTop: 10,
+                                    //                     marginLeft: 25,
+                                    //                 }}
+                                    //             >
+                                    //                 {formattedDateOfBirth}
+                                    //             </label>
+                                    //         </div>
+                                    //         <div
+                                    //             style={{
+                                    //                 display: 'flex',
+                                    //                 flexDirection: 'row',
+                                    //             }}
+                                    //         >
+                                    //             <label
+                                    //                 style={{
+                                    //                     paddingLeft: 10,
+                                    //                     fontSize: 13,
+                                    //                     color: 'grey',
+                                    //                     marginTop: 10,
+                                    //                 }}
+                                    //             >
+                                    //                 Điện thoại
+                                    //             </label>
+                                    //             <label
+                                    //                 style={{
+                                    //                     paddingLeft: 10,
+                                    //                     fontSize: 14,
+                                    //                     color: 'black',
+                                    //                     marginTop: 10,
+                                    //                     marginLeft: 23,
+                                    //                 }}
+                                    //             >
+                                    //                 {/* {formattedPhoneNumber} */}
+                                    //                 {user.phoneNumber.replace(
+                                    //                     /^0/,
+                                    //                     '+84 ',
+                                    //                 )}
+                                    //             </label>
+                                    //         </div>
+                                    //         <div
+                                    //             style={{
+                                    //                 display: 'flex',
+                                    //                 flexDirection: 'row',
+                                    //             }}
+                                    //         >
+                                    //             <label
+                                    //                 style={{
+                                    //                     paddingLeft: 10,
+                                    //                     fontSize: 13,
+                                    //                     color: 'grey',
+                                    //                     marginTop: 10,
+                                    //                 }}
+                                    //             >
+                                    //                 Chỉ bạn bè có lưu số của bạn
+                                    //                 trong danh bạ máy xem được
+                                    //                 số này
+                                    //             </label>
+                                    //         </div>
+                                    //         <div
+                                    //             style={{
+                                    //                 display: 'flex',
+                                    //                 flexDirection: 'column',
+                                    //                 justifyContent: 'center',
+                                    //                 alignContent: 'center',
+                                    //                 alignItems: 'center',
+                                    //             }}
+                                    //             onClick={() => {
+                                    //                 setOpenUpdate(!openUpdate)
+                                    //             }}
+                                    //         >
+                                    //             <button
+                                    //                 style={{
+                                    //                     backgroundColor:
+                                    //                         'white',
+                                    //                     color: 'black',
+                                    //                     border: '1px solid lightgrey',
+                                    //                     borderRadius: 5,
+                                    //                     width: '100%',
+                                    //                     height: 43,
+                                    //                     marginTop: 10,
+                                    //                     marginBottom: 10,
+                                    //                     display: 'flex',
+                                    //                     justifyContent:
+                                    //                         'center',
+                                    //                     alignContent: 'center',
+                                    //                     alignItems: 'center',
+                                    //                     fontWeight: 'bold',
+                                    //                     fontSize: 14,
+                                    //                 }}
+                                    //             >
+                                    //                 <label
+                                    //                     style={{
+                                    //                         width: 25,
+                                    //                         height: 25,
+                                    //                         borderRadius: 100,
+                                    //                     }}
+                                    //                 >
+                                    //                     <AiOutlineEdit size="1.3rem" />
+                                    //                 </label>
+                                    //                 Cập nhật
+                                    //             </button>
+                                    //         </div>
+                                    //         {openUpdate && (
+                                    //             <PopupUpdate
+                                    //                 content={<AddPupopUpdate />}
+                                    //                 handleClose={() => {
+                                    //                     setOpenUpdate(
+                                    //                         !openUpdate,
+                                    //                     )
+                                    //                 }}
+                                    //             />
+                                    //         )}
+                                    //     </div>
+                                    // </div>
                                 }
                                 handleClose={() => {
                                     setOpenInfoMe(!openInfoMe)
@@ -868,13 +877,15 @@ const SideBar = ({ user }) => {
                         )}
                         <div
                             style={{
-                                width: '100%',
+                                width: '90%',
                                 height: 30,
                                 display: 'flex',
                                 gap: 10,
                                 marginLeft: 10,
-
+                                cursor:"pointer",
                                 borderBottom: '1px solid lightgrey',
+                                
+                                
                             }}
                             onClick={() => {
                                 setOpenSetting(!openSetting)
@@ -885,6 +896,7 @@ const SideBar = ({ user }) => {
                                 style={{
                                     color: 'black',
                                     fontSize: 15,
+                                    cursor:"pointer"
                                 }}
                             >
                                 Cài đặt
@@ -988,7 +1000,7 @@ const SideBar = ({ user }) => {
                         </div>
                         <div
                             style={{
-                                width: '100%',
+                                width: '91.5%',
                                 height: 30,
                                 display: 'flex',
                                 gap: 10,
@@ -998,10 +1010,11 @@ const SideBar = ({ user }) => {
                         >
                             <div
                                 style={{
-                                    width: '80%',
+                                    width: '100%',
                                     height: 30,
                                     display: 'flex',
                                     gap: 10,
+                                    
                                 }}
                             >
                                 <IoIosInformationCircleOutline size="1.5rem" />
@@ -1046,24 +1059,7 @@ const SideBar = ({ user }) => {
                                 </a>
                             </label>
                         </div>
-                        <div
-                            style={{
-                                width: '100%',
-                                height: 30,
-                                display: 'flex',
-                                gap: 10,
-                                marginLeft: 40,
-                            }}
-                        >
-                            <label
-                                style={{
-                                    color: 'black',
-                                    fontSize: 15,
-                                }}
-                            >
-                                Thoát
-                            </label>
-                        </div>
+                        
                     </div>
                 </div>
             )}

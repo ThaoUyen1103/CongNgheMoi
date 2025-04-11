@@ -316,7 +316,7 @@ export const Register = () => {
                                 />
                             </div>
                             <Button type="submit" variant="contained" color="success">
-                                Đăng ký & Nhận OTP
+                                Đăng ký
                             </Button>
                         </form>
                     )}

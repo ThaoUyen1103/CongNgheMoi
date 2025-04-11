@@ -8,7 +8,10 @@ import { LuAlertTriangle } from 'react-icons/lu'
 import { FaRegTrashAlt } from 'react-icons/fa'
 import PopupYou from './pupopYou'
 import PopupStranger from './pupopStranger'
-const AddPupopStranger = () => {
+const AddPupopStranger = ({
+  currentSource
+ 
+}) => {
   const [openInfoStranger, setOpenInfoStranger] = useState(false)
   return (
     // <PopupStranger
@@ -77,7 +80,11 @@ const AddPupopStranger = () => {
             }}
           >
             <img
-              src="https://www.w3schools.com/howto/img_avatar.png"
+              src={
+                currentSource
+                    ? currentSource.avatar
+                    : 'https://zolabk.s3.ap-southeast-1.amazonaws.com/boy.png'
+            }
               alt="demo"
               style={{
                 width: 70,
@@ -109,7 +116,7 @@ const AddPupopStranger = () => {
                 fontWeight: 'bold',
               }}
             >
-              Nguyễn Thúy Tình
+              {currentSource ? currentSource.name : ''}
             </label>
             <label
               style={{

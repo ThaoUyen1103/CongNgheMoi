@@ -1,5 +1,5 @@
 import React from 'react'
-import zola from '../../../Assets/zola.png'
+// import zola from '../../../Assets/zola.png'
 import image from '../../../Assets/image.png'
 // import Lottie from '@lottiefiles/react-lottie'
 
