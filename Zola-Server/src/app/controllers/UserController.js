@@ -7,7 +7,7 @@ import dotenv from 'dotenv'
 dotenv.config()
 import uploadDefaultAvatar from '../../util/uploadDefaultAvatar.js'
 // require('dotenv').config()
-
+import { v4 as uuidv4 } from 'uuid'
 AWS.config.update({
     accessKeyId: process.env.Acces_Key,
     secretAccessKey: process.env.Secret_Acces_Key,
@@ -365,10 +365,10 @@ class UserController {
 
     async ChangeImageAvatarWeb(req, res) {
         const user_id = req.body.user_id
-        const image = req.file?.originalname.split('.')
+        const image = req.file.originalname.split('.');
         // viết 1 hàm file Type
         const fileType = image[image.length - 1]
-        const filePath = `${image[0]}.${fileType}`
+        const filePath = `${uuidv4() + Date.now().toString()}.${fileType}`;
         console.log(image, fileType, filePath)
         // return res.status(200).json({ message: 'xin chào' })
 

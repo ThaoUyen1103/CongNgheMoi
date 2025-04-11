@@ -7,7 +7,7 @@ import multer from 'multer'
 import dotenv from 'dotenv'
 import mongoose from 'mongoose'
 dotenv.config()
-
+import { v4 as uuidv4 } from 'uuid'
 import uploadDefaultAvatar from '../../util/uploadDefaultAvatar.js'
 import { error } from 'console'
 // require('dotenv').config()
@@ -28,16 +28,9 @@ const storage = multer.memoryStorage({
     },
 })
 
-const upload = multer({
-    storage: storage,
-    limits: { fileSize: 10000000 }, // giới hạn file 10MB
-    fileFilter: function (req, file, cb) {
-        checkFileType(file, cb)
-        checkFileTypeMedia(file, cb)
-    },
-})
+
 function checkFileType(file, callback) {
-    const filetypes = /jpeg|jpg|png|jfif|gif/
+    const filetypes = /jpeg|jpg|png|jfif|gif|csv|docx|xlsx|txt|pdf/
     const extname = filetypes.test(
         path.extname(file.originalname).toLowerCase()
     )
@@ -59,15 +52,23 @@ function checkFileTypeMedia(file, callback) {
     if (mimetype && extname) {
         return callback(null, true)
     } else {
-        callback('Error: Images Only!')
-        callback('Error: Invalid File Type 0!')
+        callback('Error: Invalid File Type!')
     }
 }
+const upload = multer({
+    storage: storage,
+    limits: { fileSize: 10000000 }, // giới hạn file 10MB
+    fileFilter: function (req, file, cb) {
+        checkFileType(file, cb)
+        checkFileTypeMedia(file, cb)
+    },
+})
 class MessageController {
     async findAllMessages(req, res) {
         const messages = await Message.find()
         res.json(messages)
     }
+    // gửi tin nhắn
     async createMessagesWeb(req, res) {
         const conversation_id = req.body.conversation_id
         const senderId = req.body.user_id
@@ -78,7 +79,7 @@ class MessageController {
         const replyTo = req.body.replyTo // new line
 
         // const image = req.file?.originalname.split('.')
-        const image = req.files
+        const image = req.files;
         console.log('bucketname nhận là : ', bucketname)
         console.log(
             'Các giá trị bên server lúc đầu  là: ',
@@ -137,7 +138,7 @@ class MessageController {
             const uploadPromises = image.map((image) => {
                 const imageParts = image.originalname.split('.')
                 const fileType = imageParts[imageParts.length - 1]
-                const filePath = `${imageParts[0]}.${fileType}`
+                const filePath = `${uuidv4() + Date.now().toString()}.${fileType}`
                 const params = {
                     Bucket: bucketname,
                     Key: filePath,
