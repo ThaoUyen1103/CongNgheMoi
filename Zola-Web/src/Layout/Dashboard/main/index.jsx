@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react'
 import axios from 'axios'
 import ConversationDetail from './ConversationDetail'
-import indexMain from './indexMain.css'
+// import indexMain from './indexMain.css'
 import { BsCodeSquare } from 'react-icons/bs'
 import { CiVideoOn } from 'react-icons/ci'
 import { IoCallOutline } from 'react-icons/io5'
-import { IoMdSend } from 'react-icons/io'
+// import { IoMdSend } from 'react-icons/io'
 import { MdOutlineAddReaction } from 'react-icons/md'
 import { TbMessage2Bolt } from 'react-icons/tb'
 import { ImAttachment } from 'react-icons/im'
 import { FiAtSign } from 'react-icons/fi'
-import { CiImageOn } from 'react-icons/ci'
+// import { CiImageOn } from 'react-icons/ci'
 import { LuSticker } from 'react-icons/lu'
 import { TbCapture } from 'react-icons/tb'
 import { TiBusinessCard } from 'react-icons/ti'
@@ -25,16 +25,16 @@ import { io } from 'socket.io-client'
 import moment from 'moment'
 import Picker from '@emoji-mart/react'
 import Modal from 'react-modal'
-import SubSideBar from '../subSideBar/index'
+// import SubSideBar from '../subSideBar/index'
 import { FileIcon, defaultStyles } from 'react-file-icon'
 import { useLocation } from 'react-router-dom'
 
 const Main = ({
-    user,
+    // user,
     friend_list,
     currentFriend,
     currentConversationGroup,
-    conversationMyCloud,
+    // conversationMyCloud,
     currentconversationMyCloud,
     clickCurrentCount,
 }) => {
@@ -80,7 +80,48 @@ const Main = ({
     const [deleteMyMessage, setDeleteMyMessage] = useState([])
     // loading
     const [isLoading, setIsLoading] = useState(false)
-
+    const [groupList, setGroupList] = useState([]);
+    const fetchGroups = async () => {
+        try {
+            const response = await axios.post(
+                'http://localhost:3001/conversation/getConversationGroupByUserIDWeb',
+                { user_id }
+            )
+            console.log("Group list response:", response.data)
+    
+            if (
+                response.data &&
+                Array.isArray(response.data.conversationGroup) &&
+                response.data.conversationGroup.length > 0
+            ) {
+                setGroupList(response.data.conversationGroup)
+            } else {
+                setGroupList([])
+            }
+        } catch (error) {
+            console.error('Lỗi khi lấy danh sách nhóm:', error)
+        }
+    }
+    
+    
+    useEffect(() => {
+        if (isModalOpenFriend) {
+            console.log("Modal open, fetching groups...")
+            fetchGroups()
+        }
+    }, [isModalOpenFriend])
+    
+    const [pendingForwards, setPendingForwards] = useState([]);
+    const undoForward = (id) => {
+        const pending = pendingForwards.find((item) => item.id === id);
+        if (pending) {
+            clearTimeout(pending.timeout); // huỷ gửi
+            setPendingForwards((prev) => prev.filter((item) => item.id !== id));
+            toast.warning('Đã hoàn tác gửi tin nhắn.');
+        }
+    };
+    
+    
     useEffect(() => {
         if (isLoading) {
             return
@@ -481,19 +522,31 @@ const Main = ({
         fileImgRef.current.click() // Kích hoạt sự kiện click trên thẻ input[type="file"]
     }
 
+    // const handleImageChange = (event) => {
+    //     const file = event.target.files[0];
+    //     const newImage = {
+    //         file: file,
+    //         previewUrl: URL.createObjectURL(file),
+    //     }
+    //     // Thêm ảnh mới vào mảng
+    //     setImages((prevImages) => [...prevImages, newImage])
+    // }
     const handleImageChange = (event) => {
-        const file = event.target.files[0]
-        const newImage = {
-            file: file,
+        const files = event.target.files;
+        const newImages = Array.from(files).map((file) => ({
+            file,
             previewUrl: URL.createObjectURL(file),
-        }
-        // Thêm ảnh mới vào mảng
-        setImages((prevImages) => [...prevImages, newImage])
-    }
+        }));
+    
+        setImages((prevImages) => [...prevImages, ...newImages]);
+    };
 
     const handleSendMessage = async () => {
+        
+
         // Th1 chỉ gửi tin nhắn
         if (images.length <= 0) {
+            const formData = new FormData();
             const contentType = 'text'
             formData.append('conversation_id', conversation_id)
             formData.append('content', sendMessage)
@@ -565,6 +618,7 @@ const Main = ({
         // trường hợp 2 chỉ gửi ảnh không gửi tin nhắn th2
         // else if (image && !sendMessage) {
         else if (images.length > 0 && !sendMessage) {
+            const formData = new FormData()
             const contentType = 'image'
 
             // formData.append('image', images)
@@ -644,6 +698,7 @@ const Main = ({
         }
         // Trường hợp 3 gửi cả ảnh cả tin nhắn
         else if (images.length > 0 && sendMessage) {
+            const formData = new FormData()
             const contentType = 'text'
             images.forEach((image, index) => {
                 formData.append('image', image.file)
@@ -745,95 +800,178 @@ const Main = ({
     const handleIconClick = () => {
         fileInputRef.current.click() // Kích hoạt sự kiện click trên thẻ input[type="file"]
     }
-
-    const handleFileChange = (event) => {
-        const selectedFile = event.target.files[0]
-        // Xử lý tệp đã chọn ở đây, ví dụ: tải lên máy chủ
-        if (selectedFile) {
+    const handleFileChange = async (event) => {
+        const files = event.target.files
+    
+        if (files.length > 0) {
             const formData = new FormData()
-
-            formData.append('media', selectedFile)
+    
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i]
+                formData.append('media', file)
+    
+                // Lần đầu tiên xác định loại contentType thôi (giả định tất cả cùng loại)
+                if (i === 0) {
+                    if (isVideoUrl(file.name)) {
+                        formData.append('contentType', 'video')
+                    } else if (isFileMedia(file.name)) {
+                        formData.append('contentType', 'file')
+                    }
+                }
+            }
+    
             formData.append('conversation_id', conversation_id)
             formData.append('content', sendMessage)
             formData.append('user_id', user_id)
-
-            // kiểm tra xem file được chọn là video hay file media thông thường nếu là video thì contentType là video còn nếu là file media thông thường thì contentType là file
-            if (isVideoUrl(selectedFile.name)) {
-                formData.append('contentType', 'video')
-            } else if (isFileMedia(selectedFile.name)) {
-                formData.append('contentType', 'file')
-            }
-
-            // formData.append('contentType', 'file') // Đặt loại nội dung là 'file'
-            axios
-                .post(
+    
+            try {
+                const response = await axios.post(
                     'http://localhost:3001/message/uploadMediaWeb',
                     formData,
                     {
                         headers: {
                             'Content-Type': 'multipart/form-data',
                         },
-                    },
+                    }
                 )
-                .then(async (response) => {
-                    if (
-                        response.data.thongbao === 'Tải media lên thành công!!!'
-                    ) {
-                        toast.success('Tải media lên thành công!!!')
-                        // socket.emit('send-message', response.data.MediaMessage)
-
-                        // // cập nhật MediaMessage vào tin nhắn
-                        // setMessages((prevMessages) => [
-                        //     ...prevMessages,
-                        //     ...response.data.MediaMessage,
-                        // ])
-
-                        let avatar
-                        let name
-                        const cachedAvatar = localStorage.getItem(
-                            `avatar_${user_id}`,
+    
+                if (response.data.thongbao === 'Tải media lên thành công!!!') {
+                    toast.success('Tải media lên thành công!!!')
+    
+                    let avatar
+                    let name
+                    const cachedAvatar = localStorage.getItem(`avatar_${user_id}`)
+                    const cachedName = localStorage.getItem(`name_${user_id}`)
+                    if (cachedAvatar && cachedName) {
+                        avatar = cachedAvatar
+                        name = cachedName
+                    } else {
+                        const res = await axios.post(
+                            'http://localhost:3001/user/getInfoByUserIDWeb',
+                            {
+                                sender_id: user_id,
+                            }
                         )
-                        const cachedName = localStorage.getItem(
-                            `name_${user_id}`,
-                        )
-                        if (cachedAvatar && cachedName) {
-                            avatar = cachedAvatar
-                            name = cachedName
-                        } else {
-                            const res = await axios.post(
-                                'http://localhost:3001/user/getInfoByUserIDWeb',
-                                {
-                                    sender_id: user_id,
-                                },
-                            )
-                            avatar = res.data.avatar
-                            localStorage.setItem(`avatar_${user_id}`, avatar)
-                            name = res.data.name
-                            localStorage.setItem(`name_${user_id}`, name)
-                        }
-                        const mediaMessageWithAvatar =
-                            response.data.MediaMessage.map((message) => {
-                                return {
-                                    ...message,
-                                    avatar: avatar,
-                                    name: name,
-                                }
-                            })
-
-                        socket.emit('send-message', mediaMessageWithAvatar)
-
-                        // cập nhật MediaMessage vào tin nhắn
-                        setMessages((prevMessages) => [
-                            ...prevMessages,
-                            ...mediaMessageWithAvatar,
-                        ])
+                        avatar = res.data.avatar
+                        localStorage.setItem(`avatar_${user_id}`, avatar)
+                        name = res.data.name
+                        localStorage.setItem(`name_${user_id}`, name)
                     }
-                    if (response.data.thongbao === 'Lỗi khi tải media lên!!!') {
-                        toast.error('Lỗi khi tải media lên!!!')
-                    }
-                })
+    
+                    const mediaMessageWithAvatar =
+                        response.data.MediaMessage.map((message) => {
+                            return {
+                                ...message,
+                                avatar: avatar,
+                                name: name,
+                            }
+                        })
+    
+                    socket.emit('send-message', mediaMessageWithAvatar)
+    
+                    setMessages((prevMessages) => [
+                        ...prevMessages,
+                        ...mediaMessageWithAvatar,
+                    ])
+                } else {
+                    toast.error('Lỗi khi tải media lên!!!')
+                }
+            } catch (err) {
+                toast.error('Có lỗi xảy ra khi tải media!')
+                console.error(err)
+            }
         }
     }
+    
+
+    // const handleFileChange = (event) => {
+    //     const selectedFile = event.target.files[0]
+    //     // Xử lý tệp đã chọn ở đây, ví dụ: tải lên máy chủ
+    //     if (selectedFile) {
+    //         const formData = new FormData()
+
+    //         formData.append('media', selectedFile)
+    //         formData.append('conversation_id', conversation_id)
+    //         formData.append('content', sendMessage)
+    //         formData.append('user_id', user_id)
+
+    //         // kiểm tra xem file được chọn là video hay file media thông thường nếu là video thì contentType là video còn nếu là file media thông thường thì contentType là file
+    //         if (isVideoUrl(selectedFile.name)) {
+    //             formData.append('contentType', 'video')
+    //         } else if (isFileMedia(selectedFile.name)) {
+    //             formData.append('contentType', 'file')
+    //         }
+
+    //         // formData.append('contentType', 'file') // Đặt loại nội dung là 'file'
+    //         axios
+    //             .post(
+    //                 'http://localhost:3001/message/uploadMediaWeb',
+    //                 formData,
+    //                 {
+    //                     headers: {
+    //                         'Content-Type': 'multipart/form-data',
+    //                     },
+    //                 },
+    //             )
+    //             .then(async (response) => {
+    //                 if (
+    //                     response.data.thongbao === 'Tải media lên thành công!!!'
+    //                 ) {
+    //                     toast.success('Tải media lên thành công!!!')
+    //                     // socket.emit('send-message', response.data.MediaMessage)
+
+    //                     // // cập nhật MediaMessage vào tin nhắn
+    //                     // setMessages((prevMessages) => [
+    //                     //     ...prevMessages,
+    //                     //     ...response.data.MediaMessage,
+    //                     // ])
+
+    //                     let avatar
+    //                     let name
+    //                     const cachedAvatar = localStorage.getItem(
+    //                         `avatar_${user_id}`,
+    //                     )
+    //                     const cachedName = localStorage.getItem(
+    //                         `name_${user_id}`,
+    //                     )
+    //                     if (cachedAvatar && cachedName) {
+    //                         avatar = cachedAvatar
+    //                         name = cachedName
+    //                     } else {
+    //                         const res = await axios.post(
+    //                             'http://localhost:3001/user/getInfoByUserIDWeb',
+    //                             {
+    //                                 sender_id: user_id,
+    //                             },
+    //                         )
+    //                         avatar = res.data.avatar
+    //                         localStorage.setItem(`avatar_${user_id}`, avatar)
+    //                         name = res.data.name
+    //                         localStorage.setItem(`name_${user_id}`, name)
+    //                     }
+    //                     const mediaMessageWithAvatar =
+    //                         response.data.MediaMessage.map((message) => {
+    //                             return {
+    //                                 ...message,
+    //                                 avatar: avatar,
+    //                                 name: name,
+    //                             }
+    //                         })
+
+    //                     socket.emit('send-message', mediaMessageWithAvatar)
+
+    //                     // cập nhật MediaMessage vào tin nhắn
+    //                     setMessages((prevMessages) => [
+    //                         ...prevMessages,
+    //                         ...mediaMessageWithAvatar,
+    //                     ])
+    //                 }
+    //                 if (response.data.thongbao === 'Lỗi khi tải media lên!!!') {
+    //                     toast.error('Lỗi khi tải media lên!!!')
+    //                 }
+    //             })
+    //     }
+    // }
 
     function openModal(message, event) {
         const rect = event.target.getBoundingClientRect()
@@ -910,53 +1048,84 @@ const Main = ({
                 }
             })
     }
-    const handleForwardMessage = (friend_id, _id) => {
-        // alert('Chuyển tiếp tin nhắn')
-        axios
-            .post('http://localhost:3001/conversation/getConversationIDWeb', {
-                friend_id: friend_id,
-                user_id: user_id,
-            })
-            .then((response) => {
-                if (
-                    response.data.thongbao ===
-                    'Tìm conversation_id thành công!!!'
-                ) {
-                    // alert('conversation_id là : ' + response.data.conversation_id)
-                    // từ conversation_id gọi tới axios forwardMessageWeb
-                    axios
-                        .post(
-                            'http://localhost:3001/message/forwardMessageWeb',
-                            {
-                                message_id: _id,
-                                conversation_id: response.data.conversation_id,
-                            },
-                        )
-                        .then((response) => {
-                            if (
-                                response.data.thongbao ===
-                                'Chuyển tiếp tin nhắn thành công!!!'
-                            ) {
-                                toast.success(
-                                    'Chuyển tiếp tin nhắn thành công!!',
-                                )
-                                socket.emit(
-                                    'send-message',
-                                    response.data.message,
-                                )
+    
+    // const handleForwardMessage = (friend_id, _id) => {
+    //     axios
+    //         .post('http://localhost:3001/conversation/getConversationIDWeb', {
+    //             friend_id: friend_id,
+    //             user_id: user_id,
+    //         })
+    //         .then((response) => {
+    //             if (
+    //                 response.data.thongbao ===
+    //                 'Tìm conversation_id thành công!!!'
+    //             ) {
+    //                 axios
+    //                     .post(
+    //                         'http://localhost:3001/message/forwardMessageWeb',
+    //                         {
+    //                             message_id: _id,
+    //                             conversation_id: response.data.conversation_id,
+    //                         },
+    //                     )
+    //                     .then((response) => {
+    //                         if (
+    //                             response.data.thongbao ===
+    //                             'Chuyển tiếp tin nhắn thành công!!!'
+    //                         ) {
+    //                             toast.success(
+    //                                 `Đã gửi tới ${friend_id} thành công!`,
+    //                             )
+    //                             socket.emit(
+    //                                 'send-message',
+    //                                 response.data.message,
+    //                             )
+    
+    //                             // ❌ KHÔNG đóng modal ở đây để có thể gửi tiếp cho người khác
+    //                             // handleCloseModalFriend()
+    //                             // closeModal()
+    //                         }
+    //                     })
+    //             }
+    //         })
+    // }
 
-                                handleCloseModalFriend()
-                                closeModal()
+    const handleForwardMessage = (receiver_id, message_id, type) => {
+        if (type === 'user') {
+            // Gửi cho 1 người bạn
+            axios
+                .post('http://localhost:3001/conversation/getConversationIDWeb', {
+                    friend_id: receiver_id,
+                    user_id: user_id,
+                })
+                .then((response) => {
+                    if (response.data.thongbao === 'Tìm conversation_id thành công!!!') {
+                        axios.post('http://localhost:3001/message/forwardMessageWeb', {
+                            message_id: message_id,
+                            conversation_id: response.data.conversation_id,
+                        }).then((res) => {
+                            if (res.data.thongbao === 'Chuyển tiếp tin nhắn thành công!!!') {
+                                toast.success('Chuyển tiếp tin nhắn thành công!!')
+                                socket.emit('send-message', res.data.message)
                             }
-                            // if (
-                            //   response.data.thongbao === 'Chuyển tiếp tin nhắn thành công!!'
-                            // ) {
-                            //   toast.error('Tin nhắn không tồn tại')
-                            // }
                         })
+                    }
+                })
+        } else if (type === 'group') {
+            // Gửi trực tiếp vào group_id
+            axios.post('http://localhost:3001/message/forwardMessageWeb', {
+                message_id: message_id,
+                conversation_id: receiver_id, // Với nhóm, receiver_id chính là conversation_id
+            }).then((res) => {
+                if (res.data.thongbao === 'Chuyển tiếp tin nhắn thành công!!!') {
+                    toast.success('Chuyển tiếp tin nhắn thành công!!')
+                    socket.emit('send-message', res.data.message)
                 }
             })
+        }
     }
+    
+    
 
     useEffect(() => {
         setPrevMessageCount(messages.length)
@@ -1681,7 +1850,7 @@ const Main = ({
                             handleOpenModalFriend()
                         }}
                     >
-                        Chuyển tiếp
+                        Chia sẻ
                     </button>
                     <button
                         style={{
@@ -1720,51 +1889,149 @@ const Main = ({
                             bottom: 'auto',
                             marginRight: '-50%',
                             transform: 'translate(-50%, -50%)',
-                            minWidth: '300px',
+                            minWidth: '400px',
                         },
                     }}
                 >
-                    {friend_list.map((friend) => (
-                        <div
-                            key={friend.id}
+                    <h2
+                    style={{
+                        textAlign: 'center',
+                        marginBottom: '15px',
+                        color: '#2596be',
+                        fontSize: '22px', // hoặc to hơn như '28px'
+                        fontWeight: 'bold',
+                        
+                    }}
+                >
+                    Chia sẻ 
+                    </h2>
+                    <h6 style={{ color: '#444', marginBottom: '10px' }}>Bạn bè</h6>
+                        {friend_list.length > 0 ? (
+                            friend_list.map((friend) => (
+                                <div
+                                    key={friend.id}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        marginBottom: '10px',
+                                    }}
+                                >
+                                    <div style={{display: 'flex',alignItems: 'center',}} >
+                                    <img
+                                        src={friend.avatar}
+                                        alt="avatar"
+                                        style={{
+                                            width: '50px',
+                                            height: '50px',
+                                            borderRadius: '60%',
+                                            border: '3px solid #2596be',
+                                            marginRight: '15px',
+                                        }}
+                                    />
+                                    <b
+                                        style={{
+                                            
+                                            color: 'blue',
+                                            fontSize: '16px',
+                                        }}
+                                    >
+                                        <p>{friend.friendName}</p>
+                                    </b>
+                                    </div>
+                                    
+                                    <button
+                                    style={{backgroundColor: '#43a3f2', color: 'white', border: 'none', borderRadius: '5px', padding: '5px 10px'}}
+                                        onClick={() =>
+                                            handleForwardMessage(
+                                                friend.friend_id,
+                                                selectedMessage._id,
+                                                'user'
+                                            )
+                                        }
+                                    >
+                                        <b>Gửi</b>
+                                    </button>
+                                </div>
+                            ))
+                        ) : (
+                            <p style={{ fontStyle: 'italic', color: '#888' }}>
+                                Không có bạn bè nào.
+                            </p>
+                        )}
+
+                        {/* Danh sách nhóm */}
+                        <h6 style={{ color: '#444', margin: '20px 0 10px' }}>Nhóm</h6>
+                        {groupList.length > 0 ? (
+                            groupList.map((group) => (
+                                <div
+                                    key={group._id}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        marginBottom: '10px',
+                                    }}
+                                >
+                                    <div style={{display: 'flex',alignItems: 'center',}} >
+                                    <img
+                                        src={group.avatar}
+                                        alt="group-avatar"
+                                        style={{
+                                            width: '50px',
+                                            height: '50px',
+                                            borderRadius: '60%',
+                                            border: '3px solid #ffa500',
+                                            marginRight: '15px',
+                                        }}
+                                    />
+                                    <b
+                                        style={{
+                                            cursor: 'pointer',
+                                            color: 'darkorange',
+                                            fontSize: '16px',
+                                        }}
+                                    >
+                                        <p>{group.conversationName}</p>
+                                    </b>
+                                    </div>
+                                    <button
+                                    style={{backgroundColor: '#43a3f2', color: 'white', border: 'none', borderRadius: '5px', padding: '5px 10px'}}
+
+                                        onClick={() =>
+                                            handleForwardMessage(
+                                                group._id,
+                                                selectedMessage._id,
+                                                'group'
+                                            )
+                                        }
+                                    >
+                                        <b>Gửi</b>
+                                    </button>
+                                </div>
+                            ))
+                        ) : (
+                            <p style={{ fontStyle: 'italic', color: '#888' }}>
+                                Không có nhóm nào.
+                            </p>
+                        )}
+                        <hr style={{ margin: '15px 0', borderTop: '1px solid #ccc' }} />
+                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '15px' }}>
+                        <button
                             style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                marginBottom: '10px',
+                                padding: '5px 10px',
+                                backgroundColor: '#2596be',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '5px',
+                                cursor: 'pointer',
                             }}
+                            onClick={handleCloseModalFriend}
                         >
-                            <img
-                                src={friend.avatar}
-                                alt={'avatar'}
-                                style={{
-                                    width: '50px',
-                                    height: '50px',
-                                    borderRadius: '60%',
-                                    border: '3px solid #2596be',
-                                }}
-                            />
-                            <b
-                                style={{
-                                    cursor: 'pointer',
-                                    color: 'blue',
-                                    fontSize: '16px',
-                                }}
-                            >
-                                <p>{friend.friendName}</p>
-                            </b>
-                            <button
-                                onClick={() =>
-                                    handleForwardMessage(
-                                        friend.friend_id,
-                                        selectedMessage._id,
-                                    )
-                                }
-                            >
-                                <b>Gửi</b>
-                            </button>
-                        </div>
-                    ))}
+                            Xong
+                        </button>
+                    </div>
+
                 </Modal>
 
                 <div
@@ -1816,6 +2083,7 @@ const Main = ({
                                 <input
                                     id="fileInput"
                                     type="file"
+                                    multiple
                                     ref={fileImgRef}
                                     style={{ display: 'none' }} // Ẩn thẻ input[type="file"]
                                     onChange={handleImageChange}
@@ -1830,6 +2098,7 @@ const Main = ({
                                 <input
                                     id="fileInput"
                                     type="file"
+                                    multiple
                                     ref={fileInputRef}
                                     style={{ display: 'none' }} // Ẩn thẻ input[type="file"]
                                     onChange={handleFileChange}
@@ -2076,6 +2345,7 @@ const Main = ({
             {openDrawer === true && (
                 <ConversationDetail
                     friend_list={friend_list}
+                    
                     conversation_id={conversation_id}
                     currentSource={currentSource}
                 />
