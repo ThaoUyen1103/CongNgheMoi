@@ -29,6 +29,7 @@ import Modal from 'react-modal'
 import { FileIcon, defaultStyles } from 'react-file-icon'
 import { useLocation } from 'react-router-dom'
 
+
 const Main = ({
     // user,
     friend_list,
@@ -112,14 +113,7 @@ const Main = ({
     }, [isModalOpenFriend])
     
     const [pendingForwards, setPendingForwards] = useState([]);
-    const undoForward = (id) => {
-        const pending = pendingForwards.find((item) => item.id === id);
-        if (pending) {
-            clearTimeout(pending.timeout); // huỷ gửi
-            setPendingForwards((prev) => prev.filter((item) => item.id !== id));
-            toast.warning('Đã hoàn tác gửi tin nhắn.');
-        }
-    };
+    
     
     
     useEffect(() => {
@@ -315,7 +309,7 @@ const Main = ({
                     response.data.message ===
                     'Không tìm thấy user_id hoặc friend_id!!!'
                 ) {
-                    toast.error('Không tìm thấy user_id hoặc friend_id!!!')
+                    toast('Không tìm thấy user_id hoặc friend_id!!!')
                     return
                 }
 
@@ -779,7 +773,7 @@ const Main = ({
                         ])
                     }
                     if (response.data.thongbao === 'Lỗi khi tạo message!!!') {
-                        toast.error('Lỗi khi tạo message!!!')
+                        toast('Lỗi khi tạo message!!!')
                     }
                 })
         }
@@ -874,10 +868,10 @@ const Main = ({
                         ...mediaMessageWithAvatar,
                     ])
                 } else {
-                    toast.error('Lỗi khi tải media lên!!!')
+                    toast('Lỗi khi tải media lên!!!')
                 }
             } catch (err) {
-                toast.error('Có lỗi xảy ra khi tải media!')
+                toast('Có lỗi xảy ra khi tải media!')
                 console.error(err)
             }
         }
@@ -1007,14 +1001,14 @@ const Main = ({
                 if (
                     response.data.thongbao === 'Thu hồi tin nhắn thành công!!!'
                 ) {
-                    toast.success('Thu hồi tin nhắn thành công!!!')
+                    toast('Thu hồi tin nhắn thành công!!!')
                     setRecalledMessages([...recalledMessages, message_id])
                     socket.emit('message-recalled', response.data.message)
                     // đóng modal
                     closeModal()
                 }
                 if (response.data.thongbao === 'Lỗi khi thu hồi tin nhắn!!!') {
-                    toast.error('Lỗi khi thu hồi tin nhắn!!!')
+                    toast('Lỗi khi thu hồi tin nhắn!!!')
                 }
             })
     }
@@ -1044,87 +1038,92 @@ const Main = ({
                     closeModal()
                 }
                 if (response.data.thongbao === 'Tin nhắn không tồn tại') {
-                    toast.error('Tin nhắn không tồn tại')
+                    toast('Tin nhắn không tồn tại')
                 }
             })
     }
     
-    // const handleForwardMessage = (friend_id, _id) => {
-    //     axios
-    //         .post('http://localhost:3001/conversation/getConversationIDWeb', {
-    //             friend_id: friend_id,
-    //             user_id: user_id,
-    //         })
-    //         .then((response) => {
-    //             if (
-    //                 response.data.thongbao ===
-    //                 'Tìm conversation_id thành công!!!'
-    //             ) {
-    //                 axios
-    //                     .post(
-    //                         'http://localhost:3001/message/forwardMessageWeb',
-    //                         {
-    //                             message_id: _id,
-    //                             conversation_id: response.data.conversation_id,
-    //                         },
-    //                     )
-    //                     .then((response) => {
-    //                         if (
-    //                             response.data.thongbao ===
-    //                             'Chuyển tiếp tin nhắn thành công!!!'
-    //                         ) {
-    //                             toast.success(
-    //                                 `Đã gửi tới ${friend_id} thành công!`,
-    //                             )
-    //                             socket.emit(
-    //                                 'send-message',
-    //                                 response.data.message,
-    //                             )
-    
-    //                             // ❌ KHÔNG đóng modal ở đây để có thể gửi tiếp cho người khác
-    //                             // handleCloseModalFriend()
-    //                             // closeModal()
+
+    // const handleForwardMessage = (receiver_id, message_id, type) => {
+    //     if (type === 'user') {
+    //         // Gửi cho 1 người bạn
+    //         axios
+    //             .post('http://localhost:3001/conversation/getConversationIDWeb', {
+    //                 friend_id: receiver_id,
+    //                 user_id: user_id,
+    //             })
+    //             .then((response) => {
+    //                 if (response.data.thongbao === 'Tìm conversation_id thành công!!!') {
+    //                     axios.post('http://localhost:3001/message/forwardMessageWeb', {
+    //                         message_id: message_id,
+    //                         conversation_id: response.data.conversation_id,
+    //                     }).then((res) => {
+    //                         if (res.data.thongbao === 'Chuyển tiếp tin nhắn thành công!!!') {
+    //                             toast.success('Chuyển tiếp tin nhắn thành công!!')
+    //                             socket.emit('send-message', res.data.message)
     //                         }
     //                     })
+    //                 }
+    //             })
+    //     } else if (type === 'group') {
+    //         // Gửi trực tiếp vào group_id
+    //         axios.post('http://localhost:3001/message/forwardMessageWeb', {
+    //             message_id: message_id,
+    //             conversation_id: receiver_id, // Với nhóm, receiver_id chính là conversation_id
+    //         }).then((res) => {
+    //             if (res.data.thongbao === 'Chuyển tiếp tin nhắn thành công!!!') {
+    //                 toast.success('Chuyển tiếp tin nhắn thành công!!')
+    //                 socket.emit('send-message', res.data.message)
     //             }
     //         })
+    //     }
     // }
-
-    const handleForwardMessage = (receiver_id, message_id, type) => {
-        if (type === 'user') {
-            // Gửi cho 1 người bạn
-            axios
-                .post('http://localhost:3001/conversation/getConversationIDWeb', {
-                    friend_id: receiver_id,
-                    user_id: user_id,
-                })
-                .then((response) => {
-                    if (response.data.thongbao === 'Tìm conversation_id thành công!!!') {
-                        axios.post('http://localhost:3001/message/forwardMessageWeb', {
-                            message_id: message_id,
-                            conversation_id: response.data.conversation_id,
-                        }).then((res) => {
-                            if (res.data.thongbao === 'Chuyển tiếp tin nhắn thành công!!!') {
-                                toast.success('Chuyển tiếp tin nhắn thành công!!')
-                                socket.emit('send-message', res.data.message)
-                            }
-                        })
-                    }
-                })
-        } else if (type === 'group') {
-            // Gửi trực tiếp vào group_id
-            axios.post('http://localhost:3001/message/forwardMessageWeb', {
-                message_id: message_id,
-                conversation_id: receiver_id, // Với nhóm, receiver_id chính là conversation_id
-            }).then((res) => {
-                if (res.data.thongbao === 'Chuyển tiếp tin nhắn thành công!!!') {
-                    toast.success('Chuyển tiếp tin nhắn thành công!!')
-                    socket.emit('send-message', res.data.message)
-                }
-            })
-        }
-    }
     
+
+// Gửi tin nhắn với chờ đợi
+const handleForwardMessage = (receiver_id, message_id, type = 'friend') => {
+    const id = `${receiver_id}-${message_id}-${Date.now()}`;
+
+    // Tạo timeout gửi sau 5s
+    const timeout = setTimeout(() => {
+        const url =
+            type === 'group'
+                ? 'http://localhost:3001/message/forwardMessageToGroupWeb'
+                : 'http://localhost:3001/message/forwardMessageWeb';
+
+        const body =
+            type === 'group'
+                ? { message_id, group_id: receiver_id }
+                : { message_id, conversation_id: receiver_id };
+
+        axios.post(url, body).then((res) => {
+            toast(`✅ Đã gửi tới ${type === 'group' ? 'nhóm' : 'người dùng'} thành công!`);
+            if (res.data?.message) {
+                socket.emit('send-message', res.data.message);
+            }
+        });
+
+        setPendingForwards((prev) => prev.filter((item) => item.id !== id));
+    }, 5000);
+
+    // Thêm vào danh sách chờ
+    setPendingForwards((prev) => [
+        ...prev,
+        { id, receiver_id, message_id, timeout, type },
+    ]);
+
+    toast('⏰ Sẽ gửi trong 5 giây... Bạn có thể hoàn tác!');
+};
+const undoForward = (id) => {
+    const pending = pendingForwards.find((item) => item.id === id);
+    if (pending) {
+        clearTimeout(pending.timeout); // huỷ gửi
+        setPendingForwards((prev) => prev.filter((item) => item.id !== id));
+        toast('↪️ Đã hoàn tác gửi tin nhắn.');
+    }
+};
+
+
     
 
     useEffect(() => {
@@ -2015,6 +2014,40 @@ const Main = ({
                                 Không có nhóm nào.
                             </p>
                         )}
+                        {pendingForwards.length > 0 && (
+                            <div style={{ marginTop: '20px' }}>
+                                {pendingForwards.map((item) => (
+                                    <div
+                                        key={item.id}
+                                        style={{
+                                            backgroundColor: '#fff4e5',
+                                            border: '1px solid #ffa500',
+                                            padding: '10px',
+                                            marginBottom: '10px',
+                                            borderRadius: '5px',
+                                        }}
+                                    >
+                                        <span>
+                                            Đang chờ gửi đến <b>{item.type === 'group' ? 'nhóm' : 'người dùng'}</b> trong 5 giây...
+                                        </span>
+                                        <button
+                                            onClick={() => undoForward(item.id)}
+                                            style={{
+                                                marginLeft: '10px',
+                                                color: 'white',
+                                                backgroundColor: 'red',
+                                                border: 'none',
+                                                padding: '5px 10px',
+                                                cursor: 'pointer',
+                                                borderRadius: '3px',
+                                            }}
+                                        >
+                                            Hoàn tác
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}  
                         <hr style={{ margin: '15px 0', borderTop: '1px solid #ccc' }} />
                      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '15px' }}>
                         <button
