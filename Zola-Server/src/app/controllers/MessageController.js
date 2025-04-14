@@ -11,7 +11,7 @@ import { v4 as uuidv4 } from 'uuid'
 import uploadDefaultAvatar from '../../util/uploadDefaultAvatar.js'
 import { error } from 'console'
 // require('dotenv').config()
-import { io } from '../../index.js'
+import { io } from '../../socket.js'
 AWS.config.update({
     accessKeyId: process.env.Acces_Key,
     secretAccessKey: process.env.Secret_Acces_Key,
@@ -342,6 +342,177 @@ class MessageController {
         }
     }
 
+
+    // viết 1 hàm từ message_id tạo 1 bản sao tin nhắn tới conversation_id --------- 1
+    // async forwardMessageWeb(req, res) {
+    //     const message_id = req.body.message_id
+    //     const conversation_id = req.body.conversation_id
+
+    //     const message = await Message.findOne({
+    //         _id: message_id,
+    //     })
+
+    //     if (!message) {
+    //         return res.status(404).json({
+    //             thongbao: 'Không tìm thấy tin nhắn!!!',
+    //         })
+    //     }
+    //     const senderId = message.senderId;
+    //     const newMessage = new Message({
+    //         conversation_id: conversation_id,
+    //         senderId:senderId , //
+    //         content: message.content,
+    //         contentType: message.contentType,
+    //     })
+    //     await newMessage.save()
+    //     return res.status(200).json({
+    //         thongbao: 'Chuyển tiếp tin nhắn thành công!!!',
+    //         message: newMessage,
+    //     })
+    // }
+
+
+
+    // viết 1 hàm từ message_id tạo 1 bản sao tin nhắn tới conversation_id --------- 2
+    // async forwardMessageWeb(req, res) {
+    //     try {
+    //         const { message_id, conversation_id } = req.body;
+    
+    //         if (!mongoose.Types.ObjectId.isValid(message_id) || !mongoose.Types.ObjectId.isValid(conversation_id)) {
+    //             return res.status(400).json({
+    //                 thongbao: 'ID không hợp lệ!',
+    //             });
+    //         }
+    
+    //         const originalMessage = await Message.findById(message_id);
+    //         if (!originalMessage) {
+    //             return res.status(404).json({
+    //                 thongbao: 'Không tìm thấy tin nhắn gốc!',
+    //             });
+    //         }
+    
+    //         const senderId = req.user?.id || originalMessage.senderId;
+    
+    //         const forwardedMessage = new Message({
+    //             conversation_id,
+    //             senderId,
+    //             text: originalMessage.text, // <- thêm trường này thay vì 'content'
+    //             type: originalMessage.type,
+    //             file: originalMessage.file || null,
+    //             isForwarded: true,
+    //             originalMessage: originalMessage._id,
+    //         });
+    
+    //         await forwardedMessage.save();
+    
+    //         if (io) {
+    //             io.to(conversation_id).emit('newMessage', forwardedMessage);
+    //         }
+    
+    //         return res.status(200).json({
+    //             thongbao: 'Chuyển tiếp tin nhắn thành công!',
+    //             message: forwardedMessage,
+    //         });
+    
+    //     } catch (error) {
+    //         console.error('Lỗi chuyển tiếp tin nhắn:', error);
+    //         return res.status(500).json({
+    //             thongbao: 'Lỗi server khi chuyển tiếp tin nhắn!',
+    //             error: error.message,
+    //         });
+    //     }
+    // }
+    
+    
+    // viết 1 hàm từ message_id tạo 1 bản sao tin nhắn tới group_id --------- 3
+    // async forwardMessageToGroupWeb(req, res) {
+    //     try {
+    //         const { message_id, group_id } = req.body;
+    //         console.log('[FORWARD TO GROUP]', { message_id, group_id });
+    
+    //         const originalMessage = await Message.findById(message_id);
+    //         if (!originalMessage) {
+    //             return res.status(404).json({ error: 'Không tìm thấy tin nhắn gốc.' });
+    //         }
+    
+    //         const group = await Conversation.findById(group_id);
+    //         if (!group || group.type !== 'group') {
+    //             return res.status(404).json({ error: 'Không tìm thấy nhóm.' });
+    //         }
+    
+    //         const forwardedMessage = new Message({
+    //             senderId: req.user?.id || originalMessage.senderId,
+    //             conversation_id: group_id,
+    //             text: originalMessage.text,
+    //             type: originalMessage.type,
+    //             file: originalMessage.file || null,
+    //             isForwarded: true,
+    //             originalMessage: message_id,
+    //         });
+    
+    //         await forwardedMessage.save();
+    
+    //         return res.status(200).json({ message: forwardedMessage });
+    //     } catch (error) {
+    //         console.error('Lỗi forward tới nhóm:', error);
+    //         return res.status(500).json({ error: 'Đã có lỗi xảy ra khi chuyển tiếp tới nhóm.' });
+    //     }
+    // }
+    
+
+    async forwardMessageWeb(req, res) {
+        try {
+            const { message_id, conversation_id, forwarded_by, forwarded_at, original_sender } = req.body;
+    
+            if (!mongoose.Types.ObjectId.isValid(message_id) || !mongoose.Types.ObjectId.isValid(conversation_id)) {
+                return res.status(400).json({ thongbao: 'ID không hợp lệ!' });
+            }
+    
+            const originalMessage = await Message.findById(message_id);
+            if (!originalMessage) {
+                return res.status(404).json({ thongbao: 'Không tìm thấy tin nhắn gốc!' });
+            }
+    
+            const forwardedMessage = new Message({
+                conversation_id,
+                senderId: forwarded_by,
+                content: originalMessage.content,
+                contentType: originalMessage.contentType,
+                isForwarded: true,
+                originalMessage: message_id,
+                forwardedBy: forwarded_by,
+                forwardedAt: forwarded_at || new Date(),
+                originalSender: original_sender, // ⚠️ cần dòng này
+            });
+    
+            await forwardedMessage.save();
+    
+            await forwardedMessage.populate([
+                { path: 'forwardedBy', select: 'userName firstName lastName' },
+                { path: 'originalSender', select: 'userName firstName lastName' },
+            ]);
+    
+            console.log('✅ Message populated:', forwardedMessage);
+    
+            return res.status(200).json({
+                thongbao: 'Chuyển tiếp tin nhắn thành công!',
+                message: forwardedMessage,
+            });
+        } catch (error) {
+            console.error('Lỗi chuyển tiếp tin nhắn:', error);
+            return res.status(500).json({
+                thongbao: 'Lỗi server khi chuyển tiếp tin nhắn!',
+                error: error.message,
+            });
+        }
+    }
+    
+    
+    
+    
+
+    
+
     async getLastMessageWeb(req, res) {
         // console.log('heeqweqwe')
         const conversation_id = req.body.conversation_id
@@ -571,32 +742,8 @@ class MessageController {
         }
     }
 
-    // viết 1 hàm từ message_id tạo 1 bản sao tin nhắn tới conversation_id
-    async forwardMessageWeb(req, res) {
-        const message_id = req.body.message_id
-        const conversation_id = req.body.conversation_id
-
-        const message = await Message.findOne({
-            _id: message_id,
-        })
-
-        if (!message) {
-            return res.status(404).json({
-                thongbao: 'Không tìm thấy tin nhắn!!!',
-            })
-        }
-        const newMessage = new Message({
-            conversation_id: conversation_id,
-            senderId: message.senderId,
-            content: message.content,
-            contentType: message.contentType,
-        })
-        await newMessage.save()
-        return res.status(200).json({
-            thongbao: 'Chuyển tiếp tin nhắn thành công!!!',
-            message: newMessage,
-        })
-    }
+    
+    
     async uploadMediaWeb(req, res) {
         console.log('Đã vào hàm uploadMediaWeb ở server!!!')
         const conversation_id = req.body.conversation_id

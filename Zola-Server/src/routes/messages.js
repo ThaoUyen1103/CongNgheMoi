@@ -55,6 +55,11 @@ router.post(
 )
 // viết 1 hàm tạo 1 bản sao tin nhắn tới conversation_id
 router.post('/forwardMessageWeb', messageController.forwardMessageWeb)
+
+// viết 1 hàm tạo 1 bản sao tin nhắn tới conversation_id
+// router.post('/forwardMessageToGroupWeb', messageController.forwardMessageToGroupWeb)
+
+
 // viết 1 hàm test up file media
 router.post(
     '/uploadMediaWeb',

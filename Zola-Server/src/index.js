@@ -4,19 +4,23 @@ import morgan from 'morgan'
 import methodOverride from 'method-override'
 import cors from 'cors'
 import path from 'path'
-import { Server } from 'socket.io'
+// import { Server } from 'socket.io'
 import { createServer } from 'http'
 import bodyParser from 'body-parser'
 import passport from 'passport'
-
+import dotenv from 'dotenv'
+import './socket.js'
 import passportLocal from 'passport-local'
 const app = express()
-const port = 3001
+
 app.use(cors())
 
 import route from './routes/index.js'
 import db from './config/db/index.js'
 
+dotenv.config()
+console.log('✅ PORT từ env là: ', process.env.PORT)
+const port = process.env.Port || 3002
 // ...rest of your code
 //connect to db
 // db.connect()
@@ -53,11 +57,11 @@ app.use(methodOverride('_method'))
 app.use(morgan('combined'))
 //----------------------------------------------------------------
 const server = createServer(app)
-export const io = new Server(server, {
-    cors: {
-        origin: '*',
-    },
-})
+// export const io = new Server(server, {
+//     cors: {
+//         origin: '*',
+//     },
+// })
 
 // test socket Web
 // app.get('/index', (req, res) => {
@@ -66,56 +70,56 @@ export const io = new Server(server, {
 //     res.render('index')
 // })
 
-io.on('connection', (socket) => {
-    console.log('a user connected')
-    socket.on('disconnect', () => {
-        console.log('user disconnected')
-    })
+// io.on('connection', (socket) => {
+//     console.log('a user connected')
+//     socket.on('disconnect', () => {
+//         console.log('user disconnected')
+//     })
 
-    socket.on('conversation_id', (data) => {
-        socket.join(data)
-        console.log('conversation_id chung là : ' + data)
-    })
+//     socket.on('conversation_id', (data) => {
+//         socket.join(data)
+//         console.log('conversation_id chung là : ' + data)
+//     })
 
-    // server nhận message từ client có conversation_id và gửi lại message đó cho các client khác trong conversation_id đó
-    socket.on('send-message', (data) => {
-        console.log('message được nhận là : ' + JSON.stringify(data))
-        // // io.emit('chat message', msg)
+//     // server nhận message từ client có conversation_id và gửi lại message đó cho các client khác trong conversation_id đó
+//     socket.on('send-message', (data) => {
+//         console.log('message được nhận là : ' + JSON.stringify(data))
+//         // // io.emit('chat message', msg)
 
-        // Kiểm tra nếu data là mảng và lấy conversation_id từ phần tử đầu tiên
-        const conversation_id = Array.isArray(data)
-            ? data[0].conversation_id
-            : data.conversation_id
+//         // Kiểm tra nếu data là mảng và lấy conversation_id từ phần tử đầu tiên
+//         const conversation_id = Array.isArray(data)
+//             ? data[0].conversation_id
+//             : data.conversation_id
 
-        socket.to(conversation_id).emit('receive-message', JSON.stringify(data))
-    })
+//         socket.to(conversation_id).emit('receive-message', JSON.stringify(data))
+//     })
 
-    socket.on('message-recalled', (data) => {
-        console.log('message-recalled được nhận là : ' + JSON.stringify(data))
-        // // io.emit('chat message', msg)
+//     socket.on('message-recalled', (data) => {
+//         console.log('message-recalled được nhận là : ' + JSON.stringify(data))
+//         // // io.emit('chat message', msg)
 
-        // Kiểm tra nếu data là mảng và lấy conversation_id từ phần tử đầu tiên
-        const conversation_id = data.conversation_id
+//         // Kiểm tra nếu data là mảng và lấy conversation_id từ phần tử đầu tiên
+//         const conversation_id = data.conversation_id
 
-        io.to(conversation_id).emit('message-recalled', JSON.stringify(data))
-    })
-    socket.on('delete-my-message', (data) => {
-        console.log('message to delete: ' + data.message_id)
-        io.to(data.user_id).emit('message-deleted', data.message_id)
-    })
-    // socket.on('addMemberToGroup', (data) => {
-    //     // Add the member to the group in your database here
-    //     console.log('data đã nhận là: ', data)
-    //     // Then emit an event to all clients with the new member and group info
-    //     io.emit('memberAddedToGroup', data)
+//         io.to(conversation_id).emit('message-recalled', JSON.stringify(data))
+//     })
+//     socket.on('delete-my-message', (data) => {
+//         console.log('message to delete: ' + data.message_id)
+//         io.to(data.user_id).emit('message-deleted', data.message_id)
+//     })
+//     // socket.on('addMemberToGroup', (data) => {
+//     //     // Add the member to the group in your database here
+//     //     console.log('data đã nhận là: ', data)
+//     //     // Then emit an event to all clients with the new member and group info
+//     //     io.emit('memberAddedToGroup', data)
 
-    //     // Emit a notification event
-    //     io.emit('notification', {
-    //         content: `${data} `,
-    //         type: 'notify',
-    //     })
-    // })
-})
+//     //     // Emit a notification event
+//     //     io.emit('notification', {
+//     //         content: `${data} `,
+//     //         type: 'notify',
+//     //     })
+//     // })
+// })
 
 // Routes initfbu
 route(app)
@@ -126,6 +130,7 @@ db.connect()
         // console.log('bucketname nhận là : ', bucketname)
         server.listen(port, () => {
             console.log(`App listening on port ${port}`)
+            
         })
     })
     .catch((error) => {
