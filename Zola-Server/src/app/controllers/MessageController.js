@@ -57,7 +57,7 @@ function checkFileTypeMedia(file, callback) {
 }
 const upload = multer({
     storage: storage,
-    limits: { fileSize: 10000000 }, // giới hạn file 10MB
+    limits: { fileSize: 100 * 1024 * 1024 }, // giới hạn file 100MB
     fileFilter: function (req, file, cb) {
         checkFileType(file, cb)
         checkFileTypeMedia(file, cb)
@@ -847,6 +847,8 @@ class MessageController {
                 message.deletedBy.push(user_id)
                 await message.save()
             }
+            io.to(message.conversation_id).emit('message-deleted', message_id);
+            console.log(`Emit message-deleted: ${message_id} to room ${message.conversation_id}`);
 
             return res.status(200).json({
                 thongbao: 'Xoá chỉ ở phía tôi thành công!!!',
@@ -883,8 +885,120 @@ class MessageController {
         }
     }
 
-    // -----------
+    // THÊM MOBILE
+    async getLastMessageMobile(req, res) {
+        const conversation_id = req.body.conversation_id;
+        const user_id = req.body.user_id;
 
+        try {
+            const conversation = await Conversation.findById(conversation_id);
+            if (!conversation) {
+                return res.status(404).json({ message: 'Conversation not found' });
+            }
+
+            const message = await Message.findOne({ conversation_id })
+                .sort({ createdAt: -1 })
+                .populate('senderId', 'userName avatar');
+
+            // Nếu không có tin nhắn, trả về giá trị mặc định
+            if (!message) {
+                return res.status(200).json({
+                    message: 'Chưa có tin nhắn',
+                    message: null,
+                });
+            }
+
+            return res.status(200).json({
+                message: 'Tìm thấy tin nhắn cuối cùng!!!',
+                message: message,
+            });
+        } catch (error) {
+            console.error(error);
+            return res.status(500).json({ message: 'Internal server error', error: error.message });
+        }
+    }
+
+    async createMessagesMobile(req, res) {
+        const conversation_id = req.body.conversation_id;
+        const senderId = req.body.user_id;
+        const contentType = req.body.contentType;
+        const file = req.file;
+        const replyTo = req.body.replyTo;
+
+        console.log('Mobile input:', { conversation_id, senderId, contentType, file, replyTo });
+
+        if (!conversation_id || !senderId || !contentType) {
+            return res.status(400).json({ message: 'Thiếu tham số bắt buộc' });
+        }
+
+        try {
+            if (contentType === 'text') {
+                const content = req.body.content;
+                if (!content) {
+                    return res.status(400).json({ message: 'Nội dung văn bản bị thiếu' });
+                }
+
+                let message = replyTo && mongoose.Types.ObjectId.isValid(replyTo)
+                    ? new Message({ conversation_id, senderId, content, contentType, replyTo })
+                    : new Message({ conversation_id, senderId, content, contentType });
+
+                await message.save();
+                return res.status(200).json({
+                    thongbao: 'Tạo tin nhắn văn bản thành công',
+                    messages: message,
+                });
+            }
+
+            if (['image', 'video', 'file'].includes(contentType) && file) {
+                const fileType = file.originalname.split('.').pop();
+                const cleanFileName = file.originalname.split(/[-_]/).pop();
+                const filePath = `zola_${contentType}_${cleanFileName}`;
+                const params = {
+                    Bucket: bucketname,
+                    Key: filePath,
+                    Body: file.buffer,
+                    ContentType: file.mimetype,
+                };
+
+                console.log('Chuẩn bị upload S3:', params);
+                const uploadResult = await S3.upload(params).promise();
+                console.log('Kết quả upload S3:', uploadResult);
+
+                const fileURL = uploadResult.Location;
+
+                let message = replyTo && mongoose.Types.ObjectId.isValid(replyTo)
+                    ? new Message({ conversation_id, senderId, content: fileURL, contentType, replyTo })
+                    : new Message({ conversation_id, senderId, content: fileURL, contentType });
+
+                await message.save();
+                return res.status(200).json({
+                    thongbao: 'Tạo tin nhắn media thành công',
+                    messages: message,
+                });
+            }
+
+            return res.status(400).json({ message: 'Loại nội dung không hỗ trợ hoặc thiếu file' });
+        } catch (err) {
+            console.error('Lỗi tạo tin nhắn mobile:', err);
+            return res.status(500).json({ message: 'Lỗi server', error: err.message });
+        }
+    }
+
+    async deleteMyMessageWeb(req, res) {
+        const { message_id, user_id } = req.body;
+        try {
+            const message = await Message.findById(message_id);
+            if (!message) return res.status(404).json({ message: 'Không tìm thấy tin nhắn' });
+            message.deletedBy.push(user_id);
+            await message.save();
+            console.log(`Emit message-deleted: ${message_id} to room ${message.conversation_id}`);
+            io.to(message.conversation_id.toString()).emit('message-deleted', message_id);
+            return res.status(200).json({ message: 'Xóa tin nhắn thành công' });
+        } catch (err) {
+            console.error('Lỗi xóa tin nhắn:', err);
+            return res.status(500).json({ message: 'Lỗi server', error: err.message });
+        }
+    }
     // function
 }
 async function getUserName(userId) {
@@ -898,5 +1012,4 @@ async function getUserName(userId) {
         return user.userName
     }
 }
-
 export default new MessageController()

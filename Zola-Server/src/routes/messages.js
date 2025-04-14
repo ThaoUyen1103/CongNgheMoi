@@ -13,7 +13,7 @@ const storage = multer.memoryStorage({
 })
 const upload = multer({
     storage: storage,
-    limits: { fileSize: 10000000 }, // giới hạn file 10MB
+    limits: { fileSize: 100 * 1024 * 1024 }, // giới hạn file 100MB
     fileFilter: function (req, file, cb) {
         checkFileTypeMedia(file, cb)
     },
@@ -82,5 +82,14 @@ router.post(
     '/findNewestMessage/:conversation_id',
     messageController.findNewestMessage
 )
+//mobile thêm
+router.post('/getLastMessageMobile', messageController.getLastMessageMobile);
+router.post(
+    '/createMessagesMobile',
+    upload.single('file'), // Đơn file từ mobile
+    messageController.createMessagesMobile
+);
+// routes/message.js (hoặc tương đương)
+router.post('/createMessagesMobile', messageController.createMessagesMobile);
 
 export default router

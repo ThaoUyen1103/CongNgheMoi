@@ -27,6 +27,8 @@ router.put(
 )
 router.delete('/delete-account', accountController.deleteAccount)
 router.put('/updateNewPhoneNumber', accountController.updatePhoneNumber)
+// Mới
+router.post('/registerMobile', accountController.registerMobile);
+router.post('/loginMobile', accountController.loginMobile);
 //----
-
 export default router
