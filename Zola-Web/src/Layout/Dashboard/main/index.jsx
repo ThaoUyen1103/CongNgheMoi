@@ -31,11 +31,12 @@ import { useLocation } from 'react-router-dom'
 
 
 const Main = ({
-    // user,
+    user,
     friend_list,
     currentFriend,
     currentConversationGroup,
-    // conversationMyCloud,
+    conversationMyCloud,
+    conservation_list,
     currentconversationMyCloud,
     clickCurrentCount,
 }) => {
@@ -57,7 +58,7 @@ const Main = ({
 
     const [conversation_id, setConversationId] = useState('')
     const [isPickerVisible, setPickerVisible] = useState(false)
-
+    
     // Khởi tạo state là một mảng rỗng để lưu trữ các ảnh
     const [images, setImages] = useState([])
 
@@ -79,6 +80,23 @@ const Main = ({
     const [recalledMessages, setRecalledMessages] = useState([])
     // Tạo 1 mảng trong state để lưu trữ các  tin nhắn đã được xoá ở chỉ mình tôi
     const [deleteMyMessage, setDeleteMyMessage] = useState([])
+    //////////////////////////////////////////////////////////////////
+//     const currentUser = JSON.parse(localStorage.getItem('user'));
+//     const currentUserId = currentUser?._id;
+//     const [selectedFriends, setSelectedFriends] = useState([]);
+//     const [selectedGroups, setSelectedGroups] = useState([]);
+//     const toggleFriend = (id) => {
+//         setSelectedFriends(prev =>
+//             prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id]
+//         );
+//     };
+
+//     const toggleGroup = (id) => {
+//         setSelectedGroups(prev =>
+//             prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id]
+//         );
+// };
+
     // loading
     const [isLoading, setIsLoading] = useState(false)
     const [groupList, setGroupList] = useState([]);
@@ -784,7 +802,7 @@ const Main = ({
     const messagesEndRef = useRef(null)
     const [prevMessageCount, setPrevMessageCount] = useState(0)
     const messagesContainerRef = useRef(null)
-
+    const currentUserId = localStorage.getItem('user_id');
     //gui file bang icon
     const fileInputRef = useRef(null)
 
@@ -1042,7 +1060,129 @@ const Main = ({
                 }
             })
     }
+
+    // share tin nhắn
+    // const handleForwardMessage = (receiver_id, message_id) => {
+    //     const body = {
+    //         message_id,
+    //         target_conversation_id: receiver_id,
+    //     };
     
+    //     axios.post('http://localhost:3001/message/forwardMessageWeb', body)
+    //         .then((res) => {
+    //             toast('✅ Chuyển tiếp thành công!');
+    //             socket.emit('send-message', res.data.message);
+    //         })
+    //         .catch((err) => {
+    //             console.error('Lỗi chuyển tiếp:', err.response?.data || err.message);
+    //             toast.error('❌ Lỗi khi chuyển tiếp!');
+    //         });
+    // };
+
+
+    // Gửi tin nhắn với chờ đợi
+    const handleForwardMessage = async (receiver_id, message_id, type = 'friend') => {
+        const id = `${receiver_id}-${message_id}-${Date.now()}`;
+    
+        let url, body;
+    
+        if (type === 'group') {
+            url = 'http://localhost:3001/message/forwardMessageToGroupWeb';
+            body = {
+                message_id,
+                group_id: receiver_id,
+                forwarded_by: user_id,
+                forwarded_at: new Date().toISOString(),
+                original_sender: selectedMessage.senderId,
+            };
+        } else {
+            // 👇 Gọi API để tìm conversation_id từ user_id và friend_id
+            try {
+                const response = await axios.post('http://localhost:3001/conversation/getConversationIDWeb', {
+                    user_id: user_id,
+                    friend_id: receiver_id,
+                });
+    
+                const conversation_id = response.data.conversation_id;
+                url = 'http://localhost:3001/message/forwardMessageWeb';
+                body = {
+                    message_id,
+                    conversation_id,
+                    forwarded_by: user_id,
+                    forwarded_at: new Date().toISOString(),
+                    original_sender: selectedMessage.senderId,
+                };
+            } catch (err) {
+                toast.error('Không thể lấy được cuộc trò chuyện với người dùng này!');
+                return;
+            }
+        }
+    
+        // ⏳ Đợi 5s trước khi gửi (giả lập delay)
+        const timeout = setTimeout(async () => {
+            try {
+                const response = await axios.post(url, body);
+                console.log("Response Data:", response.data);
+                if (response.data?.message) {
+                    const forwardedMessage = {
+                        ...response.data.message,
+                      
+                    };
+    
+                    socket.emit('send-message', forwardedMessage);
+                    toast.success(`✅ Đã chuyển tiếp tới ${type === 'group' ? 'nhóm' : 'người dùng'} thành công!`);
+                }
+            } catch (err) {
+                toast.error(`❌ Lỗi khi chuyển tiếp: ${err.message}`);
+                console.error('Forward error:', err);
+            } finally {
+                setPendingForwards((prev) => prev.filter((item) => item.id !== id));
+            }
+        }, 5000);
+    
+        setPendingForwards((prev) => [
+            ...prev,
+            {
+                id,
+                receiver_id,
+                message_id,
+                timeout,
+                type,
+                originalMessage: selectedMessage,
+            },
+        ]);
+    
+        toast('⏰ Tin nhắn sẽ được gửi trong 5 giây...');
+    };
+    
+
+    
+//     const handleForwardMessage = async (message, receiver_id) => {
+//     try {
+//         // B1: Lấy conversation_id của user hiện tại và người nhận
+//         const response = await axios.post(
+//             'http://localhost:3001/conversation/getConversationIDWeb',
+//             {
+//                 user_id: currentUserId, // user hiện tại
+//                 friend_id: receiver_id,  // người nhận (có thể là bạn bè)
+//             }
+//         )
+
+//         const conversation_id = response.data.conversation_id
+
+//         // B2: Gửi tin nhắn vào conversation đó
+//         await axios.post('http://localhost:3001/message/forwardMessageWeb', {
+//             sender: currentUserId,
+//             conversation_id: conversation_id,
+//             text: message.text, // hoặc message.image nếu là ảnh
+//         })
+
+//         console.log("Chuyển tiếp thành công!")
+//     } catch (err) {
+//         console.error("Lỗi chuyển tiếp:", err)
+//     }
+// }
+
 
     // const handleForwardMessage = (receiver_id, message_id, type) => {
     //     if (type === 'user') {
@@ -1078,42 +1218,7 @@ const Main = ({
     //         })
     //     }
     // }
-    
 
-// Gửi tin nhắn với chờ đợi
-const handleForwardMessage = (receiver_id, message_id, type = 'friend') => {
-    const id = `${receiver_id}-${message_id}-${Date.now()}`;
-
-    // Tạo timeout gửi sau 5s
-    const timeout = setTimeout(() => {
-        const url =
-            type === 'group'
-                ? 'http://localhost:3001/message/forwardMessageToGroupWeb'
-                : 'http://localhost:3001/message/forwardMessageWeb';
-
-        const body =
-            type === 'group'
-                ? { message_id, group_id: receiver_id }
-                : { message_id, conversation_id: receiver_id };
-
-        axios.post(url, body).then((res) => {
-            toast(`✅ Đã gửi tới ${type === 'group' ? 'nhóm' : 'người dùng'} thành công!`);
-            if (res.data?.message) {
-                socket.emit('send-message', res.data.message);
-            }
-        });
-
-        setPendingForwards((prev) => prev.filter((item) => item.id !== id));
-    }, 5000);
-
-    // Thêm vào danh sách chờ
-    setPendingForwards((prev) => [
-        ...prev,
-        { id, receiver_id, message_id, timeout, type },
-    ]);
-
-    toast('⏰ Sẽ gửi trong 5 giây... Bạn có thể hoàn tác!');
-};
 const undoForward = (id) => {
     const pending = pendingForwards.find((item) => item.id === id);
     if (pending) {
@@ -1271,6 +1376,14 @@ const undoForward = (id) => {
                                     marginLeft: '5px',
                                 }}
                             >
+
+                            {/* Kiểm tra xem tin nhắn có được chuyển tiếp không */}
+                            {/* {message.forwardedBy && (
+                                            <p style={{ fontStyle: 'italic', color: '#555' }}>
+                                                Chuyển tiếp từ <b>{message.forwardedBy}</b>
+                                            </p>
+                                        )} */}
+
                                 {/* chỗ này hiện các thông báo ví dụ như xoá khỏi nhóm vv */}
                                 {message.contentType === 'notify' ? (
                                     <p
@@ -1285,16 +1398,18 @@ const undoForward = (id) => {
                                     >
                                         <span
                                             style={{
-                                                color: '#798EA2', // Thay đổi màu chữ
-                                                backgroundColor: '#ECE9D6', // Thêm màu nền cho văn bản
-                                                padding: '2px 5px', // Thêm padding cho văn bản
-                                                borderRadius: '5px', // Làm viền tròn cho văn bản
+                                                color: '#798EA2',
+                                                backgroundColor: '#ECE9D6', 
+                                                padding: '2px 5px', 
+                                                borderRadius: '5px',
                                             }}
                                         >
                                             {message.content}
                                         </span>
                                     </p>
                                 ) : null}
+
+                                
                                 {/* chỗ này hiện avatar */}
                                 {message.contentType !== 'notify' &&
                                     /* message.senderId !== user_id */
@@ -1399,6 +1514,62 @@ const undoForward = (id) => {
                                                         </p>
                                                     )}
                                             </p>
+                                            {/* {message.isForwarded && (
+                                                <div
+                                                    style={{
+                                                        fontStyle: 'italic',
+                                                        backgroundColor: '#f1f1f1',
+                                                        padding: '4px 8px',
+                                                        borderLeft: '3px solid #00bcd4',
+                                                        borderRadius: 6,
+                                                        fontSize: 13,
+                                                        color: '#333',
+                                                        marginBottom: 5,
+                                                    }}
+                                                >
+                                                    ↪️ Chuyển tiếp từ{' '}
+                                                    <b>
+                                                        {typeof message.forwardedBy === 'object'
+                                                            ? message.forwardedBy.userName
+                                                            : message.forwardedBy}
+                                                    </b>
+                                                </div>
+                                            )} */}
+
+                                             {/* Test */}
+                                             
+                                            {message.isForwarded && (
+                                                <div
+                                                    style={{
+                                                        fontStyle: 'italic',
+                                                        backgroundColor: '#f1f1f1',
+                                                        padding: '4px 8px',
+                                                        borderLeft: '3px solid #00bcd4',
+                                                        borderRadius: 6,
+                                                        fontSize: 13,
+                                                        color: '#333',
+                                                        marginBottom: 5,
+                                                    }}
+                                                >
+                                                    {/* ↪️ <b>{typeof message.originalSender === 'object'
+                                                        ? message.forwardedBy.userName
+                                                        : message.forwardedBy}</b>{' '}
+                                                    đã chuyển tiếp tin nhắn từ{' '}
+                                                    <b>{typeof message.originalSender === 'object'
+                                                        ? message.original_sender.userName
+                                                        : message.original_sender}</b>
+                                                    <br /> */}
+                                                    ↪️ {' '}
+                                                    đã chuyển tiếp tin nhắn từ{' '}
+                                                    <b>{typeof message.originalSender === 'object'
+                                                        ? message.originalSender.userName || `${message.originalSender.firstName} ${message.originalSender.lastName}`
+                                                        : message.originalSender}</b>
+
+
+                                                    
+                                                </div>
+                                            )}
+
                                             {message.replyTo &&
                                                 replyContent && (
                                                     <div
@@ -1430,10 +1601,11 @@ const undoForward = (id) => {
                                                             }
                                                         </div>
                                                         {/* <div className="reply-message">
-                    {message.content}
-                </div> */}
+                                                            {message.content}
+                                                        </div> */}
                                                     </div>
                                                 )}
+
 
                                             {message.contentType !== 'notify' &&
                                                 message.contentType ===
@@ -1915,7 +2087,14 @@ const undoForward = (id) => {
                                         justifyContent: 'space-between',
                                         marginBottom: '10px',
                                     }}
+
                                 >
+                                {/* <input
+                                    type="checkbox"
+                                    checked={selectedFriends.includes(friend.friend_id)}
+                                    onChange={() => toggleFriend(friend.friend_id)}
+                                    style={{ marginRight: '10px' }}
+                                /> */}
                                     <div style={{display: 'flex',alignItems: 'center',}} >
                                     <img
                                         src={friend.avatar}
@@ -1960,6 +2139,7 @@ const undoForward = (id) => {
                         )}
 
                         {/* Danh sách nhóm */}
+                        
                         <h6 style={{ color: '#444', margin: '20px 0 10px' }}>Nhóm</h6>
                         {groupList.length > 0 ? (
                             groupList.map((group) => (
@@ -1972,6 +2152,12 @@ const undoForward = (id) => {
                                         marginBottom: '10px',
                                     }}
                                 >
+                                    {/* <input
+                                        type="checkbox"
+                                        checked={selectedGroups.includes(group._id)}
+                                        onChange={() => toggleGroup(group._id)}
+                                        style={{ marginRight: '10px' }}
+                                    /> */}
                                     <div style={{display: 'flex',alignItems: 'center',}} >
                                     <img
                                         src={group.avatar}
@@ -2048,6 +2234,35 @@ const undoForward = (id) => {
                                 ))}
                             </div>
                         )}  
+
+                        {/* {(selectedFriends.length > 0 || selectedGroups.length > 0) && (
+                                <div style={{ marginTop: '20px', textAlign: 'center' }}>
+                                    <button
+                                        onClick={() => {
+                                            selectedFriends.forEach(id =>
+                                                handleForwardMessage(id, selectedMessage._id, 'user')
+                                            );
+                                            selectedGroups.forEach(id =>
+                                                handleForwardMessage(id, selectedMessage._id, 'group')
+                                            );
+                                            setSelectedFriends([]);
+                                            setSelectedGroups([]);
+                                        }}
+                                        style={{
+                                            padding: '10px 20px',
+                                            backgroundColor: '#2596be',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '5px',
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer',
+                                        }}
+                                    >
+                                        Gửi tin nhắn
+                                    </button>
+                                </div>
+                            )} */}
+
                         <hr style={{ margin: '15px 0', borderTop: '1px solid #ccc' }} />
                      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '15px' }}>
                         <button
@@ -2379,7 +2594,7 @@ const undoForward = (id) => {
                 <ConversationDetail
                     friend_list={friend_list}
                     
-                    conversation_id={conversation_id}
+                    // conversation_id={conversation_id}
                     currentSource={currentSource}
                 />
             )}
