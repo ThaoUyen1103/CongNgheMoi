@@ -120,5 +120,8 @@ router.post(
 router.put('/change-groupname', conversationController.changeGroupName)
 router.put('/authorizeGroupLeader', conversationController.authorizeGroupLeader)
 router.put('/disbandGroup', conversationController.disbandGroupMobile)
+// thêm mobile 
+router.get('/getConversationById/:conversation_id', conversationController.getConversationById);
+router.post('/getConversationsByUserIDMobile', conversationController.getConversationsByUserIDMobile);
 //--
 export default router

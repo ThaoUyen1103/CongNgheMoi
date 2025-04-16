@@ -116,7 +116,7 @@ router.get(
     userController.showSentFriendRequests
 )
 router.post('/recallsentRequest', userController.cancelFriendRequest)
-router.post('/friend-request/reject', userController.deleteFriendRequest)
+router.post('/friend-request/reject', userController.rejectFriendRequest)
 
 router.delete('/deleteAccount', userController.deleteAccount)
 router.put('/undoDeleteAccount', userController.undoDeleteAccount)
@@ -125,5 +125,12 @@ router.delete(
     userController.deleteAccountAfter30Days
 )
 router.put('/updateNewPhoneNumber', userController.changeNewPhoneNumber)
-
+// Thêm Mobile
+router.post('/registerMobile', userController.registerMobile);
+router.post('/friend-request-mobile', userController.friendRequestMobile);
+router.get('/friend-request-mobile/:userId', userController.showFriendRequestsMobile);
+router.get('/sent-friend-request-mobile/:userId', userController.showSentFriendRequestsMobile);
+router.get('/friend-request-mobile/:userId', userController.showFriendRequestsMobile);
+router.post('/deleteFriend', userController.deleteFriend);
+router.get('/findUserByUserIDMobile/:userId', userController.findUserByUserIDMobile);
 export default router

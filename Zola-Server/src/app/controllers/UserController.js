@@ -1,4 +1,7 @@
 import User from '../models/User.js'
+import Account from '../models/Account.js';
+import ConversationController from './ConversationController.js';
+import { io } from '../../index.js';
 
 import AWS from 'aws-sdk'
 import path from 'path'
@@ -831,18 +834,22 @@ class UserController {
             res.json('User doesn`t exits !!!')
         }
     }
+    // đã sửa mobile 
     async findUserByUserIDMobile(req, res) {
-        const userId = req.params.userId
         try {
-            const user = await User.findById({ _id: userId })
-            if (user) {
-                res.status(200).json(user)
-            } else {
-                res.status(404).json('User not found!!!')
+            const userId = req.params.userId;
+            const user = await User.findById(userId)
+                .select('userName phoneNumber avatar')
+                .lean();
+
+            if (!user) {
+                return res.status(404).json({ message: 'Không tìm thấy người dùng' });
             }
-        } catch (error) {
-            console.log(error)
-            res.status(500).json('Error retrieving user')
+
+            return res.status(200).json(user);
+        } catch (err) {
+            console.error('Lỗi tìm người dùng:', err);
+            return res.status(500).json({ message: 'Internal server error', error: err.message });
         }
     }
     async findUserByPhoneNumber(req, res) {
@@ -859,48 +866,103 @@ class UserController {
             res.status(500).json('Error retrieving user')
         }
     }
-    //accept a friend request
+    //accept a friend request Mobile//// //////////////
+
     async acceptFriendRequest(req, res) {
         try {
-            const user_id = req.body.user_id
-            const friend_id = req.body.friend_id
-            const user = await User.findOne({ _id: user_id })
-            const friend = await User.findOne({ _id: friend_id })
+            const user_id = req.body.user_id;
+            const friend_id = req.body.friend_id;
+            const user = await User.findById(user_id);
+            const friend = await User.findById(friend_id);
+
+            if (!user || !friend) {
+                return res.status(404).json({ message: 'Người dùng không tồn tại' });
+            }
+
+            // Xóa yêu cầu kết bạn
+            user.friendRequests = user.friendRequests.filter(
+                (request) => request.toString() !== friend_id
+            );
+            friend.sentFriendRequests = friend.sentFriendRequests.filter(
+                (request) => request.toString() !== user_id
+            );
+
+            // Thêm vào danh sách bạn bè
+            if (!user.friend.some(f => f.friend_id === friend_id)) {
+                user.friend.push({ friend_id });
+            }
+            if (!friend.friend.some(f => f.friend_id === user_id)) {
+                friend.friend.push({ friend_id: user_id });
+            }
+
+            // Tạo cuộc trò chuyện
+            const conversationResponse = await ConversationController.createConversationsMobile({
+                body: { user_id, friend_id },
+            });
+
+            if (conversationResponse.status !== 200) {
+                throw new Error(conversationResponse.data.message || 'Tạo cuộc trò chuyện thất bại');
+            }
+
+            const conversation_id = conversationResponse.data.conversation._id;
+
+            // Thêm conversation_id vào danh sách conversation_id
+            if (!user.conversation_id.some(conv => conv.conversation_id === conversation_id)) {
+                user.conversation_id.push({ conversation_id });
+            }
+            if (!friend.conversation_id.some(conv => conv.conversation_id === conversation_id)) {
+                friend.conversation_id.push({ conversation_id });
+            }
+
+            await user.save();
+            await friend.save();
+
+            // Emit sự kiện Socket.IO
+            io.to(user_id).emit('friend-accepted', { conversationId: conversation_id });
+            io.to(friend_id).emit('friend-accepted', { conversationId: conversation_id });
+
+            return res.status(200).json({
+                message: 'Đã chấp nhận yêu cầu kết bạn!!!',
+                user,
+                friend,
+                conversation: conversationResponse.data.conversation,
+            });
+        } catch (err) {
+            console.error('Lỗi chấp nhận yêu cầu kết bạn:', err);
+            return res.status(500).json({ message: 'Lỗi server', error: err.message });
+        }
+    }
+
+    async rejectFriendRequest(req, res) {
+        try {
+            const user_id = req.body.user_id;
+            const friend_id = req.body.friend_id;
+
+            const user = await User.findOne({ _id: user_id });
+            const friend = await User.findOne({ _id: friend_id });
+
             if (user && friend) {
                 // Remove friend request
                 user.friendRequests = user.friendRequests.filter(
                     (request) => request.toString() !== friend_id
-                )
+                );
                 friend.sentFriendRequests = friend.sentFriendRequests.filter(
                     (request) => request.toString() !== user_id
-                )
-                // Add to friends list
-                user.friend.push({
-                    friend_id,
-                })
-                friend.friend.push({
-                    friend_id: user_id,
-                })
-                await user.save()
-                await friend.save()
-                //create conversation
-                await ConversationController.createConversation({
-                    body: {
-                        senderId: user_id,
-                        receiverId: friend_id,
-                    },
-                })
+                );
+
+                await user.save();
+                await friend.save();
+
                 return res.status(200).json({
-                    message: 'Đã chấp nhận yêu cầu kết bạn!!!',
+                    message: 'Xóa lời mời kết bạn thành công!!!',
                     user: user,
-                    friend: friend,
-                })
+                });
             } else {
-                // in ra lỗi
-                res.json('Không thể chấp nhận yêu cầu kết bạn !!!')
+                return res.status(400).json({ message: 'Không thể xóa lời mời kết bạn !!!' });
             }
-        } catch (error) {
-            console.log(error)
+        } catch (err) {
+            console.error('Lỗi từ chối yêu cầu kết bạn:', err);
+            return res.status(500).json({ message: 'Internal server error', error: err.message });
         }
     }
 
@@ -933,26 +995,29 @@ class UserController {
             res.json('Không thể Huỷ lời mời kết bạn !!!')
         }
     }
-    async deleteFriendRequest(req, res) {
-        const user_id = req.body.user_id
-        const friend_id = req.body.friend_id
+    async deleteFriend(req, res) {
+        const { userId, friendId } = req.body;
 
-        const user = await User.findOne({ _id: user_id })
-        const friend = await User.findOne({ _id: friend_id })
+        try {
+            const user = await User.findById(userId);
+            const friend = await User.findById(friendId);
 
-        if (user && friend) {
-            // Remove friend request
-            user.friendRequests = user.friendRequests.filter(
-                (request) => request.toString() !== friend_id
-            )
-            await user.save()
-            return res.status(200).json({
-                message: 'Xóa lời mời kết bạn thành công!!!',
-                user: user,
-            })
-        } else {
-            // in ra lỗi
-            res.json('Không thể xóa lời mời kết bạn !!!')
+            if (!user || !friend) {
+                return res.status(404).json({ message: 'Người dùng không tồn tại' });
+            }
+
+            // Xóa friendId khỏi danh sách bạn bè của user
+            user.friend = user.friend.filter(id => id.friend_id !== friendId);
+            // Xóa userId khỏi danh sách bạn bè của friend
+            friend.friend = friend.friend.filter(id => id.friend_id !== userId);
+
+            await user.save();
+            await friend.save();
+
+            return res.status(200).json({ message: 'Đã xóa bạn bè thành công' });
+        } catch (err) {
+            console.error('Lỗi xóa bạn bè:', err);
+            return res.status(500).json({ message: 'Internal server error', error: err.message });
         }
     }
     async deleteAccount(req, res) {
@@ -1031,7 +1096,155 @@ class UserController {
         }
     }
 
-    //-----
+    //-----Mobile
+    // Trong UserController.js, thêm hàm này
+    async registerMobile(req, res) {
+        const { account_id, userName, firstName, lastName, phoneNumber, dateOfBirth, gender, avatar, coverImage } = req.body;
+
+        try {
+            // Kiểm tra số điện thoại đã tồn tại
+            const existingUser = await User.findOne({ phoneNumber });
+            if (existingUser) {
+                return res.status(400).json({ message: 'Số điện thoại đã được đăng ký' });
+            }
+
+            // Kiểm tra account_id hợp lệ
+            const account = await Account.findById(account_id);
+            if (!account) {
+                return res.status(400).json({ message: 'Tài khoản không tồn tại' });
+            }
+
+            // Gán ảnh đại diện mặc định nếu avatar không có hoặc là giá trị mặc định
+            const defaultAvatar = (!avatar || avatar === 'https://via.placeholder.com/150')
+                ? uploadDefaultAvatar(lastName)
+                : avatar;
+
+            const user = new User({
+                account_id,
+                userName,
+                firstName,
+                lastName,
+                phoneNumber,
+                dateOfBirth,
+                gender,
+                avatar: defaultAvatar,
+                coverImage: coverImage || null,
+            });
+
+            await user.save();
+            return res.status(200).json({
+                message: 'Đăng ký hồ sơ người dùng thành công!!!',
+                user_id: user._id,
+                phoneNumber,
+            });
+        } catch (err) {
+            console.error('Lỗi đăng ký hồ sơ người dùng mobile:', err);
+            return res.status(500).json({ message: 'Đăng ký hồ sơ người dùng thất bại', error: err.message });
+        }
+    }
+    async friendRequestMobile(req, res) {
+        const { currentUserId, selectedUserId } = req.body;
+        try {
+            const currentUser = await User.findById(currentUserId);
+            const selectedUser = await User.findById(selectedUserId);
+
+            if (!currentUser || !selectedUser) {
+                return res.status(404).json({ message: 'User not found' });
+            }
+
+            // Kiểm tra nếu đã là bạn bè (cả hai chiều)
+            const isFriend = currentUser.friend.some(f => f.friend_id === selectedUserId) ||
+                selectedUser.friend.some(f => f.friend_id === currentUserId);
+            if (isFriend) {
+                return res.status(400).json({ message: 'Đã là bạn bè' });
+            }
+
+            // Kiểm tra nếu đã gửi yêu cầu
+            if (selectedUser.friendRequests.includes(currentUserId)) {
+                return res.status(400).json({ message: 'Yêu cầu đã được gửi trước đó' });
+            }
+
+            // Thêm vào friendRequests của người nhận
+            selectedUser.friendRequests.push(currentUserId);
+            // Thêm vào sentFriendRequests của người gửi
+            currentUser.sentFriendRequests.push(selectedUserId);
+
+            await selectedUser.save();
+            await currentUser.save();
+
+            return res.status(200).json({ message: 'Gửi yêu cầu kết bạn thành công' });
+        } catch (err) {
+            console.error('Lỗi gửi yêu cầu kết bạn (Mobile):', err);
+            return res.status(500).json({ message: 'Internal server error', error: err.message });
+        }
+    }
+
+    async showFriendRequestsMobile(req, res) {
+        try {
+            const { userId } = req.params;
+            // Tìm user theo account_id hoặc _id
+            const user = await User.findOne({ $or: [{ _id: userId }, { account_id: userId }] })
+                .populate('friendRequests', 'userName phoneNumber avatar')
+                .lean();
+            if (!user) {
+                return res.status(404).json({ message: 'User not found' });
+            }
+            return res.status(200).json(user.friendRequests || []);
+        } catch (error) {
+            console.error('Lỗi hiển thị yêu cầu kết bạn (Mobile):', error);
+            return res.status(500).json({ message: 'Internal server error' });
+        }
+    }
+
+    async showSentFriendRequestsMobile(req, res) {
+        try {
+            const { userId } = req.params;
+            // Tìm user theo account_id hoặc _id
+            const user = await User.findOne({ $or: [{ _id: userId }, { account_id: userId }] })
+                .populate('sentFriendRequests', 'userName phoneNumber avatar')
+                .lean();
+            if (!user) {
+                return res.status(404).json({ message: 'User not found' });
+            }
+            return res.status(200).json(user.sentFriendRequests || []);
+        } catch (error) {
+            console.error('Lỗi hiển thị yêu cầu đã gửi (Mobile):', error);
+            return res.status(500).json({ message: 'Internal server error' });
+        }
+    }
+
+    // Thêm hàm findAllExceptCurrentUser
+    async findAllExceptCurrentUser(req, res) {
+        try {
+            const currentUserId = req.query.currentUserId;
+            if (!currentUserId) {
+                return res.status(400).json({ message: 'Thiếu currentUserId trong query' });
+            }
+
+            const currentUser = await User.findById(currentUserId);
+            if (!currentUser) {
+                return res.status(404).json({ message: 'User not found' });
+            }
+
+            // Lấy danh sách người dùng không phải là bạn bè
+            const users = await User.find({
+                _id: { $ne: currentUserId },
+                friend: { $not: { $elemMatch: { friend_id: currentUserId } } },
+            })
+                .select('userName phoneNumber avatar friend friendRequests sentFriendRequests')
+                .lean();
+
+            if (!users || users.length === 0) {
+                return res.status(200).json([]);
+            }
+
+            return res.status(200).json(users);
+        } catch (err) {
+            console.error('Lỗi tìm tất cả người dùng:', err);
+            return res.status(500).json({ message: 'Internal server error', error: err.message });
+        }
+    }
+
 }
 
 export default new UserController()

@@ -11,7 +11,7 @@ import { v4 as uuidv4 } from 'uuid'
 import uploadDefaultAvatar from '../../util/uploadDefaultAvatar.js'
 import { error } from 'console'
 // require('dotenv').config()
-import { io } from '../../socket.js'
+import { io } from '../../index.js'
 AWS.config.update({
     accessKeyId: process.env.Acces_Key,
     secretAccessKey: process.env.Secret_Acces_Key,
@@ -30,7 +30,7 @@ const storage = multer.memoryStorage({
 
 
 function checkFileType(file, callback) {
-    const filetypes = /jpeg|jpg|png|jfif|gif|csv|docx|xlsx|txt|pdf/
+    const filetypes = /jpeg|jpg|png|jfif|gif|csv|docx|xlsx|txt|pdf|3gp/
     const extname = filetypes.test(
         path.extname(file.originalname).toLowerCase()
     )
@@ -38,13 +38,12 @@ function checkFileType(file, callback) {
     if (mimetype && extname) {
         return callback(null, true)
     } else {
-        callback('Error: Images Only 0!')
+        callback('Error: Invalid File Type 0!')
     }
 }
 function checkFileTypeMedia(file, callback) {
-    const extTypes = /jpeg|jpg|png|gif|doc|docx|pdf|txt|ppt|pptx|xlsx|mp4/
-    const mimeTypes =
-        /image\/jpeg|image\/jpg|image\/png|image\/gif|application\/msword|application\/vnd.openxmlformats-officedocument.wordprocessingml.document|application\/pdf|text\/plain|application\/vnd.ms-powerpoint|application\/vnd.openxmlformats-officedocument.presentationml.presentation|application\/vnd.openxmlformats-officedocument.spreadsheetml.sheet|video\/mp4/
+    const extTypes = /jpeg|jpg|png|gif|doc|docx|pdf|txt|ppt|pptx|xlsx|3gp|mp4/
+    const mimeTypes = /image\/jpeg|image\/jpg|image\/png|image\/gif|application\/msword|application\/vnd.openxmlformats-officedocument.wordprocessingml.document|application\/pdf|text\/plain|application\/vnd.ms-powerpoint|application\/vnd.openxmlformats-officedocument.presentationml.presentation|application\/vnd.openxmlformats-officedocument.spreadsheetml.sheet|video\/mp4|audio\/3gpp/
 
     const extname = extTypes.test(path.extname(file.originalname).toLowerCase())
     const mimetype = mimeTypes.test(file.mimetype)
@@ -57,7 +56,7 @@ function checkFileTypeMedia(file, callback) {
 }
 const upload = multer({
     storage: storage,
-    limits: { fileSize: 10000000 }, // giới hạn file 10MB
+    limits: { fileSize: 100 * 1024 * 1024 }, // giới hạn file 100MB
     fileFilter: function (req, file, cb) {
         checkFileType(file, cb)
         checkFileTypeMedia(file, cb)
@@ -342,177 +341,6 @@ class MessageController {
         }
     }
 
-
-    // viết 1 hàm từ message_id tạo 1 bản sao tin nhắn tới conversation_id --------- 1
-    // async forwardMessageWeb(req, res) {
-    //     const message_id = req.body.message_id
-    //     const conversation_id = req.body.conversation_id
-
-    //     const message = await Message.findOne({
-    //         _id: message_id,
-    //     })
-
-    //     if (!message) {
-    //         return res.status(404).json({
-    //             thongbao: 'Không tìm thấy tin nhắn!!!',
-    //         })
-    //     }
-    //     const senderId = message.senderId;
-    //     const newMessage = new Message({
-    //         conversation_id: conversation_id,
-    //         senderId:senderId , //
-    //         content: message.content,
-    //         contentType: message.contentType,
-    //     })
-    //     await newMessage.save()
-    //     return res.status(200).json({
-    //         thongbao: 'Chuyển tiếp tin nhắn thành công!!!',
-    //         message: newMessage,
-    //     })
-    // }
-
-
-
-    // viết 1 hàm từ message_id tạo 1 bản sao tin nhắn tới conversation_id --------- 2
-    // async forwardMessageWeb(req, res) {
-    //     try {
-    //         const { message_id, conversation_id } = req.body;
-    
-    //         if (!mongoose.Types.ObjectId.isValid(message_id) || !mongoose.Types.ObjectId.isValid(conversation_id)) {
-    //             return res.status(400).json({
-    //                 thongbao: 'ID không hợp lệ!',
-    //             });
-    //         }
-    
-    //         const originalMessage = await Message.findById(message_id);
-    //         if (!originalMessage) {
-    //             return res.status(404).json({
-    //                 thongbao: 'Không tìm thấy tin nhắn gốc!',
-    //             });
-    //         }
-    
-    //         const senderId = req.user?.id || originalMessage.senderId;
-    
-    //         const forwardedMessage = new Message({
-    //             conversation_id,
-    //             senderId,
-    //             text: originalMessage.text, // <- thêm trường này thay vì 'content'
-    //             type: originalMessage.type,
-    //             file: originalMessage.file || null,
-    //             isForwarded: true,
-    //             originalMessage: originalMessage._id,
-    //         });
-    
-    //         await forwardedMessage.save();
-    
-    //         if (io) {
-    //             io.to(conversation_id).emit('newMessage', forwardedMessage);
-    //         }
-    
-    //         return res.status(200).json({
-    //             thongbao: 'Chuyển tiếp tin nhắn thành công!',
-    //             message: forwardedMessage,
-    //         });
-    
-    //     } catch (error) {
-    //         console.error('Lỗi chuyển tiếp tin nhắn:', error);
-    //         return res.status(500).json({
-    //             thongbao: 'Lỗi server khi chuyển tiếp tin nhắn!',
-    //             error: error.message,
-    //         });
-    //     }
-    // }
-    
-    
-    // viết 1 hàm từ message_id tạo 1 bản sao tin nhắn tới group_id --------- 3
-    // async forwardMessageToGroupWeb(req, res) {
-    //     try {
-    //         const { message_id, group_id } = req.body;
-    //         console.log('[FORWARD TO GROUP]', { message_id, group_id });
-    
-    //         const originalMessage = await Message.findById(message_id);
-    //         if (!originalMessage) {
-    //             return res.status(404).json({ error: 'Không tìm thấy tin nhắn gốc.' });
-    //         }
-    
-    //         const group = await Conversation.findById(group_id);
-    //         if (!group || group.type !== 'group') {
-    //             return res.status(404).json({ error: 'Không tìm thấy nhóm.' });
-    //         }
-    
-    //         const forwardedMessage = new Message({
-    //             senderId: req.user?.id || originalMessage.senderId,
-    //             conversation_id: group_id,
-    //             text: originalMessage.text,
-    //             type: originalMessage.type,
-    //             file: originalMessage.file || null,
-    //             isForwarded: true,
-    //             originalMessage: message_id,
-    //         });
-    
-    //         await forwardedMessage.save();
-    
-    //         return res.status(200).json({ message: forwardedMessage });
-    //     } catch (error) {
-    //         console.error('Lỗi forward tới nhóm:', error);
-    //         return res.status(500).json({ error: 'Đã có lỗi xảy ra khi chuyển tiếp tới nhóm.' });
-    //     }
-    // }
-    
-
-    async forwardMessageWeb(req, res) {
-        try {
-            const { message_id, conversation_id, forwarded_by, forwarded_at, original_sender } = req.body;
-    
-            if (!mongoose.Types.ObjectId.isValid(message_id) || !mongoose.Types.ObjectId.isValid(conversation_id)) {
-                return res.status(400).json({ thongbao: 'ID không hợp lệ!' });
-            }
-    
-            const originalMessage = await Message.findById(message_id);
-            if (!originalMessage) {
-                return res.status(404).json({ thongbao: 'Không tìm thấy tin nhắn gốc!' });
-            }
-    
-            const forwardedMessage = new Message({
-                conversation_id,
-                senderId: forwarded_by,
-                content: originalMessage.content,
-                contentType: originalMessage.contentType,
-                isForwarded: true,
-                originalMessage: message_id,
-                forwardedBy: forwarded_by,
-                forwardedAt: forwarded_at || new Date(),
-                originalSender: original_sender, // ⚠️ cần dòng này
-            });
-    
-            await forwardedMessage.save();
-    
-            await forwardedMessage.populate([
-                { path: 'forwardedBy', select: 'userName firstName lastName' },
-                { path: 'originalSender', select: 'userName firstName lastName' },
-            ]);
-    
-            console.log('✅ Message populated:', forwardedMessage);
-    
-            return res.status(200).json({
-                thongbao: 'Chuyển tiếp tin nhắn thành công!',
-                message: forwardedMessage,
-            });
-        } catch (error) {
-            console.error('Lỗi chuyển tiếp tin nhắn:', error);
-            return res.status(500).json({
-                thongbao: 'Lỗi server khi chuyển tiếp tin nhắn!',
-                error: error.message,
-            });
-        }
-    }
-    
-    
-    
-    
-
-    
-
     async getLastMessageWeb(req, res) {
         // console.log('heeqweqwe')
         const conversation_id = req.body.conversation_id
@@ -651,25 +479,31 @@ class MessageController {
     }
     // post thu hồi tin nhắn cả 2 bên recallMessageWeb http://localhost:3001/message/recallMessageWeb
     async recallMessageWeb(req, res) {
-        const message_id = req.body.message_id
+        const message_id = req.body.message_id;
 
-        const message = await Message.findOne({
-            _id: message_id,
-        })
-        // Kiểm tra xem message có tồn tại không
-        if (!message) {
-            return res.status(404).json({
-                thongbao: 'Không tìm thấy tin nhắn!!!',
-            })
+        try {
+            const message = await Message.findOne({ _id: message_id });
+            if (!message) {
+                return res.status(404).json({ thongbao: 'Không tìm thấy tin nhắn!!!' });
+            }
+            message.recalled = true;
+            await message.save();
+
+            // [Sửa lỗi]: Phát sự kiện socket để thông báo thu hồi tin nhắn realtime cho tất cả client trong cùng conversation_id
+            console.log(`Emit message-recalled: ${message_id} to room ${message.conversation_id}`);
+            io.to(message.conversation_id.toString()).emit('message-recalled', JSON.stringify({
+                message_id: message_id,
+                conversation_id: message.conversation_id.toString(),
+            }));
+
+            return res.status(200).json({
+                thongbao: 'Thu hồi tin nhắn thành công!!!',
+                message: message,
+            });
+        } catch (err) {
+            console.error('Lỗi thu hồi tin nhắn:', err);
+            return res.status(500).json({ message: 'Lỗi server', error: err.message });
         }
-        // Đánh dấu tin nhắn đã được thu hồi
-        message.recalled = true
-        message.save()
-
-        return res.status(200).json({
-            thongbao: 'Thu hồi tin nhắn thành công!!!',
-            message: message,
-        })
     }
     // post tìm tất cả tin nhắn đã bị thu hồi findAllRecallMessagesWeb http://localhost:3001/message/findAllRecallMessagesWeb
     async findAllRecallMessagesWeb(req, res) {
@@ -742,8 +576,32 @@ class MessageController {
         }
     }
 
-    
-    
+    // viết 1 hàm từ message_id tạo 1 bản sao tin nhắn tới conversation_id
+    async forwardMessageWeb(req, res) {
+        const message_id = req.body.message_id
+        const conversation_id = req.body.conversation_id
+
+        const message = await Message.findOne({
+            _id: message_id,
+        })
+
+        if (!message) {
+            return res.status(404).json({
+                thongbao: 'Không tìm thấy tin nhắn!!!',
+            })
+        }
+        const newMessage = new Message({
+            conversation_id: conversation_id,
+            senderId: message.senderId,
+            content: message.content,
+            contentType: message.contentType,
+        })
+        await newMessage.save()
+        return res.status(200).json({
+            thongbao: 'Chuyển tiếp tin nhắn thành công!!!',
+            message: newMessage,
+        })
+    }
     async uploadMediaWeb(req, res) {
         console.log('Đã vào hàm uploadMediaWeb ở server!!!')
         const conversation_id = req.body.conversation_id
@@ -994,6 +852,8 @@ class MessageController {
                 message.deletedBy.push(user_id)
                 await message.save()
             }
+            io.to(message.conversation_id).emit('message-deleted', message_id);
+            console.log(`Emit message-deleted: ${message_id} to room ${message.conversation_id}`);
 
             return res.status(200).json({
                 thongbao: 'Xoá chỉ ở phía tôi thành công!!!',
@@ -1030,8 +890,120 @@ class MessageController {
         }
     }
 
-    // -----------
+    // THÊM MOBILE
+    async getLastMessageMobile(req, res) {
+        const conversation_id = req.body.conversation_id;
+        const user_id = req.body.user_id;
 
+        try {
+            const conversation = await Conversation.findById(conversation_id);
+            if (!conversation) {
+                return res.status(404).json({ message: 'Conversation not found' });
+            }
+
+            const message = await Message.findOne({ conversation_id })
+                .sort({ createdAt: -1 })
+                .populate('senderId', 'userName avatar');
+
+            // Nếu không có tin nhắn, trả về giá trị mặc định
+            if (!message) {
+                return res.status(200).json({
+                    message: 'Chưa có tin nhắn',
+                    message: null,
+                });
+            }
+
+            return res.status(200).json({
+                message: 'Tìm thấy tin nhắn cuối cùng!!!',
+                message: message,
+            });
+        } catch (error) {
+            console.error(error);
+            return res.status(500).json({ message: 'Internal server error', error: error.message });
+        }
+    }
+
+    async createMessagesMobile(req, res) {
+        const conversation_id = req.body.conversation_id;
+        const senderId = req.body.user_id;
+        const contentType = req.body.contentType;
+        const file = req.file;
+        const replyTo = req.body.replyTo;
+
+        console.log('Mobile input:', { conversation_id, senderId, contentType, file, replyTo });
+
+        if (!conversation_id || !senderId || !contentType) {
+            return res.status(400).json({ message: 'Thiếu tham số bắt buộc' });
+        }
+
+        try {
+            if (contentType === 'text') {
+                const content = req.body.content;
+                if (!content) {
+                    return res.status(400).json({ message: 'Nội dung văn bản bị thiếu' });
+                }
+
+                let message = replyTo && mongoose.Types.ObjectId.isValid(replyTo)
+                    ? new Message({ conversation_id, senderId, content, contentType, replyTo })
+                    : new Message({ conversation_id, senderId, content, contentType });
+
+                await message.save();
+                return res.status(200).json({
+                    thongbao: 'Tạo tin nhắn văn bản thành công',
+                    messages: message,
+                });
+            }
+
+            if (['image', 'video', 'file'].includes(contentType) && file) {
+                const fileType = file.originalname.split('.').pop();
+                const cleanFileName = file.originalname.split(/[-_]/).pop();
+                const filePath = `zola_${contentType}_${cleanFileName}`;
+                const params = {
+                    Bucket: bucketname,
+                    Key: filePath,
+                    Body: file.buffer,
+                    ContentType: file.mimetype,
+                };
+
+                console.log('Chuẩn bị upload S3:', params);
+                const uploadResult = await S3.upload(params).promise();
+                console.log('Kết quả upload S3:', uploadResult);
+
+                const fileURL = uploadResult.Location;
+
+                let message = replyTo && mongoose.Types.ObjectId.isValid(replyTo)
+                    ? new Message({ conversation_id, senderId, content: fileURL, contentType, replyTo })
+                    : new Message({ conversation_id, senderId, content: fileURL, contentType });
+
+                await message.save();
+                return res.status(200).json({
+                    thongbao: 'Tạo tin nhắn media thành công',
+                    messages: message,
+                });
+            }
+
+            return res.status(400).json({ message: 'Loại nội dung không hỗ trợ hoặc thiếu file' });
+        } catch (err) {
+            console.error('Lỗi tạo tin nhắn mobile:', err);
+            return res.status(500).json({ message: 'Lỗi server', error: err.message });
+        }
+    }
+
+    async deleteMyMessageWeb(req, res) {
+        const { message_id, user_id } = req.body;
+        try {
+            const message = await Message.findById(message_id);
+            if (!message) return res.status(404).json({ message: 'Không tìm thấy tin nhắn' });
+            message.deletedBy.push(user_id);
+            await message.save();
+            console.log(`Emit message-deleted: ${message_id} to room ${message.conversation_id}`);
+            io.to(message.conversation_id.toString()).emit('message-deleted', message_id);
+            return res.status(200).json({ message: 'Xóa tin nhắn thành công' });
+        } catch (err) {
+            console.error('Lỗi xóa tin nhắn:', err);
+            return res.status(500).json({ message: 'Lỗi server', error: err.message });
+        }
+    }
     // function
 }
 async function getUserName(userId) {
@@ -1045,5 +1017,4 @@ async function getUserName(userId) {
         return user.userName
     }
 }
-
 export default new MessageController()

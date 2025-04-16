@@ -296,43 +296,43 @@ class AccountController {
     }
 
     /// mobile
-    async login(req, res) {
-        const { phoneNumber, password } = req.body
-        //check if phoneNumber and password are provided
-        if (!phoneNumber || !password) {
-            res.status(404).json('Please provide phone number and password')
-        }
-        //check account in db
-        const account = await Account.findOne({ phoneNumber: phoneNumber })
-            .then((account) => {
-                if (!account) {
-                    res.status(404).json('Account not found')
-                }
-                if (account.password !== password) {
-                    res.status(404).json('Password is incorrect')
-                }
-                const token = createToken(account._id)
-                res.status(200).json({ token })
-            })
-            .catch((err) => {
-                console.log('Error at login', err)
-                res.status(500).json('Internal server error!!!')
-            })
-    }
-    // post /register
-    async register(req, res) {
-        const { phoneNumber, password } = req.body
+    // async login(req, res) {
+    //     const { phoneNumber, password } = req.body
+    //     //check if phoneNumber and password are provided
+    //     if (!phoneNumber || !password) {
+    //         res.status(404).json('Please provide phone number and password')
+    //     }
+    //     //check account in db
+    //     const account = await Account.findOne({ phoneNumber: phoneNumber })
+    //         .then((account) => {
+    //             if (!account) {
+    //                 res.status(404).json('Account not found')
+    //             }
+    //             if (account.password !== password) {
+    //                 res.status(404).json('Password is incorrect')
+    //             }
+    //             const token = createToken(account._id)
+    //             res.status(200).json({ token })
+    //         })
+    //         .catch((err) => {
+    //             console.log('Error at login', err)
+    //             res.status(500).json('Internal server error!!!')
+    //         })
+    // }
+    // // post /register
+    // async register(req, res) {
+    //     const { phoneNumber, password } = req.body
 
-        const account = new Account({ phoneNumber, password })
-        await account
-            .save()
-            .then(() => {
-                res.json('Register successfully!!!')
-            })
-            .catch((err) => {
-                res.json('Register failure!!!')
-            })
-    }
+    //     const account = new Account({ phoneNumber, password })
+    //     await account
+    //         .save()
+    //         .then(() => {
+    //             res.json('Register successfully!!!')
+    //         })
+    //         .catch((err) => {
+    //             res.json('Register failure!!!')
+    //         })
+    // }
 
     async findByID(req, res) {
         const id = req.query.account_id
@@ -373,6 +373,64 @@ class AccountController {
                 })
         } else {
             res.status(HTTP_STATUS_BAD_REQUEST).json('Account not found!!!')
+        }
+    }
+
+    //MOBILE Update
+    async registerMobile(req, res) {
+        const { phoneNumber, password } = req.body;
+
+        try {
+            // Kiểm tra số điện thoại đã tồn tại
+            const existingAccount = await Account.findOne({ phoneNumber });
+            if (existingAccount) {
+                return res.status(400).json({ message: 'Số điện thoại đã được đăng ký' });
+            }
+
+            const account = new Account({ phoneNumber, password });
+            await account.save();
+            res.status(200).json({
+                message: 'Đăng ký tài khoản thành công!!!',
+                account_id: account._id,
+            });
+        } catch (err) {
+            console.error('Lỗi đăng ký tài khoản mobile:', err);
+            res.status(500).json({ message: 'Đăng ký tài khoản thất bại', error: err.message });
+        }
+    }
+
+    async loginMobile(req, res) {
+        const { phoneNumber, password } = req.body;
+
+        // Kiểm tra đầu vào
+        if (!phoneNumber || !password) {
+            return res.status(400).json({ message: 'Vui lòng cung cấp số điện thoại và mật khẩu' });
+        }
+
+        try {
+            // Tìm tài khoản
+            const account = await Account.findOne({ phoneNumber });
+            if (!account) {
+                return res.status(404).json({ message: 'Tài khoản không tồn tại' });
+            }
+
+            // Kiểm tra mật khẩu
+            if (account.password !== password) {
+                return res.status(401).json({ message: 'Mật khẩu không đúng' });
+            }
+
+            // Tạo token
+            const token = createToken(account._id);
+
+            // Trả về phản hồi
+            return res.status(200).json({
+                message: 'Đăng nhập thành công',
+                token,
+                account_id: account._id.toString(), // Đảm bảo trả account_id
+            });
+        } catch (err) {
+            console.error('Lỗi đăng nhập mobile:', err);
+            return res.status(500).json({ message: 'Lỗi server nội bộ' });
         }
     }
 }

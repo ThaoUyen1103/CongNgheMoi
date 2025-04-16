@@ -89,7 +89,7 @@ const Main = ({
                 { user_id }
             )
             console.log("Group list response:", response.data)
-    
+
             if (
                 response.data &&
                 Array.isArray(response.data.conversationGroup) &&
@@ -103,19 +103,19 @@ const Main = ({
             console.error('Lỗi khi lấy danh sách nhóm:', error)
         }
     }
-    
-    
+
+
     useEffect(() => {
         if (isModalOpenFriend) {
             console.log("Modal open, fetching groups...")
             fetchGroups()
         }
     }, [isModalOpenFriend])
-    
+
     const [pendingForwards, setPendingForwards] = useState([]);
-    
-    
-    
+
+
+
     useEffect(() => {
         if (isLoading) {
             return
@@ -330,7 +330,7 @@ const Main = ({
                 console.error(error)
             })
     }, [currentFriend_Id, user_id])
-    
+
     useEffect(() => {
         if (currentConversationGroup != null) {
             setCurrentSource({
@@ -429,46 +429,49 @@ const Main = ({
         // newSocket.on('connect', () => {
         //     console.log('Connected to server')
         // })
-        newSocket.emit('conversation_id', conversation_id)
+        newSocket.on('connect', () => {
+            console.log('Web connected socket id:', newSocket.id)
+            newSocket.emit('conversation_id', conversation_id)  // để ở đây
+        })
 
         newSocket.on('receive-message', (data) => {
-            const messageArray = JSON.parse(data)
-            // alert(JSON.stringify(messageArray))
-            // Kiểm tra xem messageArray có phải là mảng hay không
+            const messageArray = typeof data === 'string' ? JSON.parse(data) : data;
+
             if (Array.isArray(messageArray)) {
-                setMessages((prevMessages) => [
-                    ...prevMessages,
-                    ...messageArray,
-                ])
+                setMessages((prevMessages) => {
+                    const newMessages = messageArray.filter(
+                        (msg) => !prevMessages.some((prev) => prev._id === msg._id)
+                    );
+                    return [...prevMessages, ...newMessages];
+                });
             } else {
-                // Nếu không, chuyển nó thành một mảng và thêm vào messages
-                setMessages((prevMessages) => [...prevMessages, messageArray])
+                setMessages((prevMessages) => {
+                    if (prevMessages.some((msg) => msg._id === messageArray._id)) {
+                        return prevMessages; // đã có rồi
+                    }
+                    return [...prevMessages, messageArray];
+                });
             }
-        })
+        });
+
 
         // thu hồi socket được nhận là
         newSocket.on('message-recalled', (data) => {
-            // kiểm tra xem có lắng nghe được message-recalled từ server không
-            const messageArray = JSON.parse(data)
+            const recalledMessage = typeof data === 'string' ? JSON.parse(data) : data;
+            const recalledMessageId = recalledMessage._id;
 
-            setRecalledMessages((prevMessages) => [
-                ...prevMessages,
-                messageArray._id,
-            ])
+            setMessages((prevMessages) =>
+                prevMessages.map((msg) =>
+                    msg._id === recalledMessageId
+                        ? { ...msg, recalled: true, content: 'Tin nhắn đã bị thu hồi' }
+                        : msg
+                )
+            );
+        });
 
-            // Update the messages state to reflect the recalled message
-            setMessages((prevMessages) => {
-                return prevMessages.map((message) => {
-                    if (message._id === messageArray._id) {
-                        // If the message is the one that was recalled, mark it as recalled
-                        return { ...message, recalled: true }
-                    } else {
-                        // Otherwise, return the message as is
-                        return message
-                    }
-                })
-            })
-        })
+
+
+
         newSocket.on('message-deleted', (message_id) => {
             setDeleteMyMessage([...deleteMyMessage, message_id])
         })
@@ -531,12 +534,12 @@ const Main = ({
             file,
             previewUrl: URL.createObjectURL(file),
         }));
-    
+
         setImages((prevImages) => [...prevImages, ...newImages]);
     };
 
     const handleSendMessage = async () => {
-        
+
 
         // Th1 chỉ gửi tin nhắn
         if (images.length <= 0) {
@@ -796,14 +799,14 @@ const Main = ({
     }
     const handleFileChange = async (event) => {
         const files = event.target.files
-    
+
         if (files.length > 0) {
             const formData = new FormData()
-    
+
             for (let i = 0; i < files.length; i++) {
                 const file = files[i]
                 formData.append('media', file)
-    
+
                 // Lần đầu tiên xác định loại contentType thôi (giả định tất cả cùng loại)
                 if (i === 0) {
                     if (isVideoUrl(file.name)) {
@@ -813,11 +816,11 @@ const Main = ({
                     }
                 }
             }
-    
+
             formData.append('conversation_id', conversation_id)
             formData.append('content', sendMessage)
             formData.append('user_id', user_id)
-    
+
             try {
                 const response = await axios.post(
                     'http://localhost:3001/message/uploadMediaWeb',
@@ -828,10 +831,10 @@ const Main = ({
                         },
                     }
                 )
-    
+
                 if (response.data.thongbao === 'Tải media lên thành công!!!') {
                     toast.success('Tải media lên thành công!!!')
-    
+
                     let avatar
                     let name
                     const cachedAvatar = localStorage.getItem(`avatar_${user_id}`)
@@ -851,7 +854,7 @@ const Main = ({
                         name = res.data.name
                         localStorage.setItem(`name_${user_id}`, name)
                     }
-    
+
                     const mediaMessageWithAvatar =
                         response.data.MediaMessage.map((message) => {
                             return {
@@ -860,9 +863,9 @@ const Main = ({
                                 name: name,
                             }
                         })
-    
+
                     socket.emit('send-message', mediaMessageWithAvatar)
-    
+
                     setMessages((prevMessages) => [
                         ...prevMessages,
                         ...mediaMessageWithAvatar,
@@ -876,7 +879,7 @@ const Main = ({
             }
         }
     }
-    
+
 
     // const handleFileChange = (event) => {
     //     const selectedFile = event.target.files[0]
@@ -1042,7 +1045,7 @@ const Main = ({
                 }
             })
     }
-    
+
 
     // const handleForwardMessage = (receiver_id, message_id, type) => {
     //     if (type === 'user') {
@@ -1078,53 +1081,53 @@ const Main = ({
     //         })
     //     }
     // }
-    
-
-// Gửi tin nhắn với chờ đợi
-const handleForwardMessage = (receiver_id, message_id, type = 'friend') => {
-    const id = `${receiver_id}-${message_id}-${Date.now()}`;
-
-    // Tạo timeout gửi sau 5s
-    const timeout = setTimeout(() => {
-        const url =
-            type === 'group'
-                ? 'http://localhost:3001/message/forwardMessageToGroupWeb'
-                : 'http://localhost:3001/message/forwardMessageWeb';
-
-        const body =
-            type === 'group'
-                ? { message_id, group_id: receiver_id }
-                : { message_id, conversation_id: receiver_id };
-
-        axios.post(url, body).then((res) => {
-            toast(`✅ Đã gửi tới ${type === 'group' ? 'nhóm' : 'người dùng'} thành công!`);
-            if (res.data?.message) {
-                socket.emit('send-message', res.data.message);
-            }
-        });
-
-        setPendingForwards((prev) => prev.filter((item) => item.id !== id));
-    }, 5000);
-
-    // Thêm vào danh sách chờ
-    setPendingForwards((prev) => [
-        ...prev,
-        { id, receiver_id, message_id, timeout, type },
-    ]);
-
-    toast('⏰ Sẽ gửi trong 5 giây... Bạn có thể hoàn tác!');
-};
-const undoForward = (id) => {
-    const pending = pendingForwards.find((item) => item.id === id);
-    if (pending) {
-        clearTimeout(pending.timeout); // huỷ gửi
-        setPendingForwards((prev) => prev.filter((item) => item.id !== id));
-        toast('↪️ Đã hoàn tác gửi tin nhắn.');
-    }
-};
 
 
-    
+    // Gửi tin nhắn với chờ đợi
+    const handleForwardMessage = (receiver_id, message_id, type = 'friend') => {
+        const id = `${receiver_id}-${message_id}-${Date.now()}`;
+
+        // Tạo timeout gửi sau 5s
+        const timeout = setTimeout(() => {
+            const url =
+                type === 'group'
+                    ? 'http://localhost:3001/message/forwardMessageToGroupWeb'
+                    : 'http://localhost:3001/message/forwardMessageWeb';
+
+            const body =
+                type === 'group'
+                    ? { message_id, group_id: receiver_id }
+                    : { message_id, conversation_id: receiver_id };
+
+            axios.post(url, body).then((res) => {
+                toast(`✅ Đã gửi tới ${type === 'group' ? 'nhóm' : 'người dùng'} thành công!`);
+                if (res.data?.message) {
+                    socket.emit('send-message', res.data.message);
+                }
+            });
+
+            setPendingForwards((prev) => prev.filter((item) => item.id !== id));
+        }, 5000);
+
+        // Thêm vào danh sách chờ
+        setPendingForwards((prev) => [
+            ...prev,
+            { id, receiver_id, message_id, timeout, type },
+        ]);
+
+        toast('⏰ Sẽ gửi trong 5 giây... Bạn có thể hoàn tác!');
+    };
+    const undoForward = (id) => {
+        const pending = pendingForwards.find((item) => item.id === id);
+        if (pending) {
+            clearTimeout(pending.timeout); // huỷ gửi
+            setPendingForwards((prev) => prev.filter((item) => item.id !== id));
+            toast('↪️ Đã hoàn tác gửi tin nhắn.');
+        }
+    };
+
+
+
 
     useEffect(() => {
         setPrevMessageCount(messages.length)
@@ -1262,7 +1265,7 @@ const undoForward = (id) => {
                                     //         : 'flex-start',
                                     justifyContent:
                                         (typeof message.senderId === 'object' &&
-                                        message.senderId !== null
+                                            message.senderId !== null
                                             ? message.senderId._id
                                             : message.senderId) === user_id
                                             ? 'flex-end'
@@ -1299,7 +1302,7 @@ const undoForward = (id) => {
                                 {message.contentType !== 'notify' &&
                                     /* message.senderId !== user_id */
                                     (typeof message.senderId === 'object' &&
-                                    message.senderId !== null
+                                        message.senderId !== null
                                         ? message.senderId._id
                                         : message.senderId) !== user_id && (
                                         <img
@@ -1307,7 +1310,7 @@ const undoForward = (id) => {
                                             src={
                                                 typeof message.senderId ===
                                                     'object' &&
-                                                message.senderId !== null
+                                                    message.senderId !== null
                                                     ? message.senderId.avatar
                                                     : message.avatar
                                             }
@@ -1325,7 +1328,7 @@ const undoForward = (id) => {
                                     /*  message.senderId === user_id && (  */
 
                                     (typeof message.senderId === 'object' &&
-                                    message.senderId !== null
+                                        message.senderId !== null
                                         ? message.senderId._id
                                         : message.senderId) === user_id && (
                                         <button
@@ -1379,7 +1382,7 @@ const undoForward = (id) => {
                                                 {message.contentType !==
                                                     'notify' &&
                                                     message.senderId !==
-                                                        user_id && (
+                                                    user_id && (
                                                         <p
                                                             style={{
                                                                 maxWidth:
@@ -1425,7 +1428,7 @@ const undoForward = (id) => {
                                                             <b>| Trả lời :</b>
                                                             {
                                                                 replyContent[
-                                                                    message._id
+                                                                message._id
                                                                 ]
                                                             }
                                                         </div>
@@ -1437,7 +1440,7 @@ const undoForward = (id) => {
 
                                             {message.contentType !== 'notify' &&
                                                 message.contentType ===
-                                                    'file' &&
+                                                'file' &&
                                                 message.deletedBy &&
                                                 !message.deletedBy.includes(
                                                     user_id,
@@ -1453,8 +1456,8 @@ const undoForward = (id) => {
                                                         Tin nhắn đã bị thu hồi
                                                     </p>
                                                 ) : message.content
-                                                      .split('.')
-                                                      .pop() === 'mp4' ? (
+                                                    .split('.')
+                                                    .pop() === 'mp4' ? (
                                                     <video
                                                         width="320"
                                                         height="240"
@@ -1509,9 +1512,9 @@ const undoForward = (id) => {
                                                                 .split('.')
                                                                 .pop()}
                                                             {...defaultStyles[
-                                                                message.content
-                                                                    .split('.')
-                                                                    .pop()
+                                                            message.content
+                                                                .split('.')
+                                                                .pop()
                                                             ]}
                                                         />
                                                         <p
@@ -1530,7 +1533,7 @@ const undoForward = (id) => {
 
                                             {message.contentType !== 'notify' &&
                                                 message.contentType ===
-                                                    'video' &&
+                                                'video' &&
                                                 message.deletedBy &&
                                                 !message.deletedBy.includes(
                                                     user_id,
@@ -1546,8 +1549,8 @@ const undoForward = (id) => {
                                                         Tin nhắn đã bị thu hồi
                                                     </p>
                                                 ) : message.content
-                                                      .split('.')
-                                                      .pop() === 'mp4' ? (
+                                                    .split('.')
+                                                    .pop() === 'mp4' ? (
                                                     <video
                                                         width="320"
                                                         height="240"
@@ -1602,9 +1605,9 @@ const undoForward = (id) => {
                                                                 .split('.')
                                                                 .pop()}
                                                             {...defaultStyles[
-                                                                message.content
-                                                                    .split('.')
-                                                                    .pop()
+                                                            message.content
+                                                                .split('.')
+                                                                .pop()
                                                             ]}
                                                         />
                                                         <p
@@ -1621,7 +1624,7 @@ const undoForward = (id) => {
 
                                             {message.contentType !== 'notify' &&
                                                 message.contentType ===
-                                                    'image' &&
+                                                'image' &&
                                                 message.deletedBy &&
                                                 !message.deletedBy.includes(
                                                     user_id,
@@ -1660,7 +1663,7 @@ const undoForward = (id) => {
                                                 ))}
                                             {message.contentType !== 'notify' &&
                                                 message.contentType ===
-                                                    'text' &&
+                                                'text' &&
                                                 message.deletedBy &&
                                                 !message.deletedBy.includes(
                                                     user_id,
@@ -1687,7 +1690,7 @@ const undoForward = (id) => {
                                                             display: 'flex',
                                                             justifyContent:
                                                                 message.senderId ===
-                                                                user_id
+                                                                    user_id
                                                                     ? 'flex-start'
                                                                     : 'flex-start',
                                                             alignItems:
@@ -1713,21 +1716,21 @@ const undoForward = (id) => {
 
                                             {message.contentType !==
                                                 'notify' && (
-                                                <p
-                                                    style={{
-                                                        color: '#a5acb7',
-                                                        fontSize: 13,
-                                                        display: 'flex',
-                                                        justifyContent:
-                                                            'flex-start',
-                                                        alignItems: 'center',
-                                                    }}
-                                                >
-                                                    {moment(message.createdAt)
-                                                        .utcOffset('+07:00')
-                                                        .format('HH:mm')}
-                                                </p>
-                                            )}
+                                                    <p
+                                                        style={{
+                                                            color: '#a5acb7',
+                                                            fontSize: 13,
+                                                            display: 'flex',
+                                                            justifyContent:
+                                                                'flex-start',
+                                                            alignItems: 'center',
+                                                        }}
+                                                    >
+                                                        {moment(message.createdAt)
+                                                            .utcOffset('+07:00')
+                                                            .format('HH:mm')}
+                                                    </p>
+                                                )}
                                         </p>
                                     </div>
                                 )}
@@ -1893,30 +1896,30 @@ const undoForward = (id) => {
                     }}
                 >
                     <h2
-                    style={{
-                        textAlign: 'center',
-                        marginBottom: '15px',
-                        color: '#2596be',
-                        fontSize: '22px', // hoặc to hơn như '28px'
-                        fontWeight: 'bold',
-                        
-                    }}
-                >
-                    Chia sẻ 
+                        style={{
+                            textAlign: 'center',
+                            marginBottom: '15px',
+                            color: '#2596be',
+                            fontSize: '22px', // hoặc to hơn như '28px'
+                            fontWeight: 'bold',
+
+                        }}
+                    >
+                        Chia sẻ
                     </h2>
                     <h6 style={{ color: '#444', marginBottom: '10px' }}>Bạn bè</h6>
-                        {friend_list.length > 0 ? (
-                            friend_list.map((friend) => (
-                                <div
-                                    key={friend.id}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'space-between',
-                                        marginBottom: '10px',
-                                    }}
-                                >
-                                    <div style={{display: 'flex',alignItems: 'center',}} >
+                    {friend_list.length > 0 ? (
+                        friend_list.map((friend) => (
+                            <div
+                                key={friend.id}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    marginBottom: '10px',
+                                }}
+                            >
+                                <div style={{ display: 'flex', alignItems: 'center', }} >
                                     <img
                                         src={friend.avatar}
                                         alt="avatar"
@@ -1930,49 +1933,49 @@ const undoForward = (id) => {
                                     />
                                     <b
                                         style={{
-                                            
+
                                             color: 'blue',
                                             fontSize: '16px',
                                         }}
                                     >
                                         <p>{friend.friendName}</p>
                                     </b>
-                                    </div>
-                                    
-                                    <button
-                                    style={{backgroundColor: '#43a3f2', color: 'white', border: 'none', borderRadius: '5px', padding: '5px 10px'}}
-                                        onClick={() =>
-                                            handleForwardMessage(
-                                                friend.friend_id,
-                                                selectedMessage._id,
-                                                'user'
-                                            )
-                                        }
-                                    >
-                                        <b>Gửi</b>
-                                    </button>
                                 </div>
-                            ))
-                        ) : (
-                            <p style={{ fontStyle: 'italic', color: '#888' }}>
-                                Không có bạn bè nào.
-                            </p>
-                        )}
 
-                        {/* Danh sách nhóm */}
-                        <h6 style={{ color: '#444', margin: '20px 0 10px' }}>Nhóm</h6>
-                        {groupList.length > 0 ? (
-                            groupList.map((group) => (
-                                <div
-                                    key={group._id}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'space-between',
-                                        marginBottom: '10px',
-                                    }}
+                                <button
+                                    style={{ backgroundColor: '#43a3f2', color: 'white', border: 'none', borderRadius: '5px', padding: '5px 10px' }}
+                                    onClick={() =>
+                                        handleForwardMessage(
+                                            friend.friend_id,
+                                            selectedMessage._id,
+                                            'user'
+                                        )
+                                    }
                                 >
-                                    <div style={{display: 'flex',alignItems: 'center',}} >
+                                    <b>Gửi</b>
+                                </button>
+                            </div>
+                        ))
+                    ) : (
+                        <p style={{ fontStyle: 'italic', color: '#888' }}>
+                            Không có bạn bè nào.
+                        </p>
+                    )}
+
+                    {/* Danh sách nhóm */}
+                    <h6 style={{ color: '#444', margin: '20px 0 10px' }}>Nhóm</h6>
+                    {groupList.length > 0 ? (
+                        groupList.map((group) => (
+                            <div
+                                key={group._id}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    marginBottom: '10px',
+                                }}
+                            >
+                                <div style={{ display: 'flex', alignItems: 'center', }} >
                                     <img
                                         src={group.avatar}
                                         alt="group-avatar"
@@ -1993,63 +1996,63 @@ const undoForward = (id) => {
                                     >
                                         <p>{group.conversationName}</p>
                                     </b>
-                                    </div>
-                                    <button
-                                    style={{backgroundColor: '#43a3f2', color: 'white', border: 'none', borderRadius: '5px', padding: '5px 10px'}}
-
-                                        onClick={() =>
-                                            handleForwardMessage(
-                                                group._id,
-                                                selectedMessage._id,
-                                                'group'
-                                            )
-                                        }
-                                    >
-                                        <b>Gửi</b>
-                                    </button>
                                 </div>
-                            ))
-                        ) : (
-                            <p style={{ fontStyle: 'italic', color: '#888' }}>
-                                Không có nhóm nào.
-                            </p>
-                        )}
-                        {pendingForwards.length > 0 && (
-                            <div style={{ marginTop: '20px' }}>
-                                {pendingForwards.map((item) => (
-                                    <div
-                                        key={item.id}
+                                <button
+                                    style={{ backgroundColor: '#43a3f2', color: 'white', border: 'none', borderRadius: '5px', padding: '5px 10px' }}
+
+                                    onClick={() =>
+                                        handleForwardMessage(
+                                            group._id,
+                                            selectedMessage._id,
+                                            'group'
+                                        )
+                                    }
+                                >
+                                    <b>Gửi</b>
+                                </button>
+                            </div>
+                        ))
+                    ) : (
+                        <p style={{ fontStyle: 'italic', color: '#888' }}>
+                            Không có nhóm nào.
+                        </p>
+                    )}
+                    {pendingForwards.length > 0 && (
+                        <div style={{ marginTop: '20px' }}>
+                            {pendingForwards.map((item) => (
+                                <div
+                                    key={item.id}
+                                    style={{
+                                        backgroundColor: '#fff4e5',
+                                        border: '1px solid #ffa500',
+                                        padding: '10px',
+                                        marginBottom: '10px',
+                                        borderRadius: '5px',
+                                    }}
+                                >
+                                    <span>
+                                        Đang chờ gửi đến <b>{item.type === 'group' ? 'nhóm' : 'người dùng'}</b> trong 5 giây...
+                                    </span>
+                                    <button
+                                        onClick={() => undoForward(item.id)}
                                         style={{
-                                            backgroundColor: '#fff4e5',
-                                            border: '1px solid #ffa500',
-                                            padding: '10px',
-                                            marginBottom: '10px',
-                                            borderRadius: '5px',
+                                            marginLeft: '10px',
+                                            color: 'white',
+                                            backgroundColor: 'red',
+                                            border: 'none',
+                                            padding: '5px 10px',
+                                            cursor: 'pointer',
+                                            borderRadius: '3px',
                                         }}
                                     >
-                                        <span>
-                                            Đang chờ gửi đến <b>{item.type === 'group' ? 'nhóm' : 'người dùng'}</b> trong 5 giây...
-                                        </span>
-                                        <button
-                                            onClick={() => undoForward(item.id)}
-                                            style={{
-                                                marginLeft: '10px',
-                                                color: 'white',
-                                                backgroundColor: 'red',
-                                                border: 'none',
-                                                padding: '5px 10px',
-                                                cursor: 'pointer',
-                                                borderRadius: '3px',
-                                            }}
-                                        >
-                                            Hoàn tác
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}  
-                        <hr style={{ margin: '15px 0', borderTop: '1px solid #ccc' }} />
-                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '15px' }}>
+                                        Hoàn tác
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    <hr style={{ margin: '15px 0', borderTop: '1px solid #ccc' }} />
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '15px' }}>
                         <button
                             style={{
                                 padding: '5px 10px',
@@ -2111,7 +2114,7 @@ const undoForward = (id) => {
                                 <SlPicture
                                     size="1.4rem"
                                     onClick={handleIconImageClick}
-                                    style={{cursor: 'pointer'}}
+                                    style={{ cursor: 'pointer' }}
                                 />
                                 <input
                                     id="fileInput"
@@ -2126,7 +2129,7 @@ const undoForward = (id) => {
                                 <ImAttachment
                                     size="1.3rem"
                                     onClick={handleIconClick}
-                                    style={{cursor: 'pointer'}}
+                                    style={{ cursor: 'pointer' }}
                                 />
                                 <input
                                     id="fileInput"
@@ -2296,7 +2299,7 @@ const undoForward = (id) => {
                         <div style={{ position: 'relative' }}>
                             <MdOutlineAddReaction
                                 size="1.3rem"
-                                style={{cursor: 'pointer'}}
+                                style={{ cursor: 'pointer' }}
                                 onClick={() => {
                                     setPickerVisible((prevState) => !prevState)
                                 }}
@@ -2349,8 +2352,8 @@ const undoForward = (id) => {
 
                         <FiAtSign size="1.3rem" />
                         {sendMessage.trim() ||
-                        images.length >= 0 ||
-                        sendMessage.trim() !== '' ? (
+                            images.length >= 0 ||
+                            sendMessage.trim() !== '' ? (
                             <label
                                 style={{ color: 'blue' }}
                                 onClick={() => {
@@ -2378,7 +2381,7 @@ const undoForward = (id) => {
             {openDrawer === true && (
                 <ConversationDetail
                     friend_list={friend_list}
-                    
+
                     conversation_id={conversation_id}
                     currentSource={currentSource}
                 />

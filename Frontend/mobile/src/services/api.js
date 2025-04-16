@@ -1,0 +1,253 @@
+import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const api = axios.create({
+    baseURL: 'http://192.168.34.235:3001', // là kết nối với điện thoại thì cần ip máy, nếu chạy app bằng trình duyệt máy tính thì thay 'http://localhost:3001'
+});
+
+api.interceptors.request.use(async (config) => {
+    const token = await AsyncStorage.getItem('token');
+    if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+});
+
+api.interceptors.response.use(
+    (response) => {
+        console.log('API response:', response.data);
+        return response;
+    },
+    (error) => {
+        console.error('Axios error details:', {
+            message: error.message,
+            response: error.response?.data,
+            status: error.response?.status,
+            config: error.config,
+        });
+        return Promise.reject(error);
+    }
+);
+
+export default api;
+
+// Kiểm tra số điện thoại đã tồn tại
+export const checkPhoneNumber = async (phoneNumber) => {
+    try {
+        const response = await api.get(`/user/findUserByPhoneNumber/${phoneNumber}`);
+        return response.status === 200 && response.data;
+    } catch (err) {
+        return false;
+    }
+};
+
+// Đăng ký tài khoản
+export const registerAccount = async (phoneNumber, password) => {
+    return await api.post('/account/registerMobile', { phoneNumber, password });
+};
+
+// Tạo hồ sơ người dùng
+export const createUserProfile = async (account_id, userName, firstName, lastName, phoneNumber, dateOfBirth, gender, avatar, coverImage) => {
+    return await api.post('/user/registerMobile', {
+        account_id,
+        userName,
+        firstName,
+        lastName,
+        phoneNumber,
+        dateOfBirth,
+        gender,
+        avatar,
+        coverImage,
+    });
+};
+
+// Đăng nhập
+export const loginMobile = async (phoneNumber, password) => {
+    return await api.post('/account/loginMobile', { phoneNumber, password });
+};
+
+// Lấy thông tin người dùng theo account_id
+export const findUserByAccountId = async (accountId) => {
+    return await api.get('/user/findUser', { params: { account_id: accountId } });
+};
+
+// Lấy thông tin người dùng theo user_id
+export const findUserByUserId = async (userId) => {
+    try {
+        const response = await api.post('/user/findUserByUserID', { user_id: userId }); // Sửa thành POST để đồng bộ với backend
+        return response;
+    } catch (error) {
+        console.error('Lỗi tìm user by ID:', error);
+        throw error;
+    }
+};
+
+// Cập nhật thông tin người dùng
+export const updateUser = async (account_id, firstName, lastName, dateOfBirth, gender) => {
+    return await api.put('/user/updateInfo', {
+        firstName,
+        lastName,
+        dateOfBirth,
+        gender,
+    }, { params: { account_id } });
+};
+
+// Cập nhật ảnh đại diện
+export const updateAvatar = async (account_id, avatar) => {
+    return await api.put('/user/updateAvatar', { avatar }, { params: { account_id } });
+};
+
+// Cập nhật ảnh bìa
+export const updateCoverImage = async (account_id, coverImage) => {
+    return await api.put('/user/updateCoverImage', { coverImage }, { params: { account_id } });
+};
+
+// Tìm người dùng theo số điện thoại
+export const findUserByPhoneNumber = async (phoneNumber) => {
+    return await api.get(`/user/findUserByPhoneNumber/${phoneNumber}`);
+};
+
+// Gửi yêu cầu kết bạn
+export const sendFriendRequest = async (currentUserId, selectedUserId) => {
+    return await api.post('/user/friend-request', { currentUserId, selectedUserId });
+};
+
+// Hủy yêu cầu kết bạn
+export const cancelFriendRequest = async (user_id, friend_id) => {
+    return await api.post('/user/recallsentRequest', { user_id, friend_id });
+};
+
+// Chấp nhận yêu cầu kết bạn
+export const acceptFriendRequest = async (user_id, friend_id) => {
+    return await api.post('/user/friend-request/accept', { user_id, friend_id });
+};
+
+// Từ chối yêu cầu kết bạn
+export const rejectFriendRequest = async (user_id, friend_id) => {
+    return await api.post('/user/friend-request/reject', { user_id, friend_id });
+};
+
+// Đổi mật khẩu
+export const changePassword = async (account_id, password) => {
+    return await api.put('/account/updatePassword', { password }, { params: { account_id } });
+};
+
+// Quên mật khẩu
+export const forgotPassword = async (phoneNumber, password) => {
+    return await api.put('/account/updatePasswordByPhone', { password }, { params: { phoneNumber } });
+};
+
+// Xóa bạn bè
+export const deleteFriend = async (userId, friendId) => {
+    return await api.post('/user/deleteFriend', { userId, friendId });
+};
+
+// Gửi yêu cầu kết bạn (mobile)
+export const sendFriendRequestMobile = async (currentUserId, selectedUserId) => {
+    return await api.post('/user/friend-request-mobile', { currentUserId, selectedUserId });
+};
+
+// Hiển thị danh sách yêu cầu kết bạn (mobile)
+export const showFriendRequestsMobile = async (userId) => {
+    return await api.get(`/user/friend-request-mobile/${userId}`);
+};
+
+// Hiển thị danh sách yêu cầu kết bạn đã gửi (mobile)
+export const showSentFriendRequestsMobile = async (userId) => {
+    return await api.get(`/user/sent-friend-request-mobile/${userId}`);
+};
+
+// Lấy danh sách tất cả người dùng trừ người hiện tại
+export const getAllUsersExceptCurrent = async (currentUserId) => {
+    return await api.get('/user/findAllExceptCurrentUser', { params: { currentUserId } });
+};
+
+// Conversation APIs
+export const getConversationsByUserID = async (user_id) => {
+    return await api.post('/conversation/getConversationsByUserIDWeb', { user_id });
+};
+
+// API mới cho mobile
+export const getConversationsByUserIDMobile = async (user_id) => {
+    return await api.post('/conversation/getConversationsByUserIDMobile', { user_id });
+};
+
+// API để lấy thông tin cuộc trò chuyện theo ID
+export const getConversationById = async (conversation_id) => {
+    return await api.get(`/conversation/getConversationById/${conversation_id}`);
+};
+
+// Message APIs
+export const sendMessage = async (conversation_id, user_id, content, contentType = 'text', replyTo = null) => {
+    return await api.post('/message/createMessagesWeb', {
+        conversation_id,
+        user_id,
+        content,
+        contentType,
+        replyTo,
+    });
+};
+
+// API mới để gửi file (ảnh, tài liệu) cho mobile
+export const sendFileMobile = async (conversation_id, user_id, fileUri, contentType) => {
+    const maxRetries = 3;
+    let attempt = 0;
+
+    while (attempt < maxRetries) {
+        try {
+            const formData = new FormData();
+            formData.append('conversation_id', conversation_id);
+            formData.append('user_id', user_id);
+            formData.append('contentType', contentType);
+            formData.append('file', {
+                uri: fileUri,
+                type: contentType === 'video' ? 'video/mp4' :
+                    contentType === 'image' ? 'image/jpeg' :
+                        contentType === 'audio' && fileUri.endsWith('.3gp') ? 'audio/3gpp' :
+                            contentType === 'file' && fileUri.includes('.pdf') ? 'application/pdf' :
+                                contentType === 'file' && fileUri.includes('.docx') ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' :
+                                    contentType === 'file' && fileUri.includes('.xlsx') ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' :
+                                        'application/octet-stream',
+                name: fileUri.split('/').pop(),
+            });
+
+            console.log('Chuẩn bị gửi tệp:', { conversation_id, user_id, contentType, fileUri });
+            console.log('FormData:', JSON.stringify(formData));
+
+            const response = await api.post('/message/createMessagesMobile', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+                timeout: 60000, // Tăng timeout lên 60 giây
+            });
+
+            console.log('Phản hồi gửi tệp:', response.data);
+            return response;
+        } catch (error) {
+            attempt++;
+            console.error('Lỗi gửi tệp (lần thử', attempt, '):', error);
+            if (attempt === maxRetries) {
+                throw error;
+            }
+            await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        }
+    }
+};
+
+// Lấy danh sách tin nhắn
+export const getMessages = async (conversation_id) => {
+    return await api.post('/message/findAllMessagesWeb', { conversation_id });
+};
+
+// Lấy tin nhắn cuối cùng
+export const getLastMessage = async (conversation_id, user_id) => {
+    return await api.post('/message/getLastMessageMobile', { conversation_id, user_id });
+};
+
+// Xóa tin nhắn
+export const deleteMyMessage = async (message_id, user_id) => {
+    return await api.post('/message/deleteMyMessageWeb', { message_id, user_id });
+};
+
+// Thu hồi tin nhắn
+export const recallMessage = async (message_id) => {
+    return await api.post('/message/recallMessageWeb', { message_id });
+};

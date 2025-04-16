@@ -1,5 +1,6 @@
 import Conversation from '../models/Conversation.js'
 import User from '../models/User.js'
+import { io } from '../../index.js'
 
 class ConversationController {
     // post createConversationsWeb http://localhost:3001/conversation/createConversationsWeb
@@ -949,6 +950,118 @@ class ConversationController {
             // trả về số lượng nhóm chung
             conversationCount: conversation.length,
         })
+    }
+    async createConversationsMobile(req) {
+        const user_id = req.body.user_id;
+        const friend_id = req.body.friend_id;
+        if (!user_id || !friend_id) {
+            console.log('Không tìm thấy user_id hoặc friend_id!!!');
+            return {
+                status: 400,
+                data: { message: 'Không tìm thấy user_id hoặc friend_id!!!' },
+            };
+        }
+
+        const members = [user_id, friend_id];
+
+        const conversation = new Conversation({
+            members,
+        });
+
+        const checkConversation = await Conversation.find({
+            members: { $all: members },
+        });
+
+        if (checkConversation.length > 0) {
+            return {
+                status: 200,
+                data: {
+                    message: 'Conversation đã tồn tại!!!',
+                    conversation: checkConversation[0],
+                },
+            };
+        }
+
+        try {
+            await conversation.save();
+            console.log('Tạo conversation thành công!!!');
+            return {
+                status: 200,
+                data: {
+                    message: 'Tạo conversation thành công!!!',
+                    conversation: conversation,
+                },
+            };
+        } catch (err) {
+            console.error(err);
+            return {
+                status: 500,
+                data: {
+                    message: 'Lỗi khi tạo conversation!!!',
+                    error: err.message,
+                },
+            };
+        }
+    }
+
+    // thêm moible 
+    async getConversationsByUserIDMobile(req, res) {
+        try {
+            const user_id = req.body.user_id;
+            if (!user_id) {
+                return res.status(400).json({ message: 'Thiếu user_id trong body' });
+            }
+
+            const user = await User.findById(user_id);
+            if (!user) {
+                return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+            }
+
+            // Lấy danh sách conversation_id từ user
+            const conversationIds = user.conversation_id.map(conv => conv.conversation_id);
+            console.log('Conversation IDs from user:', conversationIds);
+
+            // Kiểm tra nếu không có cuộc trò chuyện
+            if (!conversationIds || conversationIds.length === 0) {
+                return res.status(200).json({
+                    message: 'Lấy all conversation thành công!!!',
+                    conversation: [],
+                });
+            }
+
+            // Lấy tất cả các cuộc trò chuyện từ danh sách conversationIds
+            const conversations = await Conversation.find({
+                _id: { $in: conversationIds },
+                deleted: false,
+            }).lean();
+
+            console.log('Conversations found:', conversations);
+
+            return res.status(200).json({
+                message: 'Lấy all conversation thành công!!!',
+                conversation: conversations.map(conv => conv._id),
+            });
+        } catch (error) {
+            console.error(error);
+            return res.status(500).json({ message: 'Internal server error', error: error.message });
+        }
+    }
+
+    async getConversationById(req, res) {
+        try {
+            const conversation_id = req.params.conversation_id;
+            const conversation = await Conversation.findById(conversation_id);
+            if (!conversation) {
+                return res.status(404).json({ message: 'Conversation not found' });
+            }
+            return res.status(200).json({
+                message: 'Lấy thông tin cuộc trò chuyện thành công!!!',
+                conversation: conversation,
+            });
+        } catch (error) {
+            console.error(error);
+            return res.status(500).json({ message: 'Internal server error', error: error.message });
+        }
     }
 }
 

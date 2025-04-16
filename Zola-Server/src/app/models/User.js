@@ -45,18 +45,10 @@ const User = new Schema(
         gender: { type: String, required: true },
         avatar: { type: String, required: true },
         coverImage: { type: String },
-        sentFriendRequests: [
-            {
-                type: mongoose.Schema.Types.ObjectId,
-                ref: 'User',
-            },
-        ],
-        friendRequests: [
-            {
-                type: mongoose.Schema.Types.ObjectId,
-                ref: 'User',
-            },
-        ],
+        //Mobile
+        sentFriendRequests: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', default: [] }],
+        friendRequests: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', default: [] }],
+        //Mobile
         friend: [Friend],
         deleteFriend: [Friend],
         deleted: { type: Boolean, default: false },

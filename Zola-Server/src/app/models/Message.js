@@ -37,28 +37,6 @@ const Message = new Schema(
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Message',
         },
-        forwardFrom: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'Message',
-            default: null,
-        },
-        isForwarded: {
-            type: Boolean,
-            default: false,
-        },
-        forwardedBy: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'User',
-            default: null,
-        },
-        forwardedAt: {
-            type: Date,
-            default: null,
-        },
-        originalSender: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'User',
-        },
     },
     { timestamps: true }
 )
