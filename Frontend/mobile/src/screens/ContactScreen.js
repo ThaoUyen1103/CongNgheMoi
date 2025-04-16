@@ -193,6 +193,7 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#FFFFFF',
         paddingHorizontal: 10,
+        paddingTop: 60,
     },
     loadingText: {
         fontSize: 18,

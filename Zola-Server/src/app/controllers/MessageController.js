@@ -30,7 +30,7 @@ const storage = multer.memoryStorage({
 
 
 function checkFileType(file, callback) {
-    const filetypes = /jpeg|jpg|png|jfif|gif|csv|docx|xlsx|txt|pdf/
+    const filetypes = /jpeg|jpg|png|jfif|gif|csv|docx|xlsx|txt|pdf|3gp/
     const extname = filetypes.test(
         path.extname(file.originalname).toLowerCase()
     )
@@ -38,13 +38,12 @@ function checkFileType(file, callback) {
     if (mimetype && extname) {
         return callback(null, true)
     } else {
-        callback('Error: Images Only 0!')
+        callback('Error: Invalid File Type 0!')
     }
 }
 function checkFileTypeMedia(file, callback) {
-    const extTypes = /jpeg|jpg|png|gif|doc|docx|pdf|txt|ppt|pptx|xlsx|mp4/
-    const mimeTypes =
-        /image\/jpeg|image\/jpg|image\/png|image\/gif|application\/msword|application\/vnd.openxmlformats-officedocument.wordprocessingml.document|application\/pdf|text\/plain|application\/vnd.ms-powerpoint|application\/vnd.openxmlformats-officedocument.presentationml.presentation|application\/vnd.openxmlformats-officedocument.spreadsheetml.sheet|video\/mp4/
+    const extTypes = /jpeg|jpg|png|gif|doc|docx|pdf|txt|ppt|pptx|xlsx|3gp|mp4/
+    const mimeTypes = /image\/jpeg|image\/jpg|image\/png|image\/gif|application\/msword|application\/vnd.openxmlformats-officedocument.wordprocessingml.document|application\/pdf|text\/plain|application\/vnd.ms-powerpoint|application\/vnd.openxmlformats-officedocument.presentationml.presentation|application\/vnd.openxmlformats-officedocument.spreadsheetml.sheet|video\/mp4|audio\/3gpp/
 
     const extname = extTypes.test(path.extname(file.originalname).toLowerCase())
     const mimetype = mimeTypes.test(file.mimetype)
@@ -480,25 +479,31 @@ class MessageController {
     }
     // post thu hồi tin nhắn cả 2 bên recallMessageWeb http://localhost:3001/message/recallMessageWeb
     async recallMessageWeb(req, res) {
-        const message_id = req.body.message_id
+        const message_id = req.body.message_id;
 
-        const message = await Message.findOne({
-            _id: message_id,
-        })
-        // Kiểm tra xem message có tồn tại không
-        if (!message) {
-            return res.status(404).json({
-                thongbao: 'Không tìm thấy tin nhắn!!!',
-            })
+        try {
+            const message = await Message.findOne({ _id: message_id });
+            if (!message) {
+                return res.status(404).json({ thongbao: 'Không tìm thấy tin nhắn!!!' });
+            }
+            message.recalled = true;
+            await message.save();
+
+            // [Sửa lỗi]: Phát sự kiện socket để thông báo thu hồi tin nhắn realtime cho tất cả client trong cùng conversation_id
+            console.log(`Emit message-recalled: ${message_id} to room ${message.conversation_id}`);
+            io.to(message.conversation_id.toString()).emit('message-recalled', JSON.stringify({
+                message_id: message_id,
+                conversation_id: message.conversation_id.toString(),
+            }));
+
+            return res.status(200).json({
+                thongbao: 'Thu hồi tin nhắn thành công!!!',
+                message: message,
+            });
+        } catch (err) {
+            console.error('Lỗi thu hồi tin nhắn:', err);
+            return res.status(500).json({ message: 'Lỗi server', error: err.message });
         }
-        // Đánh dấu tin nhắn đã được thu hồi
-        message.recalled = true
-        message.save()
-
-        return res.status(200).json({
-            thongbao: 'Thu hồi tin nhắn thành công!!!',
-            message: message,
-        })
     }
     // post tìm tất cả tin nhắn đã bị thu hồi findAllRecallMessagesWeb http://localhost:3001/message/findAllRecallMessagesWeb
     async findAllRecallMessagesWeb(req, res) {

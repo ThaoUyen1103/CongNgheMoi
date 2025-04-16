@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { findUserByAccountId, updateUser, updateAvatar, updateCoverImage, changePassword } from '../services/api';
+import { findUserByAccountId, updateAvatar, updateCoverImage } from '../services/api';
 
 const ProfileScreen = ({ navigation }) => {
     const [user, setUser] = useState(null);
@@ -34,7 +33,6 @@ const ProfileScreen = ({ navigation }) => {
     useEffect(() => {
         loadUserData();
 
-        // Lắng nghe sự kiện focus để tải lại dữ liệu khi quay lại
         const unsubscribe = navigation.addListener('focus', loadUserData);
 
         return unsubscribe;
@@ -114,48 +112,45 @@ const ProfileScreen = ({ navigation }) => {
 
     return (
         <View style={styles.container}>
-            <View style={styles.coverImageContainer}>
+            <TouchableOpacity
+                style={styles.coverImageContainer}
+                onPress={() => pickImage('cover')}
+                activeOpacity={0.7}
+            >
                 <Image
                     source={{ uri: user.coverImage || 'https://via.placeholder.com/300x100' }}
                     style={styles.coverImage}
                 />
-                <TouchableOpacity
-                    style={styles.editCoverButton}
-                    onPress={() => pickImage('cover')}
-                >
-                    <MaterialCommunityIcons name="camera" size={24} color="#FFFFFF" />
-                </TouchableOpacity>
-            </View>
+            </TouchableOpacity>
             <View style={styles.avatarContainer}>
-                <Image
-                    source={{ uri: user.avatar || 'https://via.placeholder.com/150' }}
-                    style={styles.avatar}
-                />
                 <TouchableOpacity
-                    style={styles.editAvatarButton}
                     onPress={() => pickImage('avatar')}
+                    activeOpacity={0.7}
                 >
-                    <MaterialCommunityIcons name="camera" size={20} color="#FFFFFF" />
+                    <Image
+                        source={{ uri: user.avatar || 'https://via.placeholder.com/150' }}
+                        style={styles.avatar}
+                    />
                 </TouchableOpacity>
             </View>
             <Text style={styles.userName}>{user.userName}</Text>
             <Text style={styles.phoneNumber}>{user.phoneNumber}</Text>
             <View style={styles.infoContainer}>
                 <View style={styles.infoRow}>
-                    <MaterialCommunityIcons name="account" size={24} color="#888888" />
-                    <Text style={styles.infoText}>Họ: {user.lastName}</Text>
+                    <Text style={styles.infoLabel}>Họ:</Text>
+                    <Text style={styles.infoText}>{user.lastName}</Text>
                 </View>
                 <View style={styles.infoRow}>
-                    <MaterialCommunityIcons name="account" size={24} color="#888888" />
-                    <Text style={styles.infoText}>Tên: {user.firstName}</Text>
+                    <Text style={styles.infoLabel}>Tên:</Text>
+                    <Text style={styles.infoText}>{user.firstName}</Text>
                 </View>
                 <View style={styles.infoRow}>
-                    <MaterialCommunityIcons name="cake" size={24} color="#888888" />
-                    <Text style={styles.infoText}>Ngày sinh: {user.dateOfBirth}</Text>
+                    <Text style={styles.infoLabel}>Ngày sinh:</Text>
+                    <Text style={styles.infoText}>{user.dateOfBirth}</Text>
                 </View>
                 <View style={styles.infoRow}>
-                    <MaterialCommunityIcons name="gender-male-female" size={24} color="#888888" />
-                    <Text style={styles.infoText}>Giới tính: {user.gender}</Text>
+                    <Text style={styles.infoLabel}>Giới tính:</Text>
+                    <Text style={styles.infoText}>{user.gender}</Text>
                 </View>
             </View>
             <TouchableOpacity style={styles.button} onPress={handleUpdateProfile}>
@@ -186,14 +181,6 @@ const styles = StyleSheet.create({
         width: '100%',
         height: '100%',
     },
-    editCoverButton: {
-        position: 'absolute',
-        bottom: 10,
-        right: 10,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        borderRadius: 20,
-        padding: 5,
-    },
     avatarContainer: {
         alignItems: 'center',
         marginTop: -50,
@@ -204,14 +191,6 @@ const styles = StyleSheet.create({
         borderRadius: 50,
         borderWidth: 3,
         borderColor: '#FFFFFF',
-    },
-    editAvatarButton: {
-        position: 'absolute',
-        bottom: 0,
-        right: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        borderRadius: 15,
-        padding: 5,
     },
     userName: {
         fontSize: 24,
@@ -234,9 +213,13 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginVertical: 5,
     },
+    infoLabel: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginRight: 10,
+    },
     infoText: {
         fontSize: 16,
-        marginLeft: 10,
     },
     button: {
         backgroundColor: '#0088FF',

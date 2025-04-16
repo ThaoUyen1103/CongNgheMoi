@@ -43,7 +43,7 @@ const RegisterScreen = ({ navigation }) => {
                 phoneNumber,
                 dateOfBirth,
                 gender,
-                null, // Không gửi avatar, để backend gán mặc định
+                null,
                 null
             );
             if (userResponse.status !== 200) {

@@ -2,7 +2,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const api = axios.create({
-    baseURL: 'http://192.168.1.33:3001',
+    baseURL: 'http://192.168.34.235:3001',
 });
 
 api.interceptors.request.use(async (config) => {
@@ -203,9 +203,11 @@ export const sendFileMobile = async (conversation_id, user_id, fileUri, contentT
                 uri: fileUri,
                 type: contentType === 'video' ? 'video/mp4' :
                     contentType === 'image' ? 'image/jpeg' :
-                        contentType === 'file' && fileUri.includes('.pdf') ? 'application/pdf' :
-                            contentType === 'file' && fileUri.includes('.docx') ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' :
-                                contentType === 'file' && fileUri.includes('.xlsx') ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'application/octet-stream',
+                        contentType === 'audio' && fileUri.endsWith('.3gp') ? 'audio/3gpp' :
+                            contentType === 'file' && fileUri.includes('.pdf') ? 'application/pdf' :
+                                contentType === 'file' && fileUri.includes('.docx') ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' :
+                                    contentType === 'file' && fileUri.includes('.xlsx') ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' :
+                                        'application/octet-stream',
                 name: fileUri.split('/').pop(),
             });
 

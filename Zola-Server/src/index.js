@@ -67,6 +67,12 @@ export const io = new Server(server, {
 // })
 
 io.on('connection', (socket) => {
+    console.log('>> New socket connected:', socket.id);
+
+    // Ghi log toàn bộ event bất kỳ để debug
+    socket.onAny((event, data) => {
+        console.log(`>> Socket ${socket.id} received event: "${event}" with data:`, data);
+    });
     console.log('a user connected')
     socket.on('disconnect', () => {
         console.log('user disconnected')
@@ -91,13 +97,16 @@ io.on('connection', (socket) => {
     })
 
     socket.on('message-recalled', (data) => {
-        console.log('message-recalled được nhận là : ' + JSON.stringify(data))
-        // // io.emit('chat message', msg)
-
-        // Kiểm tra nếu data là mảng và lấy conversation_id từ phần tử đầu tiên
         const conversation_id = data.conversation_id
 
-        io.to(conversation_id).emit('message-recalled', JSON.stringify(data))
+        const messageRecall = {
+            _id: data._id,
+            recalled: true,
+            content: 'Tin nhắn đã bị thu hồi',
+            conversation_id: data.conversation_id,
+        }
+
+        io.to(conversation_id).emit('message-recalled', JSON.stringify(messageRecall))
     })
     socket.on('delete-my-message', (data) => {
         console.log('message to delete: ' + data.message_id)
