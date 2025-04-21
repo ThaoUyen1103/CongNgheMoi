@@ -1,5 +1,8 @@
 import express from 'express'
 const router = express.Router()
+import multer from 'multer';
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
 
 import conversationController from '../app/controllers/ConversationController.js'
 //  Web--------------------------
@@ -85,43 +88,33 @@ router.post(
 
 //-------------------------------------------------
 // add mobile
-router.post('/', conversationController.createConversation)
-router.post(
-    '/create-group',
-    conversationController.createConversationsGroupMobile
-)
-router.get('/:userId', conversationController.userConversations)
-router.get(
-    '/findConversationById/:conversationId',
-    conversationController.findConversationById
-)
-router.get('/find/:firstId/:secondId', conversationController.findConversations)
-router.put(
-    '/authorizeDeputyLeader',
-    conversationController.authorizeDeputyLeader
-)
-router.put(
-    '/unauthorizeDeputyLeader',
-    conversationController.unauthorizeDeputyLeader
-)
-router.put(
-    '/removeMemberFromConversationGroup',
-    conversationController.removeMemberFromConversationGroupMobile
-)
-router.put(
-    '/updateConversationAvatar',
-    conversationController.updateConversationAvatar
-)
-router.put('/leaveGroup', conversationController.leaveGroup)
-router.post(
-    '/add-member',
-    conversationController.addMemberToConversationGroupMobile
-)
-router.put('/change-groupname', conversationController.changeGroupName)
-router.put('/authorizeGroupLeader', conversationController.authorizeGroupLeader)
-router.put('/disbandGroup', conversationController.disbandGroupMobile)
-// thêm mobile 
+// Mobile Routes
+router.post('/', conversationController.createConversation);
+router.post('/create-group', conversationController.createConversationsGroupMobile);
+router.get('/:userId', conversationController.userConversations);
+router.get('/findConversationById/:conversationId', conversationController.findConversationById);
+router.get('/find/:firstId/:secondId', conversationController.findConversations);
+router.put('/authorizeDeputyLeader', conversationController.authorizeDeputyLeader);
+router.put('/unauthorizeDeputyLeader', conversationController.unauthorizeDeputyLeader);
+router.put('/removeMemberFromConversationGroup', conversationController.removeMemberFromConversationGroupMobile);
+router.put('/updateConversationAvatar', conversationController.updateConversationAvatarMobile);
+router.put('/leaveGroup', conversationController.leaveGroupMobile);
+router.post('/add-member', conversationController.addMemberToConversationGroupMobile);
+router.put('/change-groupname', conversationController.changeGroupNameMobile);
+router.put('/authorizeGroupLeader', conversationController.authorizeGroupLeader);
+router.put('/disbandGroup', conversationController.disbandGroupMobile);
 router.get('/getConversationById/:conversation_id', conversationController.getConversationById);
 router.post('/getConversationsByUserIDMobile', conversationController.getConversationsByUserIDMobile);
+
+// Route mới cho Mobile
+router.put('/leaveGroupMobile', conversationController.leaveGroupMobile);
+router.put('/changeGroupNameMobile', conversationController.changeGroupNameMobile);
+router.put(
+    '/updateConversationAvatarMobile',
+    upload.single('file'),
+    conversationController.updateConversationAvatarMobile
+);
+
 //--
+
 export default router

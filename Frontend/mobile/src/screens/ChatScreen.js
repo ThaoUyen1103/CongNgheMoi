@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, Image, Alert, Modal, Dimensions, ScrollView, Linking, Platform } from 'react-native';
+import { View, Text, FlatList, TextInput, TouchableOpacity, Image, Alert, Modal, Dimensions, ScrollView, Linking, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { Audio, Video } from 'expo-av';
-import { sendMessage, getMessages, sendFileMobile, findUserByAccountId, findUserByUserId, deleteMyMessage, recallMessage, getConversationsByUserIDMobile, getConversationById } from '../services/api';
+import { sendMessage, getMessages, sendFileMobile, findUserByAccountId, findUserByUserId, deleteMyMessage, recallMessage, getConversationsByUserIDMobile, getConversationById, leaveGroup } from '../services/api';
 import io from 'socket.io-client';
 
 const { width, height } = Dimensions.get('window');
 
-const socket = io('http://192.168.34.235:3005', {
+const socket = io('http://192.168.1.33:3005', {
     transports: ['websocket'],
     autoConnect: true,
     reconnection: true,
@@ -19,7 +19,7 @@ const socket = io('http://192.168.34.235:3005', {
 });
 
 const ChatScreen = ({ route, navigation }) => {
-    const { conversation_id, friend_id, friend_name, friend_avatar } = route.params;
+    const { conversation_id, friend_name, friend_avatar, isGroup = false, friend_id } = route.params;
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
     const [currentUserId, setCurrentUserId] = useState(null);
@@ -29,22 +29,34 @@ const ChatScreen = ({ route, navigation }) => {
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const [showForwardModal, setShowForwardModal] = useState(false);
     const [friendsList, setFriendsList] = useState([]);
-    const [isFriend, setIsFriend] = useState(true);
     const [isRecording, setIsRecording] = useState(false);
     const [recording, setRecording] = useState(null);
     const [recordingDuration, setRecordingDuration] = useState(0);
     const [replyToMessage, setReplyToMessage] = useState(null);
+    const [isGroupActive, setIsGroupActive] = useState(true);
+    const [userCache, setUserCache] = useState({}); // Cache thông tin người dùng
     const flatListRef = useRef();
+    const [loading, setLoading] = useState(true)
+    const [isGroupLeader, setIsGroupLeader] = useState(false);
     const videoRef = useRef(null);
 
+    // Danh sách emoji mở rộng
     const emojis = [
-        '😊', '😂', '😍', '😢', '😡', '👍', '👎', '❤️', '🔥', '🎉',
-        '😎', '😭', '😘', '🤔', '🙄', '😅', '😆', '😁', '😇', '😜',
-        '🤩', '🥰', '😋', '😱', '😤', '😬', '💯', '🙏', '👏', '💖',
-        '🎂', '🎁', '🥳', '🤗', '💔', '🙌', '😏', '😪', '😴', '😷',
-        '🤒', '🤕', '💀', '👻', '🤡', '👋', '🤝', '🌹', '🌈', '⭐',
-        '🌟', '✨', '⚡', '🔥', '💧', '❄️', '☀️', '🌙', '🍀', '🍕',
-        '🍔', '🍟', '🍺', '🍻', '🥂', '🎮', '⚽', '🏀', '🏆', '💎'
+        '😀', '😁', '😂', '🤣', '😃', '😄', '😅', '😆', '😉', '😊',
+        '😋', '😎', '😍', '😘', '🥰', '😗', '😙', '😚', '🙂', '🤗',
+        '🤩', '🤔', '🤨', '😐', '😑', '😶', '🙄', '😏', '😣', '😥',
+        '😮', '🤐', '😯', '😪', '😫', '😴', '😌', '😛', '😜', '😝',
+        '🤤', '😒', '😓', '😔', '😕', '🙃', '🤑', '😲', '☹️', '🙁',
+        '😖', '😞', '😟', '😤', '😢', '😭', '😦', '😧', '😨', '😩',
+        '🤯', '😬', '😰', '😱', '🥵', '🥶', '😳', '🤪', '😵', '😡',
+        '😠', '🤬', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '🥳', '🥴',
+        '🥺', '🤠', '🤡', '🤥', '🤫', '🤭', '🧐', '🤓', '😈', '👿',
+        '👹', '👺', '💀', '👻', '👽', '👾', '🤖', '😺', '😸', '😹',
+        '😻', '😼', '😽', '🙀', '😿', '😾', '🙈', '🙉', '🙊', '💋',
+        '💌', '💘', '💝', '💖', '💗', '💓', '💞', '💕', '💟', '❣️',
+        '💔', '❤️', '🧡', '💛', '💚', '💙', '💜', '🤎', '🖤', '🤍',
+        '💯', '💢', '💥', '💫', '💦', '💨', '🕳️', '💣', '💬', '🗨️',
+        '🗯️', '💭', '💤'
     ];
 
     const joinRoom = () => {
@@ -54,13 +66,65 @@ const ChatScreen = ({ route, navigation }) => {
         }
     };
 
+    const checkGroupStatus = async () => {
+        try {
+            setLoading(true);
+            const accountId = await AsyncStorage.getItem('account_id');
+            if (!accountId) {
+                console.log('Không tìm thấy account_id trong AsyncStorage');
+                throw new Error('Không tìm thấy account_id');
+            }
+
+            const userResponse = await findUserByAccountId(accountId);
+            if (userResponse.status !== 200) {
+                console.log('Lỗi lấy user từ account_id:', userResponse.data);
+                throw new Error('Không tìm thấy user');
+            }
+            setCurrentUserId(userResponse.data._id);
+
+            const response = await getConversationById(conversation_id);
+            if (response.status !== 200 || !response.data.conversation || response.data.conversation.deleted) {
+                console.log('Lỗi lấy thông tin nhóm:', response.data);
+                setIsGroupActive(false);
+                Alert.alert('Thông báo', 'Nhóm đã bị giải tán hoặc không tồn tại');
+                return;
+            }
+
+            const conversation = response.data.conversation;
+            // Kiểm tra người dùng hiện tại có trong nhóm không
+            if (!conversation.members.includes(userResponse.data._id)) {
+                console.log('Người dùng không còn trong nhóm:', userResponse.data._id);
+                setIsGroupActive(false);
+                Alert.alert('Thông báo', 'Bạn không còn trong nhóm này.');
+                navigation.goBack();
+                return;
+            }
+
+            // Lấy vai trò trưởng nhóm
+            setIsGroupLeader(conversation.groupLeader === userResponse.data._id);
+
+            setIsGroupActive(true);
+            loadMessages();
+        } catch (err) {
+            console.log('Lỗi trong checkGroupStatus:', err.message);
+            Alert.alert('Lỗi', err.message || 'Không thể kiểm tra trạng thái nhóm');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const checkFriendStatus = async (retries = 5, delay = 2000) => {
         try {
+            setLoading(true); // Bắt đầu tải
             const accountId = await AsyncStorage.getItem('account_id');
-            if (!accountId) throw new Error('Không tìm thấy account_id');
+            if (!accountId) {
+                console.log('Không tìm thấy account_id trong AsyncStorage');
+                throw new Error('Không tìm thấy account_id');
+            }
 
             const userResponse = await findUserByAccountId(accountId);
             if (userResponse.status !== 200 || !userResponse.data._id) {
+                console.log('Lỗi lấy user từ account_id:', userResponse.data);
                 throw new Error('Không tìm thấy user từ account_id');
             }
             const userId = userResponse.data._id;
@@ -69,28 +133,29 @@ const ChatScreen = ({ route, navigation }) => {
             let isFriend = false;
             for (let i = 0; i < retries; i++) {
                 const userData = await findUserByUserId(userId);
-                if (userData.status !== 200) throw new Error('Không lấy được thông tin người dùng');
+                if (userData.status !== 200) {
+                    console.log('Lỗi lấy thông tin người dùng:', userData.data);
+                    throw new Error('Không lấy được thông tin người dùng');
+                }
                 isFriend = userData.data.user.friend.some(f => f.friend_id === friend_id);
-                console.log('Friend status attempt:', { attempt: i + 1, userId, friend_id, isFriend });
                 if (isFriend) break;
                 if (i < retries - 1) await new Promise(resolve => setTimeout(resolve, delay));
             }
 
-            setIsFriend(isFriend);
-            if (isFriend) {
-                loadMessages();
-            } else {
+            if (!isFriend && !isGroup) {
                 Alert.alert('Thông báo', 'Bạn chưa kết bạn với người này. Vui lòng kết bạn để nhắn tin.');
             }
+            loadMessages();
         } catch (err) {
-            console.error('Lỗi kiểm tra trạng thái bạn bè:', err);
+            console.log('Lỗi trong checkFriendStatus:', err.message);
             Alert.alert('Lỗi', err.message || 'Không thể kiểm tra trạng thái bạn bè');
+        } finally {
+            setLoading(false); // Kết thúc tải
         }
     };
 
     const loadMessages = async () => {
         try {
-            if (!isFriend) return;
             const response = await getMessages(conversation_id);
             if (response.status !== 200) throw new Error(response.data.message || 'Lỗi khi tải tin nhắn');
             setMessages(response.data.messages || []);
@@ -125,9 +190,28 @@ const ChatScreen = ({ route, navigation }) => {
 
             setFriendsList(friends.filter(f => f !== null));
         } catch (err) {
-            console.error('Lỗi lấy danh sách bạn bè:', err);
             Alert.alert('Lỗi', 'Không thể lấy danh sách bạn bè');
         }
+    };
+
+    const fetchUserInfo = async (userId) => {
+        if (userCache[userId]) return userCache[userId];
+        try {
+            const response = await findUserByUserId(userId);
+            if (response.status === 200) {
+                const user = {
+                    ...response.data.user,
+                    avatar: response.data.user.avatar?.startsWith('file://') || !response.data.user.avatar
+                        ? 'https://placehold.co/50'
+                        : response.data.user.avatar,
+                };
+                setUserCache((prev) => ({ ...prev, [userId]: user }));
+                return user;
+            }
+        } catch (err) {
+            console.log('Lỗi tải thông tin người dùng:', err);
+        }
+        return { userName: 'Unknown', avatar: 'https://placehold.co/50' };
     };
 
     const forwardMessageToFriend = async (friend) => {
@@ -152,7 +236,7 @@ const ChatScreen = ({ route, navigation }) => {
             }
 
             if (!targetConversationId) {
-                const createConvResponse = await fetch('http://192.168.34.235:3001/conversation/create', {
+                const createConvResponse = await fetch('http://192.168.1.33:3001/conversation/create', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ members: [currentUserId, friend.friend_id] }),
@@ -180,38 +264,158 @@ const ChatScreen = ({ route, navigation }) => {
             setShowForwardModal(false);
             setContextMenu({ visible: false, messageId: null, isCurrentUser: false, content: null, contentType: null });
         } catch (err) {
-            console.error('Lỗi chuyển tiếp tin nhắn:', err);
             Alert.alert('Lỗi', err.message || 'Không thể chuyển tiếp tin nhắn');
         }
     };
 
+    const checkFileSize = async (uri) => {
+        try {
+            const response = await fetch(uri);
+            const blob = await response.blob();
+            const sizeInMB = blob.size / (1024 * 1024);
+            if (sizeInMB > 100) {
+                throw new Error('Kích thước file vượt quá 100MB');
+            }
+            return true;
+        } catch (err) {
+            Alert.alert('Lỗi', err.message || 'Không thể kiểm tra kích thước file');
+            return false;
+        }
+    };
+
     const pickMultipleImages = async () => {
-        if (!isFriend) {
+        if (!isGroupActive && !isGroup) {
             Alert.alert('Thông báo', 'Bạn chưa kết bạn với người này.');
             return;
         }
         try {
             const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
             if (!permissionResult.granted) {
-                Alert.alert('Quyền truy cập bị từ chối', 'Cần cấp quyền truy cập thư viện ảnh.');
+                console.log('Quyền truy cập thư viện ảnh bị từ chối:', permissionResult);
+                Alert.alert('Quyền truy cập bị từ chối', 'Cần cấp quyền truy cập thư viện ảnh. Vui lòng kiểm tra cài đặt quyền trên thiết bị.');
                 return;
             }
 
             const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                mediaTypes: ImagePicker.MediaTypeOptions.Images, // Sửa thành enum hợp lệ
                 allowsMultipleSelection: true,
                 quality: 1,
             });
 
+            console.log('Kết quả chọn nhiều hình:', result);
+
             if (!result.canceled && result.assets) {
                 for (const asset of result.assets) {
+                    console.log('Gửi hình:', asset.uri);
                     await handleSendFile(asset.uri, 'image');
                 }
                 Alert.alert('Thành công', `Đã gửi ${result.assets.length} hình ảnh`);
+            } else {
+                console.log('Người dùng hủy chọn hình hoặc không có hình nào được chọn');
             }
         } catch (err) {
-            console.error('Lỗi chọn nhiều ảnh:', err);
-            Alert.alert('Lỗi', 'Không thể chọn ảnh');
+            console.error('Lỗi trong pickMultipleImages:', err);
+            Alert.alert('Lỗi', err.message || 'Không thể chọn ảnh');
+        }
+    };
+
+    const pickImage = async () => {
+        if (!isGroupActive && !isGroup) {
+            Alert.alert('Thông báo', 'Bạn chưa kết bạn với người này.');
+            return;
+        }
+        try {
+            // Kiểm tra quyền truy cập camera
+            const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+            if (!permissionResult.granted) {
+                console.log('Quyền truy cập camera bị từ chối:', permissionResult);
+                Alert.alert('Quyền truy cập bị từ chối', 'Cần cấp quyền truy cập camera. Vui lòng kiểm tra cài đặt quyền trên thiết bị.');
+                return;
+            }
+
+            // Mở camera để chụp ảnh
+            const result = await ImagePicker.launchCameraAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images, // Chỉ chụp ảnh
+                allowsEditing: true, // Cho phép chỉnh sửa ảnh sau khi chụp
+                quality: 1, // Chất lượng ảnh cao nhất
+            });
+
+            console.log('Kết quả chụp ảnh:', result);
+
+            if (!result.canceled && result.assets?.length > 0) {
+                console.log('Gửi ảnh chụp:', result.assets[0].uri);
+                await handleSendFile(result.assets[0].uri, 'image');
+            } else {
+                console.log('Người dùng hủy chụp ảnh hoặc không có ảnh nào được chụp');
+            }
+        } catch (err) {
+            console.error('Lỗi trong pickImage (camera):', err);
+            Alert.alert('Lỗi', err.message || 'Không thể chụp ảnh');
+        }
+    };
+
+    const handleLeaveGroup = async () => {
+        if (!currentUserId) {
+            Alert.alert('Lỗi', 'Không thể xác định người dùng. Vui lòng thử lại sau.');
+            return;
+        }
+        if (isGroupLeader) {
+            Alert.alert('Lỗi', 'Trưởng nhóm không thể rời nhóm. Hãy chuyển quyền trưởng nhóm hoặc giải tán nhóm.');
+            return;
+        }
+        Alert.alert(
+            'Rời nhóm',
+            'Bạn có chắc muốn rời nhóm này không?',
+            [
+                { text: 'Hủy', style: 'cancel' },
+                {
+                    text: 'Rời',
+                    onPress: async () => {
+                        try {
+                            const response = await leaveGroup({
+                                conversation_id,
+                                user_id: currentUserId,
+                            });
+                            if (response.status !== 200) throw new Error(response.data.message || 'Lỗi khi rời nhóm');
+                            Alert.alert('Thành công', 'Bạn đã rời nhóm');
+                            await checkGroupStatus();
+                            navigation.goBack();
+                        } catch (err) {
+                            Alert.alert('Lỗi', err.message || 'Không thể rời nhóm');
+                        }
+                    },
+                },
+            ],
+            { cancelable: true }
+        );
+    };
+
+    const pickFile = async () => {
+        if (!isGroupActive && !isGroup) {
+            Alert.alert('Thông báo', 'Bạn chưa kết bạn với người này.');
+            return;
+        }
+        try {
+            const result = await DocumentPicker.getDocumentAsync({
+                type: [
+                    'video/mp4',
+                    'application/pdf',
+                    'application/msword',
+                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    'application/vnd.ms-excel',
+                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                ],
+                copyToCacheDirectory: true,
+            });
+
+            if (!result.canceled && result.assets && result.assets.length > 0 && (await checkFileSize(result.assets[0].uri))) {
+                const mimeType = result.assets[0].mimeType || 'application/octet-stream';
+                const type = mimeType.includes('video') ? 'video' :
+                    mimeType.includes('pdf') || mimeType.includes('word') || mimeType.includes('excel') ? 'file' : 'file';
+                await handleSendFile(result.assets[0].uri, type);
+            }
+        } catch (err) {
+            Alert.alert('Lỗi', err.message || 'Không thể chọn tệp');
         }
     };
 
@@ -246,8 +450,7 @@ const ChatScreen = ({ route, navigation }) => {
                 }
             });
         } catch (err) {
-            console.error('Lỗi ghi âm:', err);
-            Alert.alert('Lỗi', 'Không thể bắt đầu ghi âm');
+            Alert.alert('Lỗi', err.message || 'Không thể bắt đầu ghi âm');
         }
     };
 
@@ -260,12 +463,13 @@ const ChatScreen = ({ route, navigation }) => {
                 setIsRecording(false);
                 setRecordingDuration(0);
 
-                await handleSendFile(uri, 'audio');
-                Alert.alert('Thành công', 'Đã gửi tin nhắn thoại');
+                if (await checkFileSize(uri)) {
+                    await handleSendFile(uri, 'audio');
+                    Alert.alert('Thành công', 'Đã gửi tin nhắn thoại');
+                }
             }
         } catch (err) {
-            console.error('Lỗi dừng ghi âm:', err);
-            Alert.alert('Lỗi', 'Không thể gửi tin nhắn thoại');
+            Alert.alert('Lỗi', err.message || 'Không thể gửi tin nhắn thoại');
         }
     };
 
@@ -279,93 +483,54 @@ const ChatScreen = ({ route, navigation }) => {
                 }
             });
         } catch (err) {
-            console.error('Lỗi phát âm thanh:', err);
-            Alert.alert('Lỗi', 'Không thể phát tin nhắn thoại');
+            Alert.alert('Lỗi', err.message || 'Không thể phát tin nhắn thoại');
         }
     };
 
     useEffect(() => {
-        checkFriendStatus();
+        if (isGroup) {
+            checkGroupStatus();
+        } else {
+            checkFriendStatus();
+        }
     }, []);
 
     useEffect(() => {
-        // Chỉ join room một lần khi component mount
-        const joinRoom = () => {
-            if (conversation_id) {
-                socket.emit('conversation_id', conversation_id);
-                console.log('✅ Joined room:', conversation_id);
-            }
-        };
-
-        // Khởi tạo kết nối socket
-        socket.connect(); // Đảm bảo socket kết nối ngay từ đầu
+        socket.connect();
         joinRoom();
-
-        if (isFriend) {
-            loadMessages();
-        }
 
         socket.on('connect', () => {
             console.log('🔌 Socket connected:', socket.id);
-            joinRoom(); // Join lại nếu reconnect
+            joinRoom();
         });
 
         socket.on('reconnect', () => {
             console.log('🔁 Socket reconnected:', socket.id);
             joinRoom();
-            if (isFriend) loadMessages();
+            loadMessages();
         });
 
         socket.on('receive-message', (data) => {
-            console.log('📩 MOBILE nhận socket message:', JSON.stringify(data, null, 2));
             try {
-                let message = data;
-
-                // Server gửi object, chỉ parse nếu là chuỗi
-                if (typeof data === 'string') {
-                    try {
-                        message = JSON.parse(data);
-                        console.log('Parsed message:', message);
-                    } catch (err) {
-                        console.error('Lỗi parse chuỗi JSON:', err);
-                        return;
-                    }
+                let message = typeof data === 'string' ? JSON.parse(data) : data;
+                if (message.conversation_id === conversation_id) {
+                    setMessages((prev) => {
+                        if (prev.some((msg) => msg._id === message._id)) return prev;
+                        return [...prev, message];
+                    });
+                    setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
                 }
-
-                // Kiểm tra dữ liệu hợp lệ
-                if (!message || typeof message !== 'object' || !message._id || !message.conversation_id) {
-                    console.error('Dữ liệu tin nhắn không hợp lệ:', message);
-                    return;
-                }
-
-                // Kiểm tra conversation_id
-                if (message.conversation_id !== conversation_id) {
-                    console.log('Tin nhắn không thuộc conversation này:', message.conversation_id);
-                    return;
-                }
-
-                // Cập nhật danh sách tin nhắn
-                setMessages((prev) => {
-                    if (prev.some((msg) => msg._id === message._id)) {
-                        console.log('Tin nhắn đã tồn tại:', message._id);
-                        return prev;
-                    }
-                    return [...prev, message];
-                });
-
-                // Scroll xuống cuối
-                setTimeout(() => {
-                    if (flatListRef.current) {
-                        flatListRef.current.scrollToEnd({ animated: true });
-                    }
-                }, 100);
             } catch (err) {
-                console.error('❌ Lỗi xử lý tin nhắn:', err);
+                console.error('Lỗi xử lý tin nhắn:', err);
             }
         });
 
         socket.on('message-deleted', (messageId) => {
-            setMessages((prev) => prev.filter((msg) => msg._id !== messageId));
+            setMessages((prev) => prev.map((msg) =>
+                msg._id === messageId && !msg.deletedBy.includes(currentUserId)
+                    ? { ...msg, deletedBy: [...(msg.deletedBy || []), currentUserId] }
+                    : msg
+            ));
         });
 
         socket.on('message-recalled', (data) => {
@@ -380,21 +545,77 @@ const ChatScreen = ({ route, navigation }) => {
                     )
                 );
             } catch (err) {
-                console.error('❌ Lỗi parse tin nhắn thu hồi:', err);
+                console.error('Lỗi parse tin nhắn thu hồi:', err);
             }
         });
 
-        socket.on('friend-accepted', ({ conversationId, userId, friendId }) => {
-            if (conversationId === conversation_id || friendId === friend_id || userId === currentUserId) {
-                checkFriendStatus();
+        socket.on('group-event', ({ conversation_id: convId, event, data }) => {
+            if (convId === conversation_id) {
+                if (event === 'member-added') {
+                    setMessages((prev) => [...prev, {
+                        _id: `notify-${Date.now()}`,
+                        conversation_id,
+                        contentType: 'notify',
+                        content: `${data.userName} đã được thêm vào nhóm`,
+                        createdAt: new Date(),
+                    }]);
+                } else if (event === 'member-removed') {
+                    setMessages((prev) => [...prev, {
+                        _id: `notify-${Date.now()}`,
+                        conversation_id,
+                        contentType: 'notify',
+                        content: `${data.userName} đã bị xóa khỏi nhóm`,
+                        createdAt: new Date(),
+                    }]);
+                } else if (event === 'group-disbanded') {
+                    setIsGroupActive(false);
+                    Alert.alert('Thông báo', 'Nhóm đã bị giải tán');
+                    navigation.goBack();
+                } else if (event === 'deputy-assigned') {
+                    setMessages((prev) => [...prev, {
+                        _id: `notify-${Date.now()}`,
+                        conversation_id,
+                        contentType: 'notify',
+                        content: `${data.userName} đã được gán quyền phó nhóm`,
+                        createdAt: new Date(),
+                    }]);
+                } else if (event === 'leader-assigned') {
+                    setMessages((prev) => [...prev, {
+                        _id: `notify-${Date.now()}`,
+                        conversation_id,
+                        contentType: 'notify',
+                        content: `${data.userName} đã được gán quyền trưởng nhóm`,
+                        createdAt: new Date(),
+                    }]);
+                } else if (event === 'deleteDeputyLeader') {
+                    setMessages((prev) => [...prev, {
+                        _id: `notify-${Date.now()}`,
+                        conversation_id,
+                        contentType: 'notify',
+                        content: `${data.userName} đã bị gỡ quyền phó nhóm`,
+                        createdAt: new Date(),
+                    }]);
+                } else if (event === 'member-left') {
+                    setMessages((prev) => [...prev, {
+                        _id: `notify-${Date.now()}`,
+                        conversation_id,
+                        contentType: 'notify',
+                        content: `${data.userName} đã rời nhóm`,
+                        createdAt: new Date(),
+                    }]);
+                    // Kiểm tra người dùng hiện tại có phải người rời không
+                    if (data.userId === currentUserId) {
+                        setIsGroupActive(false);
+                        Alert.alert('Thông báo', 'Bạn đã rời nhóm này.');
+                        navigation.goBack();
+                    }
+                }
             }
         });
 
         socket.on('connect_error', (err) => {
             console.error('🚫 Socket connect error:', err);
-            setTimeout(() => {
-                socket.connect();
-            }, 3000);
+            setTimeout(() => socket.connect(), 3000);
         });
 
         return () => {
@@ -403,12 +624,11 @@ const ChatScreen = ({ route, navigation }) => {
             socket.off('receive-message');
             socket.off('message-deleted');
             socket.off('message-recalled');
-            socket.off('friend-accepted');
+            socket.off('group-event');
             socket.off('connect_error');
-            socket.disconnect(); // Ngắt kết nối khi component unmount
+            socket.disconnect();
         };
-    }, [conversation_id, friend_id, currentUserId, isFriend]);
-
+    }, [conversation_id, isGroup, currentUserId]);
 
     useEffect(() => {
         navigation.setOptions({
@@ -418,6 +638,25 @@ const ChatScreen = ({ route, navigation }) => {
             headerTitleStyle: { fontWeight: 'bold' },
             headerRight: () => (
                 <View style={styles.headerRight}>
+                    {isGroup && (
+                        <>
+                            <TouchableOpacity onPress={() => navigation.navigate('GroupManagement', {
+                                conversation_id,
+                                conversationName: friend_name,
+                                groupAvatar: friend_avatar,
+                            })}>
+                                <MaterialCommunityIcons name="account-group" size={24} color="#fff" style={styles.headerIcon} />
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={handleLeaveGroup} disabled={loading}>
+                                <MaterialCommunityIcons
+                                    name="exit-to-app"
+                                    size={24}
+                                    color={loading ? '#888' : '#fff'} // Màu xám khi đang tải
+                                    style={styles.headerIcon}
+                                />
+                            </TouchableOpacity>
+                        </>
+                    )}
                     <TouchableOpacity onPress={() => Alert.alert('Gọi thoại', 'Tính năng đang phát triển')}>
                         <MaterialCommunityIcons name="phone" size={24} color="#fff" style={styles.headerIcon} />
                     </TouchableOpacity>
@@ -427,10 +666,28 @@ const ChatScreen = ({ route, navigation }) => {
                 </View>
             ),
         });
-    }, [navigation, friend_name]);
+    }, [navigation, friend_name, friend_avatar, isGroup, loading]);
+
+    useEffect(() => {
+        const loadUserInfoForMessages = async () => {
+            const uniqueSenderIds = [...new Set(messages.map((msg) => typeof msg.senderId === 'object' ? msg.senderId._id : msg.senderId))];
+            for (const senderId of uniqueSenderIds) {
+                if (!userCache[senderId] && senderId !== currentUserId) {
+                    await fetchUserInfo(senderId);
+                }
+            }
+        };
+        if (messages.length > 0 && currentUserId) {
+            loadUserInfoForMessages();
+        }
+    }, [messages, currentUserId]);
 
     const sendText = async () => {
-        if (!isFriend) {
+        if (!isGroupActive) {
+            Alert.alert('Thông báo', 'Bạn đã rời nhóm và không thể gửi tin nhắn.');
+            return;
+        }
+        if (!isGroupActive && !isGroup) {
             Alert.alert('Thông báo', 'Bạn chưa kết bạn với người này.');
             return;
         }
@@ -463,68 +720,22 @@ const ChatScreen = ({ route, navigation }) => {
         setShowEmojiPicker(false);
     };
 
-    const pickImage = async () => {
-        if (!isFriend) {
-            Alert.alert('Thông báo', 'Bạn chưa kết bạn với người này.');
-            return;
-        }
-        try {
-            const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-            if (!permissionResult.granted) {
-                Alert.alert('Quyền truy cập bị từ chối', 'Cần cấp quyền truy cập thư viện ảnh.');
-                return;
-            }
-
-            const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                allowsEditing: true,
-                quality: 1,
-            });
-
-            if (!result.canceled) {
-                await handleSendFile(result.assets[0].uri, 'image');
-            }
-        } catch (err) {
-            Alert.alert('Lỗi', 'Không thể chọn ảnh');
-        }
-    };
-
-    const pickFile = async () => {
-        if (!isFriend) {
-            Alert.alert('Thông báo', 'Bạn chưa kết bạn với người này.');
-            return;
-        }
-        try {
-            const result = await DocumentPicker.getDocumentAsync({
-                type: [
-                    'video/mp4',
-                    'application/pdf',
-                    'application/msword',
-                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                    'application/vnd.ms-excel',
-                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                ],
-                copyToCacheDirectory: true,
-            });
-
-            if (!result.canceled && result.assets && result.assets.length > 0) {
-                const mimeType = result.assets[0].mimeType || 'application/octet-stream';
-                const type = mimeType.includes('video') ? 'video' :
-                    mimeType.includes('pdf') || mimeType.includes('word') || mimeType.includes('excel') ? 'file' : 'file';
-                await handleSendFile(result.assets[0].uri, type);
-            }
-        } catch (err) {
-            Alert.alert('Lỗi', 'Không thể chọn tệp');
-        }
-    };
-
     const handleSendFile = async (uri, type) => {
+        if (!isGroupActive) {
+            Alert.alert('Thông báo', 'Bạn đã rời nhóm và không thể gửi tệp.');
+            return;
+        }
         try {
+            console.log('Bắt đầu gửi file:', { uri, type, conversation_id, user_id: currentUserId });
             const res = await sendFileMobile(conversation_id, currentUserId, uri, type);
-            if (res.status !== 200) throw new Error(res.data.message || 'Lỗi khi gửi file');
+            console.log('Kết quả gửi file:', res);
+            if (res.status !== 200) {
+                throw new Error(res.data.message || 'Lỗi khi gửi file');
+            }
             setMessages((prev) => [...prev, res.data.messages]);
             socket.emit('send-message', res.data.messages);
         } catch (err) {
+            console.error('Lỗi trong handleSendFile:', err);
             Alert.alert('Lỗi', err.message || 'Không thể gửi file');
         }
     };
@@ -536,7 +747,6 @@ const ChatScreen = ({ route, navigation }) => {
             socket.emit('delete-my-message', { message_id: messageId, user_id: currentUserId, conversation_id });
             setContextMenu({ visible: false, messageId: null, isCurrentUser: false, content: null, contentType: null });
         } catch (err) {
-            console.error('Lỗi xóa tin nhắn:', err);
             Alert.alert('Lỗi', err.message || 'Không thể xóa tin nhắn');
         }
     };
@@ -555,7 +765,6 @@ const ChatScreen = ({ route, navigation }) => {
             socket.emit('recall-message', { message_id: messageId, conversation_id });
             setContextMenu({ visible: false, messageId: null, isCurrentUser: false, content: null, contentType: null });
         } catch (err) {
-            console.error('Lỗi thu hồi tin nhắn:', err);
             Alert.alert('Lỗi', err.message || 'Không thể thu hồi tin nhắn');
         }
     };
@@ -565,11 +774,11 @@ const ChatScreen = ({ route, navigation }) => {
             Alert.alert('Lỗi', 'Nội dung tin nhắn không hợp lệ');
             return;
         }
-        fetchFriends(); // lấy danh sách bạn bè
+        fetchFriends();
         setContextMenu({
             visible: false,
             messageId: message._id,
-            isCurrentUser: message.senderId === currentUserId,
+            isCurrentUser: typeof message.senderId === 'object' ? message.senderId._id === currentUserId : message.senderId === currentUserId,
             content: message.content,
             contentType: message.contentType,
         });
@@ -587,10 +796,16 @@ const ChatScreen = ({ route, navigation }) => {
     };
 
     const renderMessage = ({ item }) => {
-        const isCurrentUser = item.senderId === currentUserId;
+        const senderId = typeof item.senderId === 'object' ? item.senderId?._id : item.senderId;
+        const isCurrentUser = senderId === currentUserId;
+        const isDeleted = item.deletedBy?.includes(currentUserId);
         const isReply = item.content && item.content.includes('Trả lời:');
         let replyPreview = '';
         let mainContent = item.content || '';
+
+        const senderInfo = typeof item.senderId === 'object' && item.senderId?.userName
+            ? { ...item.senderId, avatar: item.senderId.avatar?.startsWith('file://') || !item.senderId.avatar ? 'https://placehold.co/50' : item.senderId.avatar }
+            : userCache[senderId] || { userName: 'Unknown', avatar: 'https://placehold.co/50' };
 
         if (isReply && item.contentType === 'text') {
             const parts = item.content.split('\n');
@@ -598,29 +813,52 @@ const ChatScreen = ({ route, navigation }) => {
             mainContent = parts.slice(1).join('\n');
         }
 
+        if (item.contentType === 'notify') {
+            return (
+                <View style={styles.notifyMessage}>
+                    <Text style={styles.notifyText}>{item.content}</Text>
+                </View>
+            );
+        }
+
+        if (isDeleted) {
+            return (
+                <View style={[styles.messageWrapper, isCurrentUser ? styles.messageWrapperRight : {}]}>
+                    <View style={[styles.messageBubble, isCurrentUser ? styles.bubbleRight : styles.bubbleLeft]}>
+                        <Text style={[styles.messageText, { fontStyle: 'italic', color: '#888' }]}>
+                            Bạn đã xóa tin nhắn này
+                        </Text>
+                    </View>
+                </View>
+            );
+        }
+
         return (
             <TouchableOpacity
                 onLongPress={() => {
-                    console.log('Long press message:', item);
-                    setContextMenu({
-                        visible: true,
-                        messageId: item._id,
-                        isCurrentUser,
-                        content: item.content,
-                        contentType: item.contentType,
-                    });
+                    if (item.contentType !== 'notify' && !isDeleted) {
+                        setContextMenu({
+                            visible: true,
+                            messageId: item._id,
+                            isCurrentUser,
+                            content: item.content,
+                            contentType: item.contentType,
+                        });
+                    }
                 }}
-                style={[styles.messageWrapper, isCurrentUser ? { justifyContent: 'flex-end' } : {}]}
+                style={[styles.messageWrapper, isCurrentUser ? styles.messageWrapperRight : {}]}
             >
-                {!isCurrentUser && (
-                    <Image source={{ uri: friend_avatar }} style={styles.avatar} />
-                )}
                 <View
                     style={[
                         styles.messageBubble,
                         isCurrentUser ? styles.bubbleRight : styles.bubbleLeft,
                     ]}
                 >
+                    {!isCurrentUser && isGroup && (
+                        <View style={styles.senderContainer}>
+                            <Text style={styles.senderName}>{senderInfo.userName}</Text>
+                        </View>
+                    )}
                     {item.recalled ? (
                         <Text style={[styles.messageText, { fontStyle: 'italic', color: '#888' }]}>
                             Tin nhắn đã bị thu hồi
@@ -637,9 +875,11 @@ const ChatScreen = ({ route, navigation }) => {
                             ) : item.contentType === 'image' ? (
                                 <TouchableOpacity onPress={() => setPreviewImage(item.content)}>
                                     <Image
-                                        source={{ uri: item.content }}
+                                        source={{ uri: item.content || 'https://placehold.co/200' }}
                                         style={styles.image}
-                                        onError={() => console.log('Lỗi tải ảnh:', item.content)}
+                                        defaultSource={{ uri: 'https://placehold.co/200' }}
+                                        onError={(e) => console.log('Lỗi tải ảnh tin nhắn:', item.content, e.nativeEvent.error)}
+                                        key={item.content || 'placeholder'}
                                     />
                                 </TouchableOpacity>
                             ) : item.contentType === 'video' ? (
@@ -651,7 +891,7 @@ const ChatScreen = ({ route, navigation }) => {
                                         useNativeControls
                                         resizeMode="cover"
                                         isLooping={false}
-                                        onError={(e) => console.log('Lỗi tải video:', e)}
+                                        onError={(e) => console.log('Lỗi tải video:', item.content, e)}
                                     />
                                 </View>
                             ) : item.contentType === 'audio' ? (
@@ -691,33 +931,20 @@ const ChatScreen = ({ route, navigation }) => {
     };
 
     const renderFriendItem = ({ item }) => (
-        <TouchableOpacity
-            style={styles.friendItem}
-            onPress={() => forwardMessageToFriend(item)}
-        >
-            <Image
-                source={{ uri: item.friend_avatar }}
-                style={styles.friendAvatar}
-                defaultSource={{ uri: 'https://via.placeholder.com/50' }}
-            />
+        <TouchableOpacity style={styles.friendItem} onPress={() => forwardMessageToFriend(item)}>
+            <Image source={{ uri: item.friend_avatar }} style={styles.friendAvatar} defaultSource={{ uri: 'https://via.placeholder.com/50' }} />
             <Text style={styles.friendName}>{item.friend_name}</Text>
         </TouchableOpacity>
     );
 
     return (
         <View style={styles.container}>
-            {isFriend ? (
+            {isGroupActive || !isGroup ? (
                 <>
                     {Platform.OS === 'web' ? (
-                        <ScrollView
-                            style={styles.webScrollView}
-                            contentContainerStyle={styles.scrollViewContent}
-                            ref={flatListRef}
-                        >
+                        <ScrollView style={styles.webScrollView} contentContainerStyle={styles.scrollViewContent} ref={flatListRef}>
                             {messages.map((item) => (
-                                <View key={item._id}>
-                                    {renderMessage({ item })}
-                                </View>
+                                <View key={item._id}>{renderMessage({ item })}</View>
                             ))}
                         </ScrollView>
                     ) : (
@@ -726,6 +953,8 @@ const ChatScreen = ({ route, navigation }) => {
                             data={messages}
                             renderItem={renderMessage}
                             keyExtractor={(item) => item._id}
+                            initialNumToRender={20}
+                            windowSize={10}
                             onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
                             onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
                             onScroll={(e) => {
@@ -778,7 +1007,7 @@ const ChatScreen = ({ route, navigation }) => {
                                 placeholder="Nhập tin nhắn..."
                                 placeholderTextColor="#888"
                                 multiline
-                                editable={isFriend}
+                                editable={isGroupActive || !isGroup}
                             />
                             <TouchableOpacity onPress={pickImage}>
                                 <MaterialCommunityIcons name="camera" size={24} color="#888" />
@@ -789,10 +1018,7 @@ const ChatScreen = ({ route, navigation }) => {
                             <TouchableOpacity onPress={pickFile}>
                                 <MaterialCommunityIcons name="paperclip" size={24} color="#888" />
                             </TouchableOpacity>
-                            <TouchableOpacity
-                                onPress={isRecording ? stopRecording : startRecording}
-                                disabled={!isFriend}
-                            >
+                            <TouchableOpacity onPress={isRecording ? stopRecording : startRecording} disabled={!isGroupActive && isGroup}>
                                 <MaterialCommunityIcons
                                     name={isRecording ? "stop-circle" : "microphone"}
                                     size={24}
@@ -826,16 +1052,12 @@ const ChatScreen = ({ route, navigation }) => {
                     )}
                 </>
             ) : (
-                <View style={styles.noFriendContainer}>
-                    <Text style={styles.noFriendText}>Bạn chưa kết bạn với {friend_name}. Vui lòng kết bạn để nhắn tin.</Text>
+                <View style={styles.noGroupContainer}>
+                    <Text style={styles.noGroupText}>Nhóm không còn tồn tại.</Text>
                 </View>
             )}
 
-            <Modal
-                visible={contextMenu.visible}
-                transparent
-                animationType="fade"
-            >
+            <Modal visible={contextMenu.visible} transparent animationType="fade">
                 <TouchableOpacity
                     style={styles.contextMenuOverlay}
                     onPress={() => setContextMenu({ visible: false, messageId: null, isCurrentUser: false, content: null, contentType: null })}
@@ -843,54 +1065,38 @@ const ChatScreen = ({ route, navigation }) => {
                     <View style={styles.contextMenu}>
                         {contextMenu.isCurrentUser ? (
                             <>
-                                <TouchableOpacity
-                                    style={styles.contextMenuItem}
-                                    onPress={() => handleRecallMessage(contextMenu.messageId)}
-                                >
+                                <TouchableOpacity style={styles.contextMenuItem} onPress={() => handleRecallMessage(contextMenu.messageId)}>
                                     <Text style={styles.contextMenuText}>Thu hồi</Text>
                                 </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={styles.contextMenuItem}
-                                    onPress={() => handleDeleteMessage(contextMenu.messageId)}
-                                >
+                                <TouchableOpacity style={styles.contextMenuItem} onPress={() => handleDeleteMessage(contextMenu.messageId)}>
                                     <Text style={styles.contextMenuText}>Xóa</Text>
                                 </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={styles.contextMenuItem}
-                                    onPress={() => handleForwardMessage({
-                                        _id: contextMenu.messageId,
-                                        content: contextMenu.content,
-                                        contentType: contextMenu.contentType,
-                                        senderId: contextMenu.isCurrentUser ? currentUserId : friend_id,
-                                    })}
-                                >
+                                <TouchableOpacity style={styles.contextMenuItem} onPress={() => handleForwardMessage({
+                                    _id: contextMenu.messageId,
+                                    content: contextMenu.content,
+                                    contentType: contextMenu.contentType,
+                                    senderId: contextMenu.isCurrentUser ? currentUserId : friend_id,
+                                })}>
                                     <Text style={styles.contextMenuText}>Chuyển tiếp</Text>
                                 </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={styles.contextMenuItem}
-                                    onPress={() => handleReplyMessage(contextMenu.messageId, contextMenu.content, contextMenu.contentType)}
-                                >
+                                <TouchableOpacity style={styles.contextMenuItem} onPress={() => handleReplyMessage(contextMenu.messageId, contextMenu.content, contextMenu.contentType)}>
                                     <Text style={styles.contextMenuText}>Trả lời</Text>
                                 </TouchableOpacity>
                             </>
                         ) : (
                             <>
-                                <TouchableOpacity
-                                    style={styles.contextMenuItem}
-                                    onPress={handleForwardMessage}
-                                >
+                                <TouchableOpacity style={styles.contextMenuItem} onPress={() => handleForwardMessage({
+                                    _id: contextMenu.messageId,
+                                    content: contextMenu.content,
+                                    contentType: contextMenu.contentType,
+                                    senderId: contextMenu.isCurrentUser ? currentUserId : friend_id,
+                                })}>
                                     <Text style={styles.contextMenuText}>Chuyển tiếp</Text>
                                 </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={styles.contextMenuItem}
-                                    onPress={() => handleReplyMessage(contextMenu.messageId, contextMenu.content, contextMenu.contentType)}
-                                >
+                                <TouchableOpacity style={styles.contextMenuItem} onPress={() => handleReplyMessage(contextMenu.messageId, contextMenu.content, contextMenu.contentType)}>
                                     <Text style={styles.contextMenuText}>Trả lời</Text>
                                 </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={styles.contextMenuItem}
-                                    onPress={() => setContextMenu({ visible: false, messageId: null, isCurrentUser: false, content: null, contentType: null })}
-                                >
+                                <TouchableOpacity style={styles.contextMenuItem} onPress={() => setContextMenu({ visible: false, messageId: null, isCurrentUser: false, content: null, contentType: null })}>
                                     <Text style={styles.contextMenuText}>Hủy</Text>
                                 </TouchableOpacity>
                             </>
@@ -899,15 +1105,8 @@ const ChatScreen = ({ route, navigation }) => {
                 </TouchableOpacity>
             </Modal>
 
-            <Modal
-                visible={showForwardModal}
-                transparent
-                animationType="slide"
-            >
-                <TouchableOpacity
-                    style={styles.forwardModalOverlay}
-                    onPress={() => setShowForwardModal(false)}
-                >
+            <Modal visible={showForwardModal} transparent animationType="slide">
+                <TouchableOpacity style={styles.forwardModalOverlay} onPress={() => setShowForwardModal(false)}>
                     <View style={styles.forwardModal}>
                         <Text style={styles.forwardModalTitle}>Chọn bạn bè để chuyển tiếp</Text>
                         <FlatList
@@ -917,10 +1116,7 @@ const ChatScreen = ({ route, navigation }) => {
                             style={styles.friendList}
                             ListEmptyComponent={<Text style={styles.emptyText}>Không có bạn bè nào</Text>}
                         />
-                        <TouchableOpacity
-                            style={styles.cancelButton}
-                            onPress={() => setShowForwardModal(false)}
-                        >
+                        <TouchableOpacity style={styles.cancelButton} onPress={() => setShowForwardModal(false)}>
                             <Text style={styles.cancelButtonText}>Hủy</Text>
                         </TouchableOpacity>
                     </View>
@@ -936,7 +1132,7 @@ const ChatScreen = ({ route, navigation }) => {
     );
 };
 
-const styles = StyleSheet.create({
+const styles = {
     container: {
         flex: 1,
         backgroundColor: '#F6F6F6',
@@ -977,6 +1173,13 @@ const styles = StyleSheet.create({
         marginVertical: 5,
         alignItems: 'flex-end',
     },
+    messageWrapperRight: {
+        flexDirection: 'row',
+        paddingHorizontal: 10,
+        marginVertical: 5,
+        alignItems: 'flex-end',
+        justifyContent: 'flex-end',
+    },
     avatar: {
         width: 36,
         height: 36,
@@ -1005,6 +1208,12 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#000',
         lineHeight: 22,
+    },
+    senderName: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: '#333',
+        marginBottom: 4,
     },
     image: {
         width: width * 0.6,
@@ -1177,13 +1386,13 @@ const styles = StyleSheet.create({
     emojiText: {
         fontSize: 24,
     },
-    noFriendContainer: {
+    noGroupContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
         padding: 20,
     },
-    noFriendText: {
+    noGroupText: {
         fontSize: 18,
         color: '#888',
         textAlign: 'center',
@@ -1244,6 +1453,15 @@ const styles = StyleSheet.create({
         marginTop: 20,
         color: '#888888',
     },
+    notifyMessage: {
+        alignItems: 'center',
+        padding: 10,
+    },
+    notifyText: {
+        fontSize: 14,
+        color: '#888',
+        fontStyle: 'italic',
+    },
     recordingIndicator: {
         position: 'absolute',
         bottom: 80,
@@ -1256,6 +1474,17 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 14,
     },
-});
+    senderContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 4,
+    },
+    senderAvatar: {
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        marginRight: 6,
+    },
+};
 
 export default ChatScreen;

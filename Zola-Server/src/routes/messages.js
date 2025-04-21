@@ -84,12 +84,15 @@ router.post(
 )
 //mobile thêm
 router.post('/getLastMessageMobile', messageController.getLastMessageMobile);
-router.post(
-    '/createMessagesMobile',
+router.post('/createMessagesMobile',
     upload.single('file'), // Đơn file từ mobile
     messageController.createMessagesMobile
 );
-// routes/message.js (hoặc tương đương)
-router.post('/createMessagesMobile', messageController.createMessagesMobile);
+
+// group message
+router.post('/createNotificationMobile', messageController.createNotificationMobile);
+router.post('/forwardMessageMobile', messageController.forwardMessageMobile);
+router.post('/getAllMediaMobile', messageController.getAllMediaMobile);
+router.post('/getAllFileMobile', messageController.getAllFileMobile);
 
 export default router

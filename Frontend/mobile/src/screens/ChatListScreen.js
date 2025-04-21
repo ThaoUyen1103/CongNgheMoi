@@ -1,6 +1,8 @@
+// ChatListScreen.js
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Image, Alert } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, Image, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import io from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getConversationsByUserIDMobile, getLastMessage, findUserByAccountId, findUserByUserId, getConversationById } from '../services/api';
 
@@ -10,6 +12,61 @@ const ChatListScreen = ({ navigation }) => {
     const [currentAccountId, setCurrentAccountId] = useState(null);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(true);
+
+    const socket = io('http://192.168.1.33:3005', {
+        transports: ['websocket'],
+        autoConnect: true,
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+    });
+
+    // Thêm socket listener trong useEffect
+    useEffect(() => {
+        loadConversations();
+
+        socket.connect();
+
+        socket.on('connect', () => {
+            console.log('🔌 Socket connected in ChatListScreen:', socket.id);
+        });
+
+        socket.on('group-event', ({ conversation_id: convId, event }) => {
+            if (event === 'group-disbanded') {
+                // Giải tán nhóm: xóa nhóm khỏi danh sách
+                setConversations((prev) => prev.filter((conv) => conv._id !== convId));
+            } else if (event === 'member-removed' || event === 'member-left') {
+                // Xóa thành viên hoặc tự rời: kiểm tra xem người dùng hiện tại có còn trong nhóm không
+                const checkUserInGroup = async () => {
+                    try {
+                        const response = await getConversationById(convId);
+                        if (response.status !== 200 || !response.data.conversation) return;
+
+                        const conversation = response.data.conversation;
+                        if (!conversation.members.includes(currentUserId)) {
+                            // Người dùng không còn trong nhóm: xóa nhóm khỏi danh sách
+                            setConversations((prev) => prev.filter((conv) => conv._id !== convId));
+                        }
+                    } catch (err) {
+                        console.log('Lỗi kiểm tra nhóm:', err);
+                    }
+                };
+                checkUserInGroup();
+            }
+        });
+
+        socket.on('connect_error', (err) => {
+            console.error('🚫 Socket connect error in ChatListScreen:', err);
+            setTimeout(() => socket.connect(), 3000);
+        });
+
+        return () => {
+            socket.off('connect');
+            socket.off('group-event');
+            socket.off('connect_error');
+            socket.disconnect();
+        };
+    }, [currentUserId]);
 
     const loadConversations = async () => {
         try {
@@ -42,43 +99,50 @@ const ChatListScreen = ({ navigation }) => {
                     const conversation = conversationResponse.data.conversation;
 
                     const lastMessageResponse = await getLastMessage(convId, userId);
-                    const friendId = conversation.members.find((id) => id !== userId);
+                    const isGroup = !!conversation.conversationName;
+                    let friendId, friendName, friendAvatar, isFriend;
 
-                    // Gọi API để lấy thông tin bạn bè
-                    const friendResponse = await findUserByUserId(friendId);
-                    if (friendResponse.status !== 200) {
-                        console.log('Lỗi lấy friend:', friendId);
-                        return null;
+                    if (isGroup) {
+                        friendId = null;
+                        friendName = conversation.conversationName || 'Nhóm không tên';
+                        friendAvatar = conversation.avatar || 'https://via.placeholder.com/50';
+                        isFriend = true; // Nhóm không cần kiểm tra trạng thái bạn bè
+                    } else {
+                        friendId = conversation.members.find((id) => id !== userId);
+                        const friendResponse = await findUserByUserId(friendId);
+                        if (friendResponse.status !== 200) {
+                            console.log('Lỗi lấy friend:', friendId);
+                            return null;
+                        }
+                        const friend = friendResponse.data.user;
+                        friendName = friend?.userName || 'Unknown';
+                        friendAvatar = friend?.avatar || 'https://via.placeholder.com/50';
+
+                        const userData = await findUserByUserId(userId);
+                        if (userData.status !== 200) {
+                            console.log('Lỗi lấy user:', userId);
+                            return null;
+                        }
+                        isFriend = userData.data.user.friend.some(f => f.friend_id === friendId);
                     }
-                    const friend = friendResponse.data.user;
 
-                    // Kiểm tra trạng thái bạn bè
-                    const userData = await findUserByUserId(userId);
-                    if (userData.status !== 200) {
-                        console.log('Lỗi lấy user:', userId);
-                        return null;
-                    }
-                    const isFriend = userData.data.user.friend.some(f => f.friend_id === friendId);
-
-                    // Log dữ liệu chi tiết
                     console.log('Conversation data:', {
                         convId,
                         friendId,
-                        friendName: friend?.userName,
-                        friendAvatar: friend?.avatar,
+                        friendName,
+                        friendAvatar,
+                        isGroup,
                     });
-
-                    // Xử lý avatar giống ContactScreen
-                    const avatarUrl = friend?.avatar || 'https://via.placeholder.com/50';
 
                     return {
                         _id: convId,
                         createdAt: conversation.createdAt,
                         lastMessage: lastMessageResponse.data.message || 'Chưa có tin nhắn',
                         friend_id: friendId,
-                        friend_name: friend?.userName || 'Unknown',
-                        friend_avatar: avatarUrl,
-                        isFriend: isFriend,
+                        friend_name: friendName,
+                        friend_avatar: friendAvatar,
+                        isFriend,
+                        isGroup,
                     };
                 })
             );
@@ -104,7 +168,7 @@ const ChatListScreen = ({ navigation }) => {
             '',
             [
                 { text: 'Thêm bạn', onPress: () => navigation.navigate('AddFriend') },
-                { text: 'Tạo nhóm', onPress: () => console.log('Tạo nhóm pressed') },
+                { text: 'Tạo nhóm', onPress: () => navigation.navigate('CreateGroup') },
                 { text: 'Cloud của tơi', onPress: () => console.log('Cloud của tơi pressed') },
                 { text: 'Lịch Zalo', onPress: () => console.log('Lịch Zalo pressed') },
                 { text: 'Tạo cuộc gọi nhóm', onPress: () => console.log('Tạo cuộc gọi nhóm pressed') },
@@ -116,7 +180,7 @@ const ChatListScreen = ({ navigation }) => {
     };
 
     const openChat = (item) => {
-        if (!item.isFriend) {
+        if (!item.isGroup && !item.isFriend) {
             Alert.alert('Thông báo', `Bạn chưa kết bạn với ${item.friend_name}. Vui lòng kết bạn để nhắn tin.`);
             return;
         }
@@ -125,6 +189,7 @@ const ChatListScreen = ({ navigation }) => {
             friend_id: item.friend_id,
             friend_name: item.friend_name,
             friend_avatar: item.friend_avatar,
+            isGroup: item.isGroup,
         });
     };
 
@@ -140,6 +205,9 @@ const ChatListScreen = ({ navigation }) => {
                     defaultSource={{ uri: 'https://via.placeholder.com/50' }}
                     onError={(e) => console.log('Lỗi tải avatar:', item.friend_avatar, e.nativeEvent.error)}
                 />
+                {item.isGroup && (
+                    <MaterialCommunityIcons name="account-group" size={20} color="#0088FF" style={styles.groupIcon} />
+                )}
             </View>
             <View style={styles.chatInfo}>
                 <View style={styles.chatHeader}>
@@ -208,7 +276,7 @@ const ChatListScreen = ({ navigation }) => {
     );
 };
 
-const styles = StyleSheet.create({
+const styles = {
     container: {
         flex: 1,
         backgroundColor: '#F5F5F5',
@@ -280,11 +348,17 @@ const styles = StyleSheet.create({
     },
     avatarContainer: {
         marginRight: 10,
+        position: 'relative',
     },
     avatar: {
         width: 50,
         height: 50,
         borderRadius: 25,
+    },
+    groupIcon: {
+        position: 'absolute',
+        bottom: 0,
+        right: 0,
     },
     chatInfo: {
         flex: 1,
@@ -325,6 +399,6 @@ const styles = StyleSheet.create({
         marginTop: 20,
         color: '#888888',
     },
-});
+};
 
 export default ChatListScreen;

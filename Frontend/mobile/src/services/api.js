@@ -1,8 +1,9 @@
+// services/api.js
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const api = axios.create({
-    baseURL: 'http://192.168.34.235:3001', // là kết nối với điện thoại thì cần ip máy, nếu chạy app bằng trình duyệt máy tính thì thay 'http://localhost:3001'
+    baseURL: 'http://192.168.1.33:3001',
 });
 
 api.interceptors.request.use(async (config) => {
@@ -74,7 +75,7 @@ export const findUserByAccountId = async (accountId) => {
 // Lấy thông tin người dùng theo user_id
 export const findUserByUserId = async (userId) => {
     try {
-        const response = await api.post('/user/findUserByUserID', { user_id: userId }); // Sửa thành POST để đồng bộ với backend
+        const response = await api.post('/user/findUserByUserID', { user_id: userId });
         return response;
     } catch (error) {
         console.error('Lỗi tìm user by ID:', error);
@@ -163,18 +164,72 @@ export const getAllUsersExceptCurrent = async (currentUserId) => {
 };
 
 // Conversation APIs
-export const getConversationsByUserID = async (user_id) => {
-    return await api.post('/conversation/getConversationsByUserIDWeb', { user_id });
-};
-
-// API mới cho mobile
 export const getConversationsByUserIDMobile = async (user_id) => {
     return await api.post('/conversation/getConversationsByUserIDMobile', { user_id });
 };
 
-// API để lấy thông tin cuộc trò chuyện theo ID
+// Lấy thông tin cuộc trò chuyện theo ID
 export const getConversationById = async (conversation_id) => {
     return await api.get(`/conversation/getConversationById/${conversation_id}`);
+};
+
+// Tạo nhóm
+export const createConversationsGroupMobile = async (data) => {
+    return await api.post('/conversation/create-group', data);
+};
+
+// Thêm thành viên vào nhóm
+export const addMemberToConversationGroupMobile = async (conversation_id, member_ids, user_id) => {
+    return await api.post('/conversation/add-member', { conversation_id, member_ids, user_id });
+};
+
+// Xóa thành viên khỏi nhóm
+export const removeMemberFromConversationGroupMobile = async ({ conversation_id, member_id, user_id }) => {
+    return await api.put('/conversation/removeMemberFromConversationGroup', {
+        conversation_id,
+        member_id,
+        user_id,
+    });
+};
+
+// Gán quyền phó nhóm
+export const authorizeDeputyLeader = async ({ conversation_id, member_id, user_id }) => {
+    return await api.put('/conversation/authorizeDeputyLeader', {
+        conversation_id,
+        member_id,
+        user_id,
+    });
+};
+
+// Gỡ quyền phó nhóm
+export const unauthorizeDeputyLeader = async ({ conversation_id, member_id, user_id }) => {
+    return await api.put('/conversation/unauthorizeDeputyLeader', {
+        conversation_id,
+        member_id,
+        user_id,
+    });
+};
+
+// Gán quyền trưởng nhóm
+export const authorizeGroupLeader = async ({ conversation_id, member_id, user_id }) => {
+    return await api.put('/conversation/authorizeGroupLeader', {
+        conversation_id,
+        member_id,
+        user_id,
+    });
+};
+
+// Giải tán nhóm
+export const disbandGroupMobile = async ({ conversation_id, user_id }) => {
+    return await api.put('/conversation/disbandGroup', {
+        conversation_id,
+        user_id,
+    });
+};
+
+// Rời nhóm
+export const leaveGroup = async ({ conversation_id, user_id }) => {
+    return await api.put('/conversation/leaveGroup', { conversation_id, user_id });
 };
 
 // Message APIs
@@ -188,7 +243,6 @@ export const sendMessage = async (conversation_id, user_id, content, contentType
     });
 };
 
-// API mới để gửi file (ảnh, tài liệu) cho mobile
 export const sendFileMobile = async (conversation_id, user_id, fileUri, contentType) => {
     const maxRetries = 3;
     let attempt = 0;
@@ -216,7 +270,7 @@ export const sendFileMobile = async (conversation_id, user_id, fileUri, contentT
 
             const response = await api.post('/message/createMessagesMobile', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
-                timeout: 60000, // Tăng timeout lên 60 giây
+                timeout: 60000,
             });
 
             console.log('Phản hồi gửi tệp:', response.data);
@@ -232,22 +286,35 @@ export const sendFileMobile = async (conversation_id, user_id, fileUri, contentT
     }
 };
 
-// Lấy danh sách tin nhắn
 export const getMessages = async (conversation_id) => {
     return await api.post('/message/findAllMessagesWeb', { conversation_id });
 };
 
-// Lấy tin nhắn cuối cùng
 export const getLastMessage = async (conversation_id, user_id) => {
     return await api.post('/message/getLastMessageMobile', { conversation_id, user_id });
 };
 
-// Xóa tin nhắn
 export const deleteMyMessage = async (message_id, user_id) => {
     return await api.post('/message/deleteMyMessageWeb', { message_id, user_id });
 };
 
-// Thu hồi tin nhắn
 export const recallMessage = async (message_id) => {
     return await api.post('/message/recallMessageWeb', { message_id });
+};
+
+// API mới cho Mobile
+export const createNotificationMobile = async (data) => {
+    return await api.post('/message/createNotificationMobile', data);
+};
+
+export const forwardMessageMobile = async (message_id, conversation_id, user_id) => {
+    return await api.post('/message/forwardMessageMobile', { message_id, conversation_id, user_id });
+};
+
+export const getAllMediaMobile = async (conversation_id) => {
+    return await api.post('/message/getAllMediaMobile', { conversation_id });
+};
+
+export const getAllFileMobile = async (conversation_id) => {
+    return await api.post('/message/getAllFileMobile', { conversation_id });
 };

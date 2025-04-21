@@ -479,22 +479,22 @@ class MessageController {
     }
     // post thu hồi tin nhắn cả 2 bên recallMessageWeb http://localhost:3001/message/recallMessageWeb
     async recallMessageWeb(req, res) {
-        const message_id = req.body.message_id;
+        const { message_id, user_id } = req.body;
 
         try {
             const message = await Message.findOne({ _id: message_id });
             if (!message) {
                 return res.status(404).json({ thongbao: 'Không tìm thấy tin nhắn!!!' });
             }
+
             message.recalled = true;
             await message.save();
 
-            // [Sửa lỗi]: Phát sự kiện socket để thông báo thu hồi tin nhắn realtime cho tất cả client trong cùng conversation_id
             console.log(`Emit message-recalled: ${message_id} to room ${message.conversation_id}`);
-            io.to(message.conversation_id.toString()).emit('message-recalled', JSON.stringify({
+            io.to(message.conversation_id.toString()).emit('message-recalled', {
                 message_id: message_id,
                 conversation_id: message.conversation_id.toString(),
-            }));
+            });
 
             return res.status(200).json({
                 thongbao: 'Thu hồi tin nhắn thành công!!!',
@@ -789,108 +789,97 @@ class MessageController {
 
     /// mobile --------------
     async addMessage(req, res) {
-        const { conversation_id, senderId, content, contentType } = req.body
+        const { conversation_id, senderId, content, contentType } = req.body;
         const newMessage = new Message({
             conversation_id,
             senderId,
             content,
             contentType,
-        })
+        });
         try {
-            var message = await Message.create(newMessage)
-            var message = await Message.create(newMessage)
+            var message = await Message.create(newMessage);
             message = await Message.populate(message, [
                 { path: 'senderId', select: 'userName avatar phoneNumber' },
                 { path: 'conversation_id' },
-            ])
+            ]);
             message = await User.populate(message, {
                 path: 'conversation_id.members',
                 select: 'userName avatar phoneNumber',
-            })
-            await Conversation.findByIdAndUpdate(conversation_id, {
-                lastMessage: message._id,
-            })
-            res.status(200).json(message)
+            });
+            await Conversation.findByIdAndUpdate(conversation_id, { lastMessage: message._id });
+            res.status(200).json(message);
         } catch (err) {
-            throw new Error(err.message)
+            throw new Error(err.message);
         }
     }
-    // get /:conversation_id
+
     async getMessagesByConversationID(req, res) {
         try {
-            const messages = await Message.find({
-                conversation_id: req.params.conversation_id,
-            })
+            const messages = await Message.find({ conversation_id: req.params.conversation_id })
                 .populate('senderId', 'userName avatar phoneNumber lastName')
-                .populate('conversation_id')
-            res.status(200).json(messages)
+                .populate('conversation_id');
+            res.status(200).json(messages);
         } catch (err) {
-            res.status(500).json(err)
+            res.status(500).json(err);
         }
     }
+
     async recallMessage(req, res) {
         try {
-            const message = await Message.findById(req.params.id)
-            message.recalled = true
-            const result = await message.save()
-            res.status(200).json(result)
+            const message = await Message.findById(req.params.id);
+            message.recalled = true;
+            const result = await message.save();
+            res.status(200).json(result);
         } catch (err) {
-            res.status(500).json(err)
+            res.status(500).json(err);
         }
     }
+
     async deleteMyMessage(req, res) {
-        const { message_id, user_id } = req.body
-
+        const { message_id, user_id } = req.body;
         try {
-            const message = await Message.findById(message_id)
+            const message = await Message.findById(message_id);
             if (!message) {
-                return res.status(200).json({ error: 'Tin nhắn không tồn tại' })
+                return res.status(200).json({ error: 'Tin nhắn không tồn tại' });
             }
-
-            // kiểm tra xem user đã xoá tin nhắn này chưa nếu chưa thì thêm vào mảng deletedBy
             if (!message.deletedBy.includes(user_id)) {
-                message.deletedBy.push(user_id)
-                await message.save()
+                message.deletedBy.push(user_id);
+                await message.save();
             }
             io.to(message.conversation_id).emit('message-deleted', message_id);
             console.log(`Emit message-deleted: ${message_id} to room ${message.conversation_id}`);
-
             return res.status(200).json({
                 thongbao: 'Xoá chỉ ở phía tôi thành công!!!',
                 message: message,
-            })
+            });
         } catch (error) {
-            res.status(500).json({ error: 'Lỗi' })
-        }
-    }
-    async findNewestMessage(req, res) {
-        try {
-            let index = 0
-            let message = await Message.findOne(
-                {
-                    conversation_id: req.params.conversation_id,
-                },
-                null,
-                { sort: { createdAt: -1 }, limit: 1, skip: index }
-            )
-            while (message.deletedBy.includes(req.body.userId)) {
-                index++
-                message = await Message.findOne(
-                    {
-                        conversation_id: req.params.conversation_id,
-                    },
-                    null,
-                    { sort: { createdAt: -1 }, limit: 1, skip: index }
-                )
-            }
-            console.log('message', message)
-            res.status(200).json(message)
-        } catch (err) {
-            res.status(500).json(err)
+            res.status(500).json({ error: 'Lỗi' });
         }
     }
 
-    // THÊM MOBILE
+    async findNewestMessage(req, res) {
+        try {
+            let index = 0;
+            let message = await Message.findOne(
+                { conversation_id: req.params.conversation_id },
+                null,
+                { sort: { createdAt: -1 }, limit: 1, skip: index }
+            );
+            while (message && message.deletedBy.includes(req.body.userId)) {
+                index++;
+                message = await Message.findOne(
+                    { conversation_id: req.params.conversation_id },
+                    null,
+                    { sort: { createdAt: -1 }, limit: 1, skip: index }
+                );
+            }
+            console.log('message', message);
+            res.status(200).json(message);
+        } catch (err) {
+            res.status(500).json(err);
+        }
+    }
+
     async getLastMessageMobile(req, res) {
         const conversation_id = req.body.conversation_id;
         const user_id = req.body.user_id;
@@ -905,7 +894,6 @@ class MessageController {
                 .sort({ createdAt: -1 })
                 .populate('senderId', 'userName avatar');
 
-            // Nếu không có tin nhắn, trả về giá trị mặc định
             if (!message) {
                 return res.status(200).json({
                     message: 'Chưa có tin nhắn',
@@ -929,32 +917,66 @@ class MessageController {
         const contentType = req.body.contentType;
         const file = req.file;
         const replyTo = req.body.replyTo;
+        const content = req.body.content;
 
-        console.log('Mobile input:', { conversation_id, senderId, contentType, file, replyTo });
+        console.log('Mobile input:', { conversation_id, senderId, contentType, file, replyTo, content });
 
-        if (!conversation_id || !senderId || !contentType) {
+        if (!senderId || !contentType) {
             return res.status(400).json({ message: 'Thiếu tham số bắt buộc' });
         }
 
         try {
-            if (contentType === 'text') {
-                const content = req.body.content;
-                if (!content) {
-                    return res.status(400).json({ message: 'Nội dung văn bản bị thiếu' });
+            // Nếu không có conversation_id (upload ảnh đại diện nhóm), chỉ upload file và trả về URL
+            if (!conversation_id || conversation_id === 'temp') {
+                if (!file) {
+                    return res.status(400).json({ message: 'Thiếu file khi upload ảnh' });
                 }
 
+                const fileType = file.originalname.split('.').pop();
+                const cleanFileName = file.originalname.split(/[-_]/).pop();
+                const filePath = `zola_${contentType}_${cleanFileName}`;
+                const params = {
+                    Bucket: bucketname,
+                    Key: filePath,
+                    Body: file.buffer,
+                    ContentType: file.mimetype,
+                };
+
+                console.log('Chuẩn bị upload S3:', params);
+                const uploadResult = await S3.upload(params).promise();
+                console.log('Kết quả upload S3:', uploadResult);
+
+                return res.status(200).json({
+                    thongbao: 'Upload ảnh thành công',
+                    messages: { content: uploadResult.Location },
+                });
+            }
+
+            // Kiểm tra conversation và thành viên (cho các trường hợp chat)
+            const conversation = await Conversation.findById(conversation_id);
+            if (!conversation) {
+                return res.status(404).json({ message: 'Không tìm thấy cuộc trò chuyện' });
+            }
+            if (!conversation.members.includes(senderId)) {
+                return res.status(403).json({ message: 'Bạn không phải thành viên của nhóm' });
+            }
+
+            // TH1: Gửi tin nhắn văn bản
+            if (contentType === 'text' && content) {
                 let message = replyTo && mongoose.Types.ObjectId.isValid(replyTo)
                     ? new Message({ conversation_id, senderId, content, contentType, replyTo })
                     : new Message({ conversation_id, senderId, content, contentType });
 
                 await message.save();
+                io.to(conversation_id).emit('receive-message', message);
                 return res.status(200).json({
                     thongbao: 'Tạo tin nhắn văn bản thành công',
                     messages: message,
                 });
             }
 
-            if (['image', 'video', 'file'].includes(contentType) && file) {
+            // TH2: Gửi file (image, video, file, audio)
+            if (['image', 'video', 'file', 'audio'].includes(contentType) && file) {
                 const fileType = file.originalname.split('.').pop();
                 const cleanFileName = file.originalname.split(/[-_]/).pop();
                 const filePath = `zola_${contentType}_${cleanFileName}`;
@@ -976,6 +998,7 @@ class MessageController {
                     : new Message({ conversation_id, senderId, content: fileURL, contentType });
 
                 await message.save();
+                io.to(conversation_id).emit('receive-message', message);
                 return res.status(200).json({
                     thongbao: 'Tạo tin nhắn media thành công',
                     messages: message,
@@ -989,32 +1012,153 @@ class MessageController {
         }
     }
 
-    async deleteMyMessageWeb(req, res) {
-        const { message_id, user_id } = req.body;
+    // Hàm Mobile mới: Tạo thông báo cho sự kiện nhóm
+    async createNotificationMobile(req, res) {
+        const { conversation_id, sender_id, action, receiver_id, conversationNameNew } = req.body;
+        let receiverName;
+        const senderName = await getUserName(sender_id);
+        if (['add', 'remove', 'exit', 'addDeputyLeader', 'changeGroupLeader', 'deleteDeputyLeader'].includes(action)) {
+            receiverName = await getUserName(receiver_id);
+        }
+
+        let content;
+        switch (action) {
+            case 'add':
+                content = `${receiverName} đã được ${senderName} thêm vào nhóm.`;
+                break;
+            case 'remove':
+                content = `${receiverName} đã được ${senderName} xóa khỏi nhóm.`;
+                break;
+            case 'exit':
+                content = `${senderName} đã rời khỏi nhóm.`;
+                break;
+            case 'rename':
+                content = `Tên nhóm đã được ${senderName} thay đổi thành ${conversationNameNew}.`;
+                break;
+            case 'addDeputyLeader':
+                content = `${receiverName} đã được ${senderName} bổ nhiệm làm Phó nhóm.`;
+                break;
+            case 'changeGroupLeader':
+                content = `${receiverName} đã được ${senderName} chuyển quyền trưởng nhóm.`;
+                break;
+            case 'deleteDeputyLeader':
+                content = `${receiverName} đã bị ${senderName} gỡ quyền phó nhóm.`;
+                break;
+            default:
+                content = '';
+        }
+
+        const notification = new Message({
+            conversation_id,
+            senderId: sender_id,
+            contentType: 'notify',
+            content,
+        });
+
+        try {
+            await notification.save();
+            io.to(conversation_id).emit('group-event', {
+                conversation_id,
+                event: action,
+                data: { userName: receiverName || senderName, conversationName: conversationNameNew },
+            });
+            res.status(200).send({
+                message: 'Tạo thông báo thành công',
+                notification: notification.content,
+                noti: notification,
+            });
+        } catch (err) {
+            console.error('Lỗi tạo thông báo mobile:', err);
+            res.status(500).send({ message: 'Lỗi khi tạo thông báo.', error: err.message });
+        }
+    }
+
+    // Hàm Mobile mới: Chuyển tiếp tin nhắn
+    async forwardMessageMobile(req, res) {
+        const { message_id, conversation_id, user_id } = req.body;
+
         try {
             const message = await Message.findById(message_id);
-            if (!message) return res.status(404).json({ message: 'Không tìm thấy tin nhắn' });
-            message.deletedBy.push(user_id);
-            await message.save();
-            console.log(`Emit message-deleted: ${message_id} to room ${message.conversation_id}`);
-            io.to(message.conversation_id.toString()).emit('message-deleted', message_id);
-            return res.status(200).json({ message: 'Xóa tin nhắn thành công' });
+            if (!message) {
+                return res.status(404).json({ thongbao: 'Không tìm thấy tin nhắn!!!' });
+            }
+
+            const conversation = await Conversation.findById(conversation_id);
+            if (!conversation) {
+                return res.status(404).json({ message: 'Không tìm thấy cuộc trò chuyện' });
+            }
+            if (!conversation.members.includes(user_id)) {
+                return res.status(403).json({ message: 'Bạn không phải thành viên của nhóm' });
+            }
+
+            const newMessage = new Message({
+                conversation_id,
+                senderId: user_id,
+                content: message.content,
+                contentType: message.contentType,
+            });
+
+            await newMessage.save();
+            io.to(conversation_id).emit('receive-message', newMessage);
+            return res.status(200).json({
+                thongbao: 'Chuyển tiếp tin nhắn thành công!!!',
+                message: newMessage,
+            });
         } catch (err) {
-            console.error('Lỗi xóa tin nhắn:', err);
+            console.error('Lỗi chuyển tiếp tin nhắn mobile:', err);
             return res.status(500).json({ message: 'Lỗi server', error: err.message });
         }
     }
-    // function
+
+    // Hàm Mobile mới: Lấy tất cả media (image)
+    async getAllMediaMobile(req, res) {
+        const conversation_id = req.body.conversation_id;
+        try {
+            const media = await Message.find({ conversation_id, contentType: { $in: ['image'] } });
+            if (media.length === 0) {
+                return res.status(200).json({ thongbao: 'Không tìm thấy media!!!' });
+            }
+            const mediaLinks = media.map((m) => m.content);
+            return res.status(200).json({
+                thongbao: 'Tìm thấy media!!!',
+                media: mediaLinks,
+            });
+        } catch (err) {
+            console.error('Lỗi lấy media mobile:', err);
+            return res.status(500).json({ message: 'Lỗi server', error: err.message });
+        }
+    }
+
+    // Hàm Mobile mới: Lấy tất cả file (file, video)
+    async getAllFileMobile(req, res) {
+        const conversation_id = req.body.conversation_id;
+        try {
+            const files = await Message.find({ conversation_id, contentType: { $in: ['file', 'video'] } });
+            if (files.length === 0) {
+                return res.status(200).json({ thongbao: 'Không tìm thấy file!!!' });
+            }
+            return res.status(200).json({
+                thongbao: 'Tìm thấy file!!!',
+                files: files.map((f) => {
+                    const fileParts = f.content.split('/');
+                    const fileName = fileParts[fileParts.length - 1];
+                    return { fileName, fileLink: f.content };
+                }),
+            });
+        } catch (err) {
+            console.error('Lỗi lấy file mobile:', err);
+            return res.status(500).json({ message: 'Lỗi server', error: err.message });
+        }
+    }
 }
+
 async function getUserName(userId) {
-    const user = await User.findOne({
-        _id: userId,
-    })
+    const user = await User.findOne({ _id: userId });
     if (!user) {
-        console.log('Không tìm thấy user!!!')
-        return null
+        console.log('Không tìm thấy user!!!');
+        return null;
     } else {
-        return user.userName
+        return user.userName;
     }
 }
 export default new MessageController()
