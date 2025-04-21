@@ -1,10 +1,16 @@
-// ChatListScreen.js
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, Image, Alert } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import io from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getConversationsByUserIDMobile, getLastMessage, findUserByAccountId, findUserByUserId, getConversationById } from '../services/api';
+import {
+    getConversationsByUserIDMobile,
+    getLastMessage,
+    findUserByAccountId,
+    findUserByUserId,
+    getConversationById,
+} from '../services/api';
+import CustomPopupMenu from '../components/CustomPopupMenu';
 
 const ChatListScreen = ({ navigation }) => {
     const [conversations, setConversations] = useState([]);
@@ -12,6 +18,7 @@ const ChatListScreen = ({ navigation }) => {
     const [currentAccountId, setCurrentAccountId] = useState(null);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(true);
+    const [menuVisible, setMenuVisible] = useState(false);
 
     const socket = io('http://192.168.1.33:3005', {
         transports: ['websocket'],
@@ -21,30 +28,24 @@ const ChatListScreen = ({ navigation }) => {
         reconnectionDelay: 1000,
     });
 
-    // Thêm socket listener trong useEffect
     useEffect(() => {
         loadConversations();
 
         socket.connect();
-
         socket.on('connect', () => {
             console.log('🔌 Socket connected in ChatListScreen:', socket.id);
         });
 
         socket.on('group-event', ({ conversation_id: convId, event }) => {
             if (event === 'group-disbanded') {
-                // Giải tán nhóm: xóa nhóm khỏi danh sách
                 setConversations((prev) => prev.filter((conv) => conv._id !== convId));
             } else if (event === 'member-removed' || event === 'member-left') {
-                // Xóa thành viên hoặc tự rời: kiểm tra xem người dùng hiện tại có còn trong nhóm không
                 const checkUserInGroup = async () => {
                     try {
                         const response = await getConversationById(convId);
                         if (response.status !== 200 || !response.data.conversation) return;
-
                         const conversation = response.data.conversation;
                         if (!conversation.members.includes(currentUserId)) {
-                            // Người dùng không còn trong nhóm: xóa nhóm khỏi danh sách
                             setConversations((prev) => prev.filter((conv) => conv._id !== convId));
                         }
                     } catch (err) {
@@ -72,30 +73,21 @@ const ChatListScreen = ({ navigation }) => {
         try {
             setLoading(true);
             const accountId = await AsyncStorage.getItem('account_id');
-            if (!accountId) {
-                throw new Error('Không tìm thấy account_id');
-            }
+            if (!accountId) throw new Error('Không tìm thấy account_id');
             setCurrentAccountId(accountId);
 
             const userResponse = await findUserByAccountId(accountId);
-            if (userResponse.status !== 200 || !userResponse.data._id) {
-                throw new Error('Không tìm thấy user từ account_id');
-            }
+            if (userResponse.status !== 200 || !userResponse.data._id) throw new Error('Không tìm thấy user từ account_id');
             const userId = userResponse.data._id;
             setCurrentUserId(userId);
 
             const response = await getConversationsByUserIDMobile(userId);
-            if (response.status !== 200) {
-                throw new Error(response.data.message || 'Lỗi khi tải danh sách trò chuyện');
-            }
+            if (response.status !== 200) throw new Error(response.data.message || 'Lỗi khi tải danh sách trò chuyện');
 
             const conversationsWithLastMessage = await Promise.all(
                 response.data.conversation.map(async (convId) => {
                     const conversationResponse = await getConversationById(convId);
-                    if (conversationResponse.status !== 200) {
-                        console.log('Lỗi lấy conversation:', convId);
-                        return null;
-                    }
+                    if (conversationResponse.status !== 200) return null;
                     const conversation = conversationResponse.data.conversation;
 
                     const lastMessageResponse = await getLastMessage(convId, userId);
@@ -106,33 +98,20 @@ const ChatListScreen = ({ navigation }) => {
                         friendId = null;
                         friendName = conversation.conversationName || 'Nhóm không tên';
                         friendAvatar = conversation.avatar || 'https://via.placeholder.com/50';
-                        isFriend = true; // Nhóm không cần kiểm tra trạng thái bạn bè
+                        isFriend = true;
                     } else {
                         friendId = conversation.members.find((id) => id !== userId);
                         const friendResponse = await findUserByUserId(friendId);
-                        if (friendResponse.status !== 200) {
-                            console.log('Lỗi lấy friend:', friendId);
-                            return null;
-                        }
+                        if (friendResponse.status !== 200) return null;
+
                         const friend = friendResponse.data.user;
                         friendName = friend?.userName || 'Unknown';
                         friendAvatar = friend?.avatar || 'https://via.placeholder.com/50';
 
                         const userData = await findUserByUserId(userId);
-                        if (userData.status !== 200) {
-                            console.log('Lỗi lấy user:', userId);
-                            return null;
-                        }
+                        if (userData.status !== 200) return null;
                         isFriend = userData.data.user.friend.some(f => f.friend_id === friendId);
                     }
-
-                    console.log('Conversation data:', {
-                        convId,
-                        friendId,
-                        friendName,
-                        friendAvatar,
-                        isGroup,
-                    });
 
                     return {
                         _id: convId,
@@ -148,7 +127,6 @@ const ChatListScreen = ({ navigation }) => {
             );
 
             const validConversations = conversationsWithLastMessage.filter(conv => conv !== null);
-            console.log('Conversations loaded:', validConversations);
             setConversations(validConversations);
         } catch (err) {
             console.error('Lỗi tải danh sách trò chuyện:', err);
@@ -158,30 +136,23 @@ const ChatListScreen = ({ navigation }) => {
         }
     };
 
-    useEffect(() => {
-        loadConversations();
-    }, []);
-
-    const showAddMenu = () => {
-        Alert.alert(
-            '',
-            '',
-            [
-                { text: 'Thêm bạn', onPress: () => navigation.navigate('AddFriend') },
-                { text: 'Tạo nhóm', onPress: () => navigation.navigate('CreateGroup') },
-                { text: 'Cloud của tơi', onPress: () => console.log('Cloud của tơi pressed') },
-                { text: 'Lịch Zalo', onPress: () => console.log('Lịch Zalo pressed') },
-                { text: 'Tạo cuộc gọi nhóm', onPress: () => console.log('Tạo cuộc gọi nhóm pressed') },
-                { text: 'Thiết bị đăng nhập', onPress: () => console.log('Thiết bị đăng nhập pressed') },
-                { text: 'Hủy', style: 'cancel' },
-            ],
-            { cancelable: true }
-        );
+    const handleSelectMenu = (action) => {
+        setMenuVisible(false);
+        switch (action) {
+            case 'add-friend':
+                navigation.navigate('AddFriend');
+                break;
+            case 'create-group':
+                navigation.navigate('CreateGroup');
+                break;
+            default:
+                console.log(`${action} pressed`);
+        }
     };
 
     const openChat = (item) => {
         if (!item.isGroup && !item.isFriend) {
-            Alert.alert('Thông báo', `Bạn chưa kết bạn với ${item.friend_name}. Vui lòng kết bạn để nhắn tin.`);
+            alert(`Bạn chưa kết bạn với ${item.friend_name}. Vui lòng kết bạn để nhắn tin.`);
             return;
         }
         navigation.navigate('Chat', {
@@ -194,16 +165,12 @@ const ChatListScreen = ({ navigation }) => {
     };
 
     const renderChatItem = ({ item }) => (
-        <TouchableOpacity
-            style={styles.chatItem}
-            onPress={() => openChat(item)}
-        >
+        <TouchableOpacity style={styles.chatItem} onPress={() => openChat(item)}>
             <View style={styles.avatarContainer}>
                 <Image
                     source={{ uri: item.friend_avatar }}
                     style={styles.avatar}
                     defaultSource={{ uri: 'https://via.placeholder.com/50' }}
-                    onError={(e) => console.log('Lỗi tải avatar:', item.friend_avatar, e.nativeEvent.error)}
                 />
                 {item.isGroup && (
                     <MaterialCommunityIcons name="account-group" size={20} color="#0088FF" style={styles.groupIcon} />
@@ -242,7 +209,7 @@ const ChatListScreen = ({ navigation }) => {
                 </View>
                 <View style={styles.headerIcons}>
                     <MaterialCommunityIcons name="qrcode" size={24} color="#FFFFFF" />
-                    <TouchableOpacity onPress={showAddMenu}>
+                    <TouchableOpacity onPress={() => setMenuVisible(true)}>
                         <MaterialCommunityIcons name="plus" size={24} color="#FFFFFF" style={styles.iconSpacing} />
                     </TouchableOpacity>
                     <MaterialCommunityIcons name="bell-outline" size={24} color="#FFFFFF" />
@@ -272,15 +239,18 @@ const ChatListScreen = ({ navigation }) => {
                 style={styles.chatList}
                 ListEmptyComponent={<Text style={styles.emptyText}>Không có cuộc trò chuyện nào</Text>}
             />
+
+            <CustomPopupMenu
+                visible={menuVisible}
+                onClose={() => setMenuVisible(false)}
+                onSelect={handleSelectMenu}
+            />
         </View>
     );
 };
 
 const styles = {
-    container: {
-        flex: 1,
-        backgroundColor: '#F5F5F5',
-    },
+    container: { flex: 1, backgroundColor: '#F5F5F5' },
     header: {
         backgroundColor: '#0088FF',
         padding: 15,
@@ -299,18 +269,9 @@ const styles = {
         flex: 1,
         marginRight: 10,
     },
-    searchText: {
-        marginLeft: 5,
-        color: '#888888',
-        fontSize: 16,
-    },
-    headerIcons: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    iconSpacing: {
-        marginHorizontal: 15,
-    },
+    searchText: { marginLeft: 5, color: '#888888', fontSize: 16 },
+    headerIcons: { flexDirection: 'row', alignItems: 'center' },
+    iconSpacing: { marginHorizontal: 15 },
     tabs: {
         flexDirection: 'row',
         backgroundColor: '#FFFFFF',
@@ -320,25 +281,11 @@ const styles = {
         borderBottomColor: '#EEEEEE',
         alignItems: 'center',
     },
-    tab: {
-        paddingVertical: 5,
-        marginHorizontal: 5,
-    },
-    activeTab: {
-        borderBottomWidth: 2,
-        borderBottomColor: '#0088FF',
-    },
-    tabText: {
-        fontSize: 16,
-        color: '#888888',
-    },
-    activeTabText: {
-        color: '#0088FF',
-        fontWeight: 'bold',
-    },
-    chatList: {
-        flex: 1,
-    },
+    tab: { paddingVertical: 5, marginHorizontal: 5 },
+    activeTab: { borderBottomWidth: 2, borderBottomColor: '#0088FF' },
+    tabText: { fontSize: 16, color: '#888888' },
+    activeTabText: { color: '#0088FF', fontWeight: 'bold' },
+    chatList: { flex: 1 },
     chatItem: {
         flexDirection: 'row',
         padding: 10,
@@ -346,59 +293,22 @@ const styles = {
         borderBottomWidth: 1,
         borderBottomColor: '#EEEEEE',
     },
-    avatarContainer: {
-        marginRight: 10,
-        position: 'relative',
-    },
-    avatar: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
-    },
-    groupIcon: {
-        position: 'absolute',
-        bottom: 0,
-        right: 0,
-    },
-    chatInfo: {
-        flex: 1,
-    },
+    avatarContainer: { marginRight: 10, position: 'relative' },
+    avatar: { width: 50, height: 50, borderRadius: 25 },
+    groupIcon: { position: 'absolute', bottom: 0, right: 0 },
+    chatInfo: { flex: 1 },
     chatHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
     },
-    chatName: {
-        fontSize: 16,
-        fontWeight: 'bold',
-    },
-    chatTime: {
-        fontSize: 12,
-        color: '#888888',
-    },
-    chatMessageContainer: {
-        marginTop: 5,
-    },
-    chatMessage: {
-        fontSize: 14,
-        color: '#666666',
-    },
-    loadingText: {
-        fontSize: 18,
-        textAlign: 'center',
-        marginTop: 50,
-    },
-    error: {
-        color: 'red',
-        textAlign: 'center',
-        margin: 10,
-    },
-    emptyText: {
-        fontSize: 16,
-        textAlign: 'center',
-        marginTop: 20,
-        color: '#888888',
-    },
+    chatName: { fontSize: 16, fontWeight: 'bold' },
+    chatTime: { fontSize: 12, color: '#888888' },
+    chatMessageContainer: { marginTop: 5 },
+    chatMessage: { fontSize: 14, color: '#666666' },
+    loadingText: { fontSize: 18, textAlign: 'center', marginTop: 50 },
+    error: { color: 'red', textAlign: 'center', margin: 10 },
+    emptyText: { fontSize: 16, textAlign: 'center', marginTop: 20, color: '#888888' },
 };
 
 export default ChatListScreen;

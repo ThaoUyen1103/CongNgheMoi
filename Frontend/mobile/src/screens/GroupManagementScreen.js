@@ -1,8 +1,8 @@
-// GroupManagementScreen.js
 import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, Image, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import io from 'socket.io-client';
 import {
     getConversationById,
     addMemberToConversationGroupMobile,
@@ -12,8 +12,16 @@ import {
     disbandGroupMobile,
     findUserByAccountId,
     findUserByUserId,
-    unauthorizeDeputyLeader, // Thêm API gỡ phó nhóm
+    unauthorizeDeputyLeader,
 } from '../services/api';
+
+const socket = io('http://192.168.1.33:3005', {
+    transports: ['websocket'],
+    autoConnect: true,
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 1000,
+});
 
 const GroupManagementScreen = ({ route, navigation }) => {
     const { conversation_id, conversationName, groupAvatar } = route.params;
@@ -24,8 +32,50 @@ const GroupManagementScreen = ({ route, navigation }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        if (!conversation_id) {
+            Alert.alert('Lỗi', 'Không tìm thấy ID cuộc trò chuyện');
+            navigation.goBack();
+            return;
+        }
+
         fetchGroupInfo();
-    }, []);
+
+        socket.connect();
+
+        socket.on('connect', () => {
+            console.log('🔌 Socket connected in GroupManagementScreen:', socket.id);
+            socket.emit('conversation_id', conversation_id); // Tham gia room
+        });
+
+        socket.on('group-event', ({ conversation_id: convId, event, data }) => {
+            if (convId === conversation_id) {
+                if (event === 'deputy-assigned') {
+                    setDeputyLeaders((prev) => [...prev, data.userId]); // Cập nhật danh sách phó nhóm
+                    fetchGroupInfo(); // Tải lại danh sách thành viên để cập nhật giao diện
+                } else if (event === 'deleteDeputyLeader') {
+                    setDeputyLeaders((prev) => prev.filter((id) => id !== data.userId)); // Xóa phó nhóm
+                    fetchGroupInfo();
+                } else if (event === 'member-removed') {
+                    setMembers((prev) => prev.filter((m) => m._id !== data.userId)); // Xóa thành viên khỏi danh sách
+                } else if (event === 'group-disbanded') {
+                    Alert.alert('Thông báo', 'Nhóm đã bị giải tán');
+                    navigation.goBack();
+                }
+            }
+        });
+
+        socket.on('connect_error', (err) => {
+            console.error('🚫 Socket connect error in GroupManagementScreen:', err);
+            setTimeout(() => socket.connect(), 3000);
+        });
+
+        return () => {
+            socket.off('connect');
+            socket.off('group-event');
+            socket.off('connect_error');
+            socket.disconnect();
+        };
+    }, [conversation_id, navigation]); // Thêm navigation vào dependency để tránh warning
 
     const fetchGroupInfo = async () => {
         try {
@@ -99,7 +149,7 @@ const GroupManagementScreen = ({ route, navigation }) => {
                     const response = await removeMemberFromConversationGroupMobile({
                         conversation_id,
                         member_id: memberId,
-                        user_id: currentUserId, // Thêm user_id
+                        user_id: currentUserId,
                     });
                     if (response.status !== 200) throw new Error(response.data.message || 'Lỗi xóa thành viên');
                     setMembers((prev) => prev.filter((m) => m._id !== memberId));
@@ -124,7 +174,7 @@ const GroupManagementScreen = ({ route, navigation }) => {
                     const response = await authorizeDeputyLeader({
                         conversation_id,
                         member_id: memberId,
-                        user_id: currentUserId, // Thêm user_id
+                        user_id: currentUserId,
                     });
                     if (response.status !== 200) throw new Error(response.data.message || 'Lỗi gán quyền');
                     setDeputyLeaders((prev) => [...prev, memberId]);
@@ -149,7 +199,7 @@ const GroupManagementScreen = ({ route, navigation }) => {
                     const response = await authorizeGroupLeader({
                         conversation_id,
                         member_id: memberId,
-                        user_id: currentUserId, // Thêm user_id
+                        user_id: currentUserId,
                     });
                     if (response.status !== 200) throw new Error(response.data.message || 'Lỗi chuyển quyền');
                     setGroupLeader(memberId);
@@ -174,7 +224,7 @@ const GroupManagementScreen = ({ route, navigation }) => {
                     const response = await unauthorizeDeputyLeader({
                         conversation_id,
                         member_id: memberId,
-                        user_id: currentUserId, // Thêm user_id
+                        user_id: currentUserId,
                     });
                     if (response.status !== 200) throw new Error(response.data.message || 'Lỗi gỡ quyền phó nhóm');
                     setDeputyLeaders((prev) => prev.filter((id) => id !== memberId));
@@ -217,7 +267,7 @@ const GroupManagementScreen = ({ route, navigation }) => {
                 style={styles.avatar}
                 defaultSource={{ uri: 'https://placehold.co/50' }}
                 onError={(e) => console.log('Lỗi tải avatar GroupManagement:', item.avatar, e.nativeEvent.error)}
-                key={item.avatar || 'placeholder'} // Thêm key để buộc reload
+                key={item.avatar || 'placeholder'}
             />
             <View style={styles.memberInfo}>
                 <Text style={styles.memberName}>{item.userName || 'Unknown'}</Text>
@@ -225,28 +275,33 @@ const GroupManagementScreen = ({ route, navigation }) => {
                     {item._id === groupLeader ? 'Trưởng nhóm' : deputyLeaders.includes(item._id) ? 'Phó nhóm' : 'Thành viên'}
                 </Text>
             </View>
-            {currentUserId === groupLeader && item._id !== groupLeader && (
-                <View style={styles.memberActions}>
-                    {deputyLeaders.includes(item._id) ? (
-                        <TouchableOpacity onPress={() => deleteDeputyLeader(item._id)}>
-                            <MaterialCommunityIcons name="star-off" size={24} color="#FF4444" />
+            {(currentUserId === groupLeader || deputyLeaders.includes(currentUserId)) &&
+                item._id !== groupLeader &&
+                item._id !== currentUserId && ( // Thêm điều kiện để ngăn tự xóa chính mình
+                    <View style={styles.memberActions}>
+                        {currentUserId === groupLeader && (
+                            <>
+                                {deputyLeaders.includes(item._id) ? (
+                                    <TouchableOpacity onPress={() => deleteDeputyLeader(item._id)}>
+                                        <MaterialCommunityIcons name="star-off" size={24} color="#FF4444" />
+                                    </TouchableOpacity>
+                                ) : (
+                                    <TouchableOpacity onPress={() => assignDeputyLeader(item._id)}>
+                                        <MaterialCommunityIcons name="account-star" size={24} color="#0088FF" />
+                                    </TouchableOpacity>
+                                )}
+                                <TouchableOpacity onPress={() => assignGroupLeader(item._id)}>
+                                    <MaterialCommunityIcons name="crown" size={24} color="#FFD700" />
+                                </TouchableOpacity>
+                            </>
+                        )}
+                        <TouchableOpacity onPress={() => removeMember(item._id)}>
+                            <MaterialCommunityIcons name="account-remove" size={24} color="#FF4444" />
                         </TouchableOpacity>
-                    ) : (
-                        <TouchableOpacity onPress={() => assignDeputyLeader(item._id)}>
-                            <MaterialCommunityIcons name="account-star" size={24} color="#0088FF" />
-                        </TouchableOpacity>
-                    )}
-                    <TouchableOpacity onPress={() => assignGroupLeader(item._id)}>
-                        <MaterialCommunityIcons name="crown" size={24} color="#FFD700" />
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => removeMember(item._id)}>
-                        <MaterialCommunityIcons name="account-remove" size={24} color="#FF4444" />
-                    </TouchableOpacity>
-                </View>
-            )}
+                    </View>
+                )}
         </View>
     );
-
     return (
         <View style={styles.container}>
             <View style={styles.header}>

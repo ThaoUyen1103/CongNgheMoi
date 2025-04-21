@@ -430,46 +430,107 @@ const ChatScreen = ({ route, navigation }) => {
             await Audio.setAudioModeAsync({
                 allowsRecordingIOS: true,
                 playsInSilentModeIOS: true,
+                staysActiveInBackground: true, // Cho phép ghi âm khi app ở background
             });
+
+            // Reset recording nếu có
+            if (recording) {
+                await recording.stopAndUnloadAsync();
+                setRecording(null);
+            }
 
             const newRecording = new Audio.Recording();
-            await newRecording.prepareToRecordAsync(Audio.RECORDING_OPTIONS_PRESET_HIGH_QUALITY);
-            await newRecording.startAsync();
-            setRecording(newRecording);
-            setIsRecording(true);
+            try {
+                await newRecording.prepareToRecordAsync({
+                    ...Audio.RECORDING_OPTIONS_PRESET_HIGH_QUALITY,
+                    android: {
+                        extension: '.m4a',
+                        outputFormat: Audio.RECORDING_OPTION_ANDROID_OUTPUT_FORMAT_MPEG_4,
+                        audioEncoder: Audio.RECORDING_OPTION_ANDROID_AUDIO_ENCODER_AAC,
+                        sampleRate: 44100,
+                        numberOfChannels: 1, // Giảm xuống 1 kênh có thể giảm kích thước file
+                        bitRate: 128000,
+                    },
+                    ios: {
+                        extension: '.m4a',
+                        outputFormat: Audio.RECORDING_OPTION_IOS_OUTPUT_FORMAT_MPEG4AAC,
+                        audioQuality: Audio.RECORDING_OPTION_IOS_AUDIO_QUALITY_HIGH,
+                        sampleRate: 44100,
+                        numberOfChannels: 1, // Giảm xuống 1 kênh
+                        bitRate: 128000,
+                    }
+                });
 
-            let duration = 0;
-            const interval = setInterval(() => {
-                duration += 1;
-                setRecordingDuration(duration);
-            }, 1000);
+                console.log('Bắt đầu ghi âm...');
+                await newRecording.startAsync();
+                setRecording(newRecording);
+                setIsRecording(true);
 
-            newRecording.setOnRecordingStatusUpdate((status) => {
-                if (!status.isRecording) {
-                    clearInterval(interval);
+                let duration = 0;
+                const interval = setInterval(() => {
+                    duration += 1;
+                    setRecordingDuration(duration);
+                }, 1000);
+
+                newRecording.setOnRecordingStatusUpdate((status) => {
+                    console.log('Trạng thái ghi âm:', status);
+                    if (!status.isRecording) {
+                        clearInterval(interval);
+                    }
+                });
+            } catch (err) {
+                console.error('Lỗi cấu hình ghi âm:', err);
+                if (newRecording) {
+                    try {
+                        await newRecording.stopAndUnloadAsync();
+                    } catch (stopErr) {
+                        console.error('Lỗi khi dừng recording sau khi gặp lỗi:', stopErr);
+                    }
                 }
-            });
+                throw err;
+            }
         } catch (err) {
-            Alert.alert('Lỗi', err.message || 'Không thể bắt đầu ghi âm');
+            console.error('Lỗi trong startRecording:', err);
+            Alert.alert('Lỗi', `Không thể bắt đầu ghi âm: ${err.message}`);
         }
     };
 
     const stopRecording = async () => {
-        try {
-            if (recording) {
-                await recording.stopAndUnloadAsync();
-                const uri = recording.getURI();
-                setRecording(null);
-                setIsRecording(false);
-                setRecordingDuration(0);
+        if (!recording) {
+            console.log('Không có phiên ghi âm đang hoạt động');
+            return;
+        }
 
-                if (await checkFileSize(uri)) {
-                    await handleSendFile(uri, 'audio');
-                    Alert.alert('Thành công', 'Đã gửi tin nhắn thoại');
-                }
+        try {
+            console.log('Đang dừng ghi âm...');
+            await recording.stopAndUnloadAsync();
+            const uri = recording.getURI();
+            console.log('File ghi âm URI:', uri);
+
+            setIsRecording(false);
+            setRecordingDuration(0);
+
+            // Thêm thời gian chờ ngắn để đảm bảo file đã được lưu hoàn toàn
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            if (!uri) {
+                throw new Error('Không nhận được URI của file ghi âm');
+            }
+
+            // Không cần kiểm tra file tồn tại, URI từ recording sẽ hợp lệ
+            try {
+                await handleSendFile(uri, 'audio');
+                setRecording(null);
+                Alert.alert('Thành công', 'Đã gửi tin nhắn thoại');
+            } catch (sendErr) {
+                console.error('Lỗi gửi file âm thanh:', sendErr);
+                throw new Error(`Không thể gửi file âm thanh: ${sendErr.message}`);
             }
         } catch (err) {
-            Alert.alert('Lỗi', err.message || 'Không thể gửi tin nhắn thoại');
+            console.error('Lỗi trong stopRecording:', err);
+            Alert.alert('Lỗi', `Không thể gửi tin nhắn thoại: ${err.message}`);
+            setRecording(null);
+            setIsRecording(false);
         }
     };
 
