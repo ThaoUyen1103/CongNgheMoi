@@ -16,7 +16,8 @@ import PopupStranger from './pupopStranger'
 import AddPupopStranger from './addPupopStranger'
 import Modal from 'react-modal'
 import axios from 'axios'
-import { FaCamera } from 'react-icons/fa'
+import { FaTrash } from 'react-icons/fa'
+import { FaTR } from 'react-icons/fa'
 import { GrSearch } from 'react-icons/gr'
 import { toast, Toaster } from 'react-hot-toast'
 import SideBar from '../sideBar/index'
@@ -427,6 +428,70 @@ const ConversationDetail = ({
 
         // gọi tới socket notification
         setSocket(newSocket)
+
+        const user_id = localStorage.getItem('user_id')?.replace(/"/g, '').trim()
+        newSocket.emit('join-conversation', { conversation_id, user_id })
+
+        // Add socket event listeners for real-time updates
+        newSocket.on('leave-group', (data) => {
+            if (data.conversation_id === conversation_id) {
+                setMemberList((prevList) =>
+                    prevList.filter((member) => member.id !== data.user_id),
+                )
+            }
+        })
+
+        newSocket.on('disband-group', (data) => {
+            if (data.conversation_id === conversation_id) {
+                setMemberList([])
+            }
+        })
+
+        newSocket.on('conversation-group', (data) => {
+            // Placeholder: handle new group creation if needed
+            // For example, refresh group list or notify user
+            // console.log('New group created:', data)
+        })
+
+        newSocket.on('add-member', (data) => {
+            if (data.conversation_id === conversation_id) {
+                // Add new members to member_list state
+                setMemberList((prevList) => {
+                    // Create new members array from friend_ids
+                    const newMembers = data.friend_ids.map((id) => {
+                        const friend = friend_list.find(
+                            (f) => f.friend_id === id,
+                        )
+                        return {
+                            id: id,
+                            avatar: friend ? friend.avatar : '',
+                            name: friend ? friend.friendName : 'Unknown',
+                        }
+                    })
+                    // Filter out duplicates
+                    const existingIds = new Set(prevList.map((m) => m.id))
+                    const filteredNewMembers = newMembers.filter(
+                        (m) => !existingIds.has(m.id),
+                    )
+                    return [...prevList, ...filteredNewMembers]
+                })
+            }
+        })
+
+        newSocket.on('remove-member', (data) => {
+            if (data.conversation_id === conversation_id) {
+                setMemberList((prevList) =>
+                    prevList.filter((member) => member.id !== data.friend_id),
+                )
+            }
+        })
+
+        return () => {
+            newSocket.off('leave-group')
+            newSocket.off('disband-group')
+            newSocket.off('conversation-group')
+            newSocket.disconnect()
+        }
     }, [conversation_id])
 
     const handleAddMember = () => {
@@ -608,6 +673,14 @@ const ConversationDetail = ({
 
                     // Cập nhật lại danh sách thành viên
                     setMemberList([])
+
+                    // Emit socket event for disband group
+                    if (socket) {
+                        socket.emit('disband-group', {
+                            conversation_id: conversation_id,
+                            user_id: user_id,
+                        })
+                    }
                 }
                 if (
                     res.data.message === 'Bạn không có quyền giải tán nhóm!!!'
@@ -661,6 +734,15 @@ const ConversationDetail = ({
                         .catch((error) => {
                             console.log('Lỗi tạo thông báo : ', error)
                         })
+
+                    // Emit socket event for leave group
+                    if (socket) {
+                        socket.emit('leave-group', {
+                            conversation_id: conversation_id,
+                            user_id: currentMemberId,
+                        })
+                    }
+
                     // refesh lại trang
                     window.location.reload()
                 }
@@ -1113,9 +1195,10 @@ const ConversationDetail = ({
                             flexDirection: 'column',
                             justifyContent: 'center',
                             alignContent: 'center',
+
                         }}
                     >
-                        <BsPeople size="1.2rem" />
+                        <FaTrash style={{ cursor: 'pointer', }} size="1.2rem" />
                     </div>
                     <label
                         style={{
@@ -1125,9 +1208,10 @@ const ConversationDetail = ({
                             alignItems: 'center',
                             display: 'flex',
                             alignContent: 'center',
+
                         }}
                     >
-                        Tạo nhóm trò chuyện
+                        Xóa cuộc trò chuyện
                     </label>
                 </div>
             </div>
@@ -1172,66 +1256,7 @@ const ConversationDetail = ({
                 </div>
             </div>
 
-            {/* // modal hiện thông itn nhóm chung  */}
 
-            {/* <Modal
-                isOpen={isModalOpenCommonGroup}
-                onRequestClose={handleCloseModalCommonGroup}
-                contentLabel="Forward Message Modal"
-                style={{
-                    content: {
-                        position: 'absolute',
-                        top: '50%',
-                        left: '50%',
-                        right: 'auto',
-                        bottom: 'auto',
-                        marginRight: '-50%',
-                        transform: 'translate(-50%, -50%)',
-                        minWidth: '300px',
-                    },
-                }}
-            >
-                <label
-                    htmlFor=""
-                    style={{
-                        fontSize: 20,
-                        fontWeight: 'bold',
-                        marginBottom: 50,
-                    }}
-                >
-                    Thông tin nhóm chung
-                </label>
-                <br />
-                <div
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'flex-start',
-                        marginBottom: '10px',
-                        marginTop: '10px',
-                    }}
-                >
-                    <img
-                        src="https://kenh14cdn.com/thumb_w/660/203336854389633024/2021/8/13/-162884524350871705987.jpg"
-                        alt={'avatar'}
-                        style={{
-                            width: '50px',
-                            height: '50px',
-                            borderRadius: '60%',
-                            border: '3px solid #2596be',
-                        }}
-                    />
-                    <b
-                        style={{
-                            cursor: 'pointer',
-                            color: 'blue',
-                            fontSize: '16px',
-                        }}
-                    >
-                        <p>Tài</p>
-                    </b>
-                </div>
-            </Modal> */}
 
             <Modal
                 isOpen={isModalOpenCommonGroup}
@@ -1588,7 +1613,7 @@ const ConversationDetail = ({
                                 }}
                                 type="text"
                                 placeholder="Nhập tên, số điện thoại, hoặc danh sách số điện thoại"
-                                // value={searchValue}
+                            // value={searchValue}
                             />
                         </div>
                     </div>

@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@expo/metro-runtime": "~4.0.1",
+    "@expo/react-native-action-sheet": "^4.1.1",
     "@expo/vector-icons": "^14.1.0",
     "@react-native-async-storage/async-storage": "^1.24.0",
     "@react-native-google-signin/google-signin": "^13.2.0",
@@ -24,6 +25,7 @@
     "expo-auth-session": "~6.0.3",
     "expo-av": "~15.0.2",
     "expo-document-picker": "~13.0.3",
+    "expo-file-system": "~18.0.12",
     "expo-firebase-recaptcha": "^2.3.1",
     "expo-image-picker": "~16.0.6",
     "expo-status-bar": "~2.0.1",
@@ -33,6 +35,7 @@
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-native": "0.76.9",
+    "react-native-fs": "^2.20.0",
     "react-native-paper": "^5.13.1",
     "react-native-vector-icons": "^10.2.0",
     "react-native-web": "~0.19.13",

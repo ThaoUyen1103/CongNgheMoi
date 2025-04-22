@@ -35,9 +35,11 @@ io.on('connection', (socket) => {
         console.log('user disconnected:', socket.id);
     });
 
-    socket.on('conversation_id', (data) => {
-        socket.join(data);
-        console.log('conversation_id chung là:', data);
+    socket.on('join-conversation', ({ conversation_id, user_id }) => {
+        if (conversation_id) {
+            socket.join(conversation_id);
+            console.log(`User ${user_id} joined conversation ${conversation_id}`);
+        }
     });
 
     socket.on('send-message', (data) => {
@@ -91,44 +93,25 @@ io.on('connection', (socket) => {
     });
 
     socket.on('message-recalled', (data) => {
-        console.log('message-recalled được nhận là:', data);
+        try {
+            const recalledMessage = typeof data === 'string' ? JSON.parse(data) : data;
+            const recalledId = recalledMessage._id || recalledMessage.message_id;
 
-        let recalledData = data;
-        let conversation_id;
-
-        // Chuẩn hóa dữ liệu
-        if (typeof data === 'string') {
-            try {
-                recalledData = JSON.parse(data);
-                console.log('Parsed recalledData:', recalledData);
-            } catch (err) {
-                console.error('Lỗi parse recalled data:', err);
+            if (!recalledId) {
+                console.warn('❌ Không có message_id trong data thu hồi:', recalledMessage);
                 return;
             }
+
+            setMessages((prev) =>
+                prev.map((msg) =>
+                    msg._id === recalledId
+                        ? { ...msg, recalled: true, content: 'Tin nhắn đã bị thu hồi' }
+                        : msg
+                )
+            );
+        } catch (err) {
+            console.error('Lỗi parse tin nhắn thu hồi:', err);
         }
-
-        conversation_id = recalledData.conversation_id;
-        if (!conversation_id || typeof conversation_id !== 'string') {
-            console.error('conversation_id không hợp lệ:', conversation_id);
-            return;
-        }
-
-        // Tạo object recalled hợp lệ
-        const messageRecall = {
-            _id: recalledData._id || recalledData.message_id,
-            recalled: true,
-            content: 'Tin nhắn đã bị thu hồi',
-            conversation_id: conversation_id,
-        };
-
-        if (!messageRecall._id) {
-            console.error('message_id không hợp lệ:', recalledData);
-            return;
-        }
-
-        // Gửi object trực tiếp
-        io.to(conversation_id).emit('message-recalled', messageRecall);
-        console.log('Sending recalled message to room:', conversation_id);
     });
 
     socket.on('delete-my-message', (data) => {
@@ -139,6 +122,14 @@ io.on('connection', (socket) => {
         }
         io.to(data.user_id).emit('message-deleted', data.message_id);
         console.log('Sent delete message to user:', data.user_id);
+    });
+
+    socket.on('group-event-from-backend', ({ conversation_id, event, data }) => {
+        io.to(conversation_id).emit('group-event', {
+            conversation_id,
+            event,
+            data,
+        });
     });
 });
 
@@ -155,3 +146,13 @@ app.get('/health', (req, res) => {
 server.listen(port, () => {
     console.log(`Socket server is running on port ${port}`);
 });
+
+export const emitGroupEvent = (conversation_id, event, data) => {
+    io.to(conversation_id).emit('group-event', {
+        conversation_id,
+        event,
+        data,
+    });
+};
+
+export { io };

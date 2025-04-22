@@ -244,6 +244,8 @@ const SubSideBar = ({
                     <AiOutlineUsergroupAdd size="1.4rem" />
                 </div>
             </div>
+
+            {/* Tạo nhóm chat */}
             {OpenCreateAGroup && (
                 <PopupCreateAGroup
                     content={<AddPopupCreateAGroup />}

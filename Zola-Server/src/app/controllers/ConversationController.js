@@ -2,6 +2,7 @@ import Conversation from '../models/Conversation.js'
 import User from '../models/User.js'
 import Message from '../models/Message.js';
 import { io } from '../../index.js'
+import { emitGroupEvent } from '../../util/socketClient.js';
 
 class ConversationController {
     // post createConversationsWeb http://localhost:3001/conversation/createConversationsWeb
@@ -35,6 +36,7 @@ class ConversationController {
             .save()
             .then(() => {
                 console.log('Tạo conversation thành công!!!')
+                emitGroupEvent(conversation._id, 'new-conversation', { conversation });
                 return res.status(200).json({
                     message: 'Tạo conversation thành công!!!',
                     conversation: conversation,
@@ -95,6 +97,8 @@ class ConversationController {
                 .save()
                 .then(() => {
                     console.log('Tạo conversation thành công!!!')
+                    emitGroupEvent(conversation._id, 'new-cloud-conversation', { conversation });
+
                     return res.status(200).json({
                         message: 'Tạo ConversationCloud thành công!!!',
                         conversation: conversation,
@@ -135,6 +139,8 @@ class ConversationController {
             .save()
             .then(() => {
                 console.log('Tạo conversationGroup thành công!!!')
+                emitGroupEvent(conversation._id, 'group-created', { conversationName, userName: groupLeaderName });
+
                 return res.status(200).json({
                     message: 'Tạo conversationGroup thành công!!!',
                     conversation: conversation,
@@ -179,6 +185,10 @@ class ConversationController {
                         .status(404)
                         .json({ message: 'Conversation not found' })
                 }
+                // Emit socket event for added members
+                emitGroupEvent(conversation_id, 'member-added', { friend_ids });
+
+
                 return res.status(200).json({
                     message: 'Thêm thành viên vào nhóm thành công!!!',
                     conversation: conversation,
@@ -228,6 +238,9 @@ class ConversationController {
                     .status(404)
                     .json({ message: 'Conversation not found' })
             }
+            // Emit socket event for removed member
+            emitGroupEvent(conversation_id, 'member-removed', { friend_id });
+
             return res.status(200).json({
                 message: 'Xóa thành viên khỏi nhóm thành công!!!',
                 conversation: conversation,
@@ -275,6 +288,8 @@ class ConversationController {
                     .status(404)
                     .json({ message: 'Conversation not found' })
             }
+            emitGroupEvent(conversation_id, 'deputy-assigned', { friend_id });
+
             return res.status(200).json({
                 message: 'Gán quyền phó nhóm thành công!!!',
                 conversation: conversation,
@@ -307,6 +322,8 @@ class ConversationController {
         }
         try {
             await conversation.save()
+            emitGroupEvent(conversation_id, 'leader-assigned', { friend_id });
+
             return res.status(200).json({
                 message: 'Gán quyền trưởng nhóm thành công!!!',
                 conversation: conversation,
@@ -342,6 +359,8 @@ class ConversationController {
                     .status(404)
                     .json({ message: 'Conversation not found' })
             }
+            emitGroupEvent(conversation_id, 'deputy-assigned', { friend_id });
+
             return res.status(200).json({
                 message: 'Gỡ quyền phó nhóm thành công!!!',
                 conversation: conversation,
@@ -385,6 +404,9 @@ class ConversationController {
                     .status(404)
                     .json({ message: 'Conversation not found' })
             }
+            emitGroupEvent(conversation_id, 'member-left', { user_id });
+
+
             return res.status(200).json({
                 message: 'Rời khỏi nhóm thành công!!!',
                 conversation: conversation,
@@ -410,6 +432,9 @@ class ConversationController {
         // sử dụng mongoose-delete để thêm thuộc tính deleted vào conversation
         try {
             await Conversation.delete({ _id: conversation_id })
+            emitGroupEvent(conversation_id, 'group-disbanded', {});
+
+
             return res.status(200).json({
                 message: 'Giải tán nhóm thành công!!!',
             })
@@ -532,6 +557,9 @@ class ConversationController {
         conversation.conversationName = conversationName
         try {
             await conversation.save()
+            emitGroupEvent(conversation_id, 'group-renamed', { conversationName, userName });
+
+
             return res.status(200).json({
                 message: 'Đổi tên nhóm thành công!!!',
                 userChangeName: userName,
@@ -540,6 +568,7 @@ class ConversationController {
             res.status(500).json({ message: error.message })
         }
     }
+
 
     // adđ mobile-------------------------
     async createConversation(req, res) {
@@ -700,11 +729,8 @@ class ConversationController {
                 await message.save();
             }
 
-            io.to(conversation_id).emit('group-event', {
-                conversation_id,
-                event: 'member-added',
-                data: { userName: newMembers.map(m => m.userName).join(', ') },
-            });
+            emitGroupEvent(conversation_id, 'member-added', { member_ids });
+
 
             res.status(200).json({ message: 'Thêm thành viên thành công', conversation });
         } catch (err) {
@@ -768,11 +794,11 @@ class ConversationController {
             });
             await message.save();
 
-            io.to(conversation_id).emit('group-event', {
-                conversation_id,
-                event: 'member-removed',
-                data: { userName: removedMember.userName },
+            emitGroupEvent(conversation_id, 'member-removed', {
+                userId: member_id,
+                userName: removedMember.userName,
             });
+
 
             res.status(200).json({ message: 'Xóa thành viên thành công', conversation });
         } catch (err) {
@@ -826,11 +852,11 @@ class ConversationController {
             });
             await message.save();
 
-            io.to(conversation_id).emit('group-event', {
-                conversation_id,
-                event: 'deputy-assigned',
-                data: { userName: newDeputy.userName },
+            emitGroupEvent(conversation_id, 'deputy-assigned', {
+                userId: member_id,
+                userName: newDeputy.userName,
             });
+
 
             res.status(200).json({ message: 'Gán quyền phó nhóm thành công', conversation });
         } catch (err) {
@@ -876,11 +902,8 @@ class ConversationController {
             });
             await message.save();
 
-            io.to(conversation_id).emit('group-event', {
-                conversation_id,
-                event: 'deleteDeputyLeader',
-                data: { userName: removedDeputy.userName },
-            });
+            emitGroupEvent(conversation_id, 'deleteDeputyLeader', { userName: removedDeputy.userName });
+
 
             res.status(200).json({ message: 'Gỡ quyền phó nhóm thành công', conversation });
         } catch (err) {
@@ -927,11 +950,11 @@ class ConversationController {
             });
             await message.save();
 
-            io.to(conversation_id).emit('group-event', {
-                conversation_id,
-                event: 'leader-assigned',
-                data: { userName: newLeader.userName },
+            emitGroupEvent(conversation_id, 'leader-assigned', {
+                userId: member_id,
+                userName: newLeader.userName,
             });
+
 
             res.status(200).json({ message: 'Gán quyền trưởng nhóm thành công', conversation });
         } catch (err) {
@@ -960,11 +983,8 @@ class ConversationController {
             await conversation.delete();
             await Message.deleteMany({ conversation_id });
 
-            io.to(conversation_id).emit('group-event', {
-                conversation_id,
-                event: 'group-disbanded',
-                data: {},
-            });
+            emitGroupEvent(conversation_id, 'group-disbanded', {});
+
 
             res.status(200).json({ message: 'Giải tán nhóm thành công' });
         } catch (err) {
@@ -1005,11 +1025,8 @@ class ConversationController {
             });
             await message.save();
 
-            io.to(conversation_id).emit('group-event', {
-                conversation_id,
-                event: 'exit',
-                data: { userName: user.userName },
-            });
+            emitGroupEvent(conversation_id, 'exit', { userName: user.userName });
+
 
             res.status(200).json({ message: 'Rời khỏi nhóm thành công', conversation });
         } catch (err) {
@@ -1049,11 +1066,8 @@ class ConversationController {
             });
             await message.save();
 
-            io.to(conversation_id).emit('group-event', {
-                conversation_id,
-                event: 'rename',
-                data: { userName: user.userName, conversationName },
-            });
+            emitGroupEvent(conversation_id, 'rename', { userName: user.userName, conversationName });
+
 
             res.status(200).json({ message: 'Đổi tên nhóm thành công', conversation });
         } catch (err) {
@@ -1093,11 +1107,8 @@ class ConversationController {
             });
             await message.save();
 
-            io.to(conversation_id).emit('group-event', {
-                conversation_id,
-                event: 'avatar-updated',
-                data: { userName: user.userName, avatar },
-            });
+            emitGroupEvent(conversation_id, 'avatar-updated', { userName: user.userName, avatar });
+
 
             res.status(200).json({ message: 'Cập nhật avatar nhóm thành công', conversation });
         } catch (err) {
@@ -1210,59 +1221,7 @@ class ConversationController {
             conversationCount: conversation.length,
         })
     }
-    async createConversationsMobile(req) {
-        const user_id = req.body.user_id;
-        const friend_id = req.body.friend_id;
-        if (!user_id || !friend_id) {
-            console.log('Không tìm thấy user_id hoặc friend_id!!!');
-            return {
-                status: 400,
-                data: { message: 'Không tìm thấy user_id hoặc friend_id!!!' },
-            };
-        }
-
-        const members = [user_id, friend_id];
-
-        const conversation = new Conversation({
-            members,
-        });
-
-        const checkConversation = await Conversation.find({
-            members: { $all: members },
-        });
-
-        if (checkConversation.length > 0) {
-            return {
-                status: 200,
-                data: {
-                    message: 'Conversation đã tồn tại!!!',
-                    conversation: checkConversation[0],
-                },
-            };
-        }
-
-        try {
-            await conversation.save();
-            console.log('Tạo conversation thành công!!!');
-            return {
-                status: 200,
-                data: {
-                    message: 'Tạo conversation thành công!!!',
-                    conversation: conversation,
-                },
-            };
-        } catch (err) {
-            console.error(err);
-            return {
-                status: 500,
-                data: {
-                    message: 'Lỗi khi tạo conversation!!!',
-                    error: err.message,
-                },
-            };
-        }
-    }
-
 }
+
 
 export default new ConversationController()

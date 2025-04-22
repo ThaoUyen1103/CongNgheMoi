@@ -341,6 +341,61 @@ class MessageController {
         }
     }
 
+
+    async forwardMessageWeb(req, res) {
+        try {
+            const { message_id, conversation_id, forwarded_by, forwarded_at, original_sender } = req.body;
+
+            if (!mongoose.Types.ObjectId.isValid(message_id) || !mongoose.Types.ObjectId.isValid(conversation_id)) {
+                return res.status(400).json({ thongbao: 'ID không hợp lệ!' });
+            }
+
+            const originalMessage = await Message.findById(message_id);
+            if (!originalMessage) {
+                return res.status(404).json({ thongbao: 'Không tìm thấy tin nhắn gốc!' });
+            }
+
+            const forwardedMessage = new Message({
+                conversation_id,
+                senderId: forwarded_by,
+                content: originalMessage.content,
+                contentType: originalMessage.contentType,
+                isForwarded: true,
+                originalMessage: message_id,
+                forwardedBy: forwarded_by,
+                forwardedAt: forwarded_at || new Date(),
+                originalSender: original_sender, // ⚠️ cần dòng này
+            });
+
+            await forwardedMessage.save();
+
+            await forwardedMessage.populate([
+                { path: 'forwardedBy', select: 'userName firstName lastName' },
+                { path: 'originalSender', select: 'userName firstName lastName' },
+            ]);
+
+            console.log('✅ Message populated:', forwardedMessage);
+
+            // Emit socket event to notify clients in the conversation room (group)
+            if (io) {
+                io.to(conversation_id.toString()).emit('receive-message', forwardedMessage);
+            }
+
+            return res.status(200).json({
+                thongbao: 'Chuyển tiếp tin nhắn thành công!',
+                message: forwardedMessage,
+            });
+        } catch (error) {
+            console.error('Lỗi chuyển tiếp tin nhắn:', error);
+            return res.status(500).json({
+                thongbao: 'Lỗi server khi chuyển tiếp tin nhắn!',
+                error: error.message,
+            });
+        }
+    }
+
+
+
     async getLastMessageWeb(req, res) {
         // console.log('heeqweqwe')
         const conversation_id = req.body.conversation_id
@@ -479,31 +534,30 @@ class MessageController {
     }
     // post thu hồi tin nhắn cả 2 bên recallMessageWeb http://localhost:3001/message/recallMessageWeb
     async recallMessageWeb(req, res) {
-        const { message_id, user_id } = req.body;
+        const message_id = req.body.message_id
 
-        try {
-            const message = await Message.findOne({ _id: message_id });
-            if (!message) {
-                return res.status(404).json({ thongbao: 'Không tìm thấy tin nhắn!!!' });
-            }
-
-            message.recalled = true;
-            await message.save();
-
-            console.log(`Emit message-recalled: ${message_id} to room ${message.conversation_id}`);
-            io.to(message.conversation_id.toString()).emit('message-recalled', {
-                message_id: message_id,
-                conversation_id: message.conversation_id.toString(),
-            });
-
-            return res.status(200).json({
-                thongbao: 'Thu hồi tin nhắn thành công!!!',
-                message: message,
-            });
-        } catch (err) {
-            console.error('Lỗi thu hồi tin nhắn:', err);
-            return res.status(500).json({ message: 'Lỗi server', error: err.message });
+        const message = await Message.findOne({
+            _id: message_id,
+        })
+        // Kiểm tra xem message có tồn tại không
+        if (!message) {
+            return res.status(404).json({
+                thongbao: 'Không tìm thấy tin nhắn!!!',
+            })
         }
+        // Đánh dấu tin nhắn đã được thu hồi
+        message.recalled = true
+        await message.save()
+
+        // Emit socket event to notify clients in the conversation room
+        if (io) {
+            io.to(message.conversation_id.toString()).emit('message-recalled', message)
+        }
+
+        return res.status(200).json({
+            thongbao: 'Thu hồi tin nhắn thành công!!!',
+            message: message,
+        })
     }
     // post tìm tất cả tin nhắn đã bị thu hồi findAllRecallMessagesWeb http://localhost:3001/message/findAllRecallMessagesWeb
     async findAllRecallMessagesWeb(req, res) {
@@ -541,8 +595,10 @@ class MessageController {
             if (!message.deletedBy.includes(user_id)) {
                 message.deletedBy.push(user_id)
                 await message.save()
-                // // emit a 'message-deleted' event to the user who deleted the message
-                // io.to(user_id).emit('message-deleted', message_id)
+                // emit a 'message-deleted' event to the user who deleted the message
+                if (io) {
+                    io.to(message.conversation_id.toString()).emit('message-deleted', message_id)
+                }
             }
 
             return res.status(200).json({
@@ -576,32 +632,8 @@ class MessageController {
         }
     }
 
-    // viết 1 hàm từ message_id tạo 1 bản sao tin nhắn tới conversation_id
-    async forwardMessageWeb(req, res) {
-        const message_id = req.body.message_id
-        const conversation_id = req.body.conversation_id
 
-        const message = await Message.findOne({
-            _id: message_id,
-        })
 
-        if (!message) {
-            return res.status(404).json({
-                thongbao: 'Không tìm thấy tin nhắn!!!',
-            })
-        }
-        const newMessage = new Message({
-            conversation_id: conversation_id,
-            senderId: message.senderId,
-            content: message.content,
-            contentType: message.contentType,
-        })
-        await newMessage.save()
-        return res.status(200).json({
-            thongbao: 'Chuyển tiếp tin nhắn thành công!!!',
-            message: newMessage,
-        })
-    }
     async uploadMediaWeb(req, res) {
         console.log('Đã vào hàm uploadMediaWeb ở server!!!')
         const conversation_id = req.body.conversation_id
@@ -1057,11 +1089,8 @@ class MessageController {
 
         try {
             await notification.save();
-            io.to(conversation_id).emit('group-event', {
-                conversation_id,
-                event: action,
-                data: { userName: receiverName || senderName, conversationName: conversationNameNew },
-            });
+            emitGroupEvent(conversation_id, action, { userName: receiverName || senderName, conversationName: conversationNameNew });
+
             res.status(200).send({
                 message: 'Tạo thông báo thành công',
                 notification: notification.content,

@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getAllUsersExceptCurrent, sendFriendRequestMobile, deleteFriend, showFriendRequestsMobile, showSentFriendRequestsMobile, findUserByAccountId } from '../services/api';
 import io from 'socket.io-client';
 
-const socket = io('http://192.168.1.33:3001', { transports: ['websocket'] });
+const socket = io('http://192.168.34.235:3001', { transports: ['websocket'] });
 
 const ContactScreen = ({ navigation }) => {
     const [users, setUsers] = useState([]);

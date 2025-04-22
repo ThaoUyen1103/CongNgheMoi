@@ -20,7 +20,7 @@ const ChatListScreen = ({ navigation }) => {
     const [loading, setLoading] = useState(true);
     const [menuVisible, setMenuVisible] = useState(false);
 
-    const socket = io('http://192.168.1.33:3005', {
+    const socket = io('http://192.168.34.235:3005', {
         transports: ['websocket'],
         autoConnect: true,
         reconnection: true,

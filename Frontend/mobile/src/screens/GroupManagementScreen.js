@@ -15,7 +15,7 @@ import {
     unauthorizeDeputyLeader,
 } from '../services/api';
 
-const socket = io('http://192.168.1.33:3005', {
+const socket = io('http://192.168.34.235:3005', {
     transports: ['websocket'],
     autoConnect: true,
     reconnection: true,
@@ -75,7 +75,7 @@ const GroupManagementScreen = ({ route, navigation }) => {
             socket.off('connect_error');
             socket.disconnect();
         };
-    }, [conversation_id, navigation]); // Thêm navigation vào dependency để tránh warning
+    }, [conversation_id, navigation]);
 
     const fetchGroupInfo = async () => {
         try {
@@ -154,6 +154,14 @@ const GroupManagementScreen = ({ route, navigation }) => {
                     if (response.status !== 200) throw new Error(response.data.message || 'Lỗi xóa thành viên');
                     setMembers((prev) => prev.filter((m) => m._id !== memberId));
                     Alert.alert('Thành công', 'Đã xóa thành viên');
+                    socket.emit('group-event', {
+                        conversation_id,
+                        event: 'member-removed',
+                        data: {
+                            userId: memberId,
+                            userName: members.find(m => m._id === memberId)?.userName || 'Thành viên',
+                        },
+                    });
                 } catch (err) {
                     Alert.alert('Lỗi', err.message || 'Không thể xóa thành viên');
                 }
@@ -179,6 +187,14 @@ const GroupManagementScreen = ({ route, navigation }) => {
                     if (response.status !== 200) throw new Error(response.data.message || 'Lỗi gán quyền');
                     setDeputyLeaders((prev) => [...prev, memberId]);
                     Alert.alert('Thành công', 'Đã gán quyền phó nhóm');
+                    socket.emit('group-event', {
+                        conversation_id,
+                        event: 'deputy-assigned',
+                        data: {
+                            userId: memberId,
+                            userName: members.find(m => m._id === memberId)?.userName || 'Thành viên',
+                        },
+                    });
                 } catch (err) {
                     Alert.alert('Lỗi', err.message || 'Không thể gán quyền');
                 }
@@ -204,6 +220,14 @@ const GroupManagementScreen = ({ route, navigation }) => {
                     if (response.status !== 200) throw new Error(response.data.message || 'Lỗi chuyển quyền');
                     setGroupLeader(memberId);
                     Alert.alert('Thành công', 'Đã chuyển quyền trưởng nhóm');
+                    socket.emit('group-event', {
+                        conversation_id,
+                        event: 'leader-assigned',
+                        data: {
+                            userId: memberId,
+                            userName: members.find(m => m._id === memberId)?.userName || 'Thành viên',
+                        },
+                    });
                 } catch (err) {
                     Alert.alert('Lỗi', err.message || 'Không thể chuyển quyền');
                 }
@@ -229,6 +253,14 @@ const GroupManagementScreen = ({ route, navigation }) => {
                     if (response.status !== 200) throw new Error(response.data.message || 'Lỗi gỡ quyền phó nhóm');
                     setDeputyLeaders((prev) => prev.filter((id) => id !== memberId));
                     Alert.alert('Thành công', 'Đã gỡ quyền phó nhóm');
+                    socket.emit('group-event', {
+                        conversation_id,
+                        event: 'deleteDeputyLeader',
+                        data: {
+                            userId: memberId,
+                            userName: members.find(m => m._id === memberId)?.userName || 'Thành viên',
+                        },
+                    });
                 } catch (err) {
                     Alert.alert('Lỗi', err.message || 'Không thể gỡ quyền phó nhóm');
                 }
@@ -252,6 +284,11 @@ const GroupManagementScreen = ({ route, navigation }) => {
                     });
                     if (response.status !== 200) throw new Error(response.data.message || 'Lỗi giải tán nhóm');
                     Alert.alert('Thành công', 'Nhóm đã được giải tán');
+                    socket.emit('group-event', {
+                        conversation_id,
+                        event: 'group-disbanded',
+                        data: {},
+                    });
                     navigation.goBack();
                 } catch (err) {
                     Alert.alert('Lỗi', err.message || 'Không thể giải tán nhóm');
@@ -277,7 +314,7 @@ const GroupManagementScreen = ({ route, navigation }) => {
             </View>
             {(currentUserId === groupLeader || deputyLeaders.includes(currentUserId)) &&
                 item._id !== groupLeader &&
-                item._id !== currentUserId && ( // Thêm điều kiện để ngăn tự xóa chính mình
+                item._id !== currentUserId && (
                     <View style={styles.memberActions}>
                         {currentUserId === groupLeader && (
                             <>
@@ -302,6 +339,7 @@ const GroupManagementScreen = ({ route, navigation }) => {
                 )}
         </View>
     );
+
     return (
         <View style={styles.container}>
             <View style={styles.header}>

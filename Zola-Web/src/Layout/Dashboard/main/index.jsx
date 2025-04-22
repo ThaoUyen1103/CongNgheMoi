@@ -244,6 +244,23 @@ const Main = ({
             },
         )
 
+        async function fetchUserInfo(userId) {
+            try {
+                const res = await axios.post('http://localhost:3001/user/getInfoByUserIDWeb', {
+                    sender_id: userId,
+                })
+                return {
+                    userName: res.data.userName || res.data.name,
+                    firstName: res.data.firstName,
+                    lastName: res.data.lastName,
+                    avatar: res.data.avatar,
+                }
+            } catch (error) {
+                console.error('Error fetching user info:', error)
+                return null
+            }
+        }
+
         if (response.data.thongbao === 'Tìm thấy tin nhắn!!!') {
             // alert('Tìm thấy tin nhắn từ conversation_id là', conversation_id)
             const messagesWithAvatar = await Promise.all(
@@ -274,6 +291,15 @@ const Main = ({
                         )
                         localStorage.setItem(`name_${message.senderId}`, name)
                     }
+
+                    // Fetch and replace originalSender if it is a string (ID)
+                    if (message.originalSender && typeof message.originalSender === 'string') {
+                        const userInfo = await fetchUserInfo(message.originalSender)
+                        if (userInfo) {
+                            message.originalSender = userInfo
+                        }
+                    }
+
                     return {
                         ...message,
                         avatar: avatar,
@@ -421,95 +447,123 @@ const Main = ({
 
     //socket
     useEffect(() => {
-        if (!conversation_id) {
-            return
+        if (!conversation_id) return;
+
+        const newSocket = io('http://localhost:3005');
+        newSocket.emit('join-conversation', { conversation_id, user_id });
+
+        async function fetchUserInfo(userId) {
+            try {
+                const res = await axios.post('http://localhost:3001/user/getInfoByUserIDWeb', {
+                    sender_id: userId,
+                });
+                return {
+                    userName: res.data.userName || res.data.name,
+                    firstName: res.data.firstName,
+                    lastName: res.data.lastName,
+                    avatar: res.data.avatar,
+                };
+            } catch (error) {
+                console.error('Error fetching user info:', error);
+                return null;
+            }
         }
-        const newSocket = io('http://localhost:3005')
-        ///const newSocket = io('http://192.168.1.17:3005')
-        // newSocket.on('connect', () => {
-        //     console.log('Connected to server')
-        // })
-        newSocket.on('connect', () => {
-            console.log('Web connected socket id:', newSocket.id)
-            newSocket.emit('conversation_id', conversation_id)  // để ở đây
-        })
 
-        newSocket.on('receive-message', (data) => {
-            const messageArray = typeof data === 'string' ? JSON.parse(data) : data;
+        async function processMessage(message) {
+            if (message.originalSender && typeof message.originalSender === 'string') {
+                const userInfo = await fetchUserInfo(message.originalSender);
+                if (userInfo) {
+                    message.originalSender = userInfo;
+                }
+            }
+            return message;
+        }
 
-            if (Array.isArray(messageArray)) {
-                setMessages((prevMessages) => {
-                    const newMessages = messageArray.filter(
-                        (msg) => !prevMessages.some((prev) => prev._id === msg._id)
-                    );
-                    return [...prevMessages, ...newMessages];
-                });
+        // Nhận tin nhắn mới
+        newSocket.on('receive-message', async (data) => {
+            if (Array.isArray(data)) {
+                const processed = await Promise.all(data.map(processMessage));
+                setMessages((prev) => [...prev, ...processed]);
             } else {
-                setMessages((prevMessages) => {
-                    if (prevMessages.some((msg) => msg._id === messageArray._id)) {
-                        return prevMessages; // đã có rồi
-                    }
-                    return [...prevMessages, messageArray];
-                });
+                const processed = await processMessage(data);
+                setMessages((prev) => [...prev, processed]);
             }
         });
 
-
-        // thu hồi socket được nhận là
+        // Tin nhắn bị thu hồi
         newSocket.on('message-recalled', (data) => {
-            const recalledMessage = typeof data === 'string' ? JSON.parse(data) : data;
-            const recalledMessageId = recalledMessage._id;
-
+            const recalled = data;
+            setRecalledMessages((prev) => [...prev, recalled._id]);
             setMessages((prevMessages) =>
                 prevMessages.map((msg) =>
-                    msg._id === recalledMessageId
-                        ? { ...msg, recalled: true, content: 'Tin nhắn đã bị thu hồi' }
-                        : msg
+                    msg._id === recalled._id ? { ...msg, recalled: true } : msg
                 )
             );
         });
 
-
-
-
+        // Tin nhắn bị người dùng xóa
         newSocket.on('message-deleted', (message_id) => {
-            setDeleteMyMessage([...deleteMyMessage, message_id])
-        })
+            setDeleteMyMessage((prev) => [...prev, message_id]);
+        });
 
-        newSocket.on('memberAddedToGroup', (data) => {
-            // Update your messages state here with the new member info
-            // For example, if you're using React, you might call a setState function
-            setMessages([
-                ...messages,
+        // Nhận thông báo hệ thống
+        newSocket.on('notification', (data) => {
+            setMessages((prev) => [...prev, data]);
+        });
+
+        // Các sự kiện nhóm
+        newSocket.on('group-event', ({ event, data }) => {
+            let content = '';
+            switch (event) {
+                case 'rename':
+                    content = `${data.userName} đã đổi tên nhóm thành "${data.conversationName}"`;
+                    break;
+                case 'avatar-updated':
+                    content = `${data.userName} đã cập nhật ảnh đại diện nhóm`;
+                    break;
+                case 'member-added':
+                    content = `${data.userName || data.friend_ids?.join(', ')} đã được thêm vào nhóm`;
+                    break;
+                case 'member-removed':
+                    content = `${data.userName || data.friend_id} đã bị xóa khỏi nhóm`;
+                    break;
+                case 'leader-assigned':
+                    content = `${data.userName || data.friend_id} đã được gán làm trưởng nhóm`;
+                    break;
+                case 'deputy-assigned':
+                    content = `${data.userName || data.friend_id} đã được gán làm phó nhóm`;
+                    break;
+                case 'deputy-removed':
+                case 'deleteDeputyLeader':
+                    content = `${data.userName || data.friend_id} đã bị gỡ quyền phó nhóm`;
+                    break;
+                case 'exit':
+                    content = `${data.userName || data.user_id} đã rời khỏi nhóm`;
+                    break;
+                case 'group-disbanded':
+                    content = `Nhóm đã bị giải tán bởi trưởng nhóm`;
+                    break;
+                default:
+                    return;
+            }
+
+            setMessages((prev) => [
+                ...prev,
                 {
-                    content: `${data.newMember.name} đã thêm vào nhóm`,
+                    _id: new Date().getTime().toString(),
+                    content,
+                    contentType: 'notify',
                     type: 'system',
                 },
-            ])
-        })
+            ]);
+        });
 
-        // gọi tới thông báo socket notification
-        // socket.on('notification', (data) => {
-        //     setMessages((prevMessages) => [
-        //         ...prevMessages,
-        //         {
-        //             conversation_id: data.conversation_id, // Generate a random id for this message
-        //             content: data.content,
-        //             contentType: data.contentType,
-        //             senderId: user_id,
-        //         },
-        //     ])
-        // })
-        newSocket.on('notification', (data) => {
-            setMessages((oldMessages) => [...oldMessages, data])
-        })
-
-        setSocket(newSocket)
+        setSocket(newSocket);
 
         return () => {
-            newSocket.disconnect()
-        }
-    }, [conversation_id])
+            newSocket.disconnect();
+        };
+    }, [conversation_id]);
 
     const handleRemoveImage = (index) => {
         setImages((prevImages) => prevImages.filter((image, i) => i !== index))
@@ -1004,14 +1058,14 @@ const Main = ({
                 if (
                     response.data.thongbao === 'Thu hồi tin nhắn thành công!!!'
                 ) {
-                    toast('Thu hồi tin nhắn thành công!!!')
+                    toast.success('Thu hồi tin nhắn thành công!!!')
                     setRecalledMessages([...recalledMessages, message_id])
                     socket.emit('message-recalled', response.data.message)
                     // đóng modal
                     closeModal()
                 }
                 if (response.data.thongbao === 'Lỗi khi thu hồi tin nhắn!!!') {
-                    toast('Lỗi khi thu hồi tin nhắn!!!')
+                    toast.error('Lỗi khi thu hồi tin nhắn!!!')
                 }
             })
     }
@@ -1041,7 +1095,7 @@ const Main = ({
                     closeModal()
                 }
                 if (response.data.thongbao === 'Tin nhắn không tồn tại') {
-                    toast('Tin nhắn không tồn tại')
+                    toast.error('Tin nhắn không tồn tại')
                 }
             })
     }
@@ -1084,38 +1138,69 @@ const Main = ({
 
 
     // Gửi tin nhắn với chờ đợi
-    const handleForwardMessage = (receiver_id, message_id, type = 'friend') => {
+    const handleForwardMessage = async (receiver_id, message_id, type = 'friend') => {
         const id = `${receiver_id}-${message_id}-${Date.now()}`;
 
-        // Tạo timeout gửi sau 5s
-        const timeout = setTimeout(() => {
-            const url =
-                type === 'group'
-                    ? 'http://localhost:3001/message/forwardMessageToGroupWeb'
-                    : 'http://localhost:3001/message/forwardMessageWeb';
+        let url, body;
 
-            const body =
-                type === 'group'
-                    ? { message_id, group_id: receiver_id }
-                    : { message_id, conversation_id: receiver_id };
+        // For both user and group, use forwardMessageWeb API
+        try {
+            let conversation_id = receiver_id;
+            if (type !== 'group') {
+                // For user, get conversation_id from user_id and friend_id
+                const response = await axios.post('http://localhost:3001/conversation/getConversationIDWeb', {
+                    user_id: user_id,
+                    friend_id: receiver_id,
+                });
+                conversation_id = response.data.conversation_id;
+            }
+            url = 'http://localhost:3001/message/forwardMessageWeb';
+            body = {
+                message_id,
+                conversation_id,
+                forwarded_by: user_id,
+                forwarded_at: new Date().toISOString(),
+                original_sender: selectedMessage.senderId,
+            };
+        } catch (err) {
+            toast.error('Không thể lấy được cuộc trò chuyện với người dùng này!');
+            return;
+        }
 
-            axios.post(url, body).then((res) => {
-                toast(`✅ Đã gửi tới ${type === 'group' ? 'nhóm' : 'người dùng'} thành công!`);
-                if (res.data?.message) {
-                    socket.emit('send-message', res.data.message);
+        // ⏳ Đợi 5s trước khi gửi (giả lập delay)
+        const timeout = setTimeout(async () => {
+            try {
+                const response = await axios.post(url, body);
+                console.log("Response Data:", response.data);
+                if (response.data?.message) {
+                    const forwardedMessage = {
+                        ...response.data.message,
+                    };
+
+                    socket.emit('send-message', forwardedMessage);
+                    toast.success(`Đã chuyển tiếp tới ${type === 'group' ? 'nhóm' : 'người dùng'} thành công!`);
                 }
-            });
-
-            setPendingForwards((prev) => prev.filter((item) => item.id !== id));
+            } catch (err) {
+                toast.error(`Lỗi khi chuyển tiếp: ${err.message}`);
+                console.error('Forward error:', err);
+            } finally {
+                setPendingForwards((prev) => prev.filter((item) => item.id !== id));
+            }
         }, 5000);
 
-        // Thêm vào danh sách chờ
         setPendingForwards((prev) => [
             ...prev,
-            { id, receiver_id, message_id, timeout, type },
+            {
+                id,
+                receiver_id,
+                message_id,
+                timeout,
+                type,
+                originalMessage: selectedMessage,
+            },
         ]);
 
-        toast('⏰ Sẽ gửi trong 5 giây... Bạn có thể hoàn tác!');
+        toast('⏰ Tin nhắn sẽ được gửi trong 5 giây...');
     };
     const undoForward = (id) => {
         const pending = pendingForwards.find((item) => item.id === id);
@@ -1290,8 +1375,8 @@ const Main = ({
                                             style={{
                                                 color: '#798EA2', // Thay đổi màu chữ
                                                 backgroundColor: '#ECE9D6', // Thêm màu nền cho văn bản
-                                                padding: '2px 5px', // Thêm padding cho văn bản
-                                                borderRadius: '5px', // Làm viền tròn cho văn bản
+                                                padding: '2px 5px',
+                                                borderRadius: '5px',
                                             }}
                                         >
                                             {message.content}
@@ -1300,19 +1385,14 @@ const Main = ({
                                 ) : null}
                                 {/* chỗ này hiện avatar */}
                                 {message.contentType !== 'notify' &&
-                                    /* message.senderId !== user_id */
-                                    (typeof message.senderId === 'object' &&
-                                        message.senderId !== null
+                                    (typeof message.senderId === 'object' && message.senderId !== null
                                         ? message.senderId._id
                                         : message.senderId) !== user_id && (
                                         <img
-                                            // src={message.avatar}
                                             src={
-                                                typeof message.senderId ===
-                                                    'object' &&
-                                                    message.senderId !== null
-                                                    ? message.senderId.avatar
-                                                    : message.avatar
+                                                message.avatar
+                                                    ? message.avatar
+                                                    : 'https://zolabk.s3.ap-southeast-1.amazonaws.com/boy.png'
                                             }
                                             alt="sender avatar"
                                             style={{
@@ -1402,6 +1482,38 @@ const Main = ({
                                                         </p>
                                                     )}
                                             </p>
+
+                                            {message.isForwarded && (
+                                                <div
+                                                    style={{
+                                                        fontStyle: 'italic',
+                                                        backgroundColor: '#f1f1f1',
+                                                        padding: '4px 8px',
+                                                        borderLeft: '3px solid #00bcd4',
+                                                        borderRadius: 6,
+                                                        fontSize: 13,
+                                                        color: '#333',
+                                                        marginBottom: 5,
+                                                    }}
+                                                >
+                                                    {/* ↪️ <b>{typeof message.originalSender === 'object'
+                                                        ? message.forwardedBy.userName
+                                                        : message.forwardedBy}</b>{' '}
+                                                    đã chuyển tiếp tin nhắn từ{' '}
+                                                    <b>{typeof message.originalSender === 'object'
+                                                        ? message.original_sender.userName
+                                                        : message.original_sender}</b>
+                                                    <br /> */}
+                                                    ↪️ {' '}
+                                                    đã chuyển tiếp tin nhắn từ{' '}
+                                                    <b>{typeof message.originalSender === 'object'
+                                                        ? message.originalSender.userName || `${message.originalSender.firstName} ${message.originalSender.lastName}`
+                                                        : message.originalSender}</b>
+
+
+
+                                                </div>
+                                            )}
                                             {message.replyTo &&
                                                 replyContent && (
                                                     <div
@@ -2391,3 +2503,5 @@ const Main = ({
 }
 
 export default Main
+
+

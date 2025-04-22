@@ -5,7 +5,9 @@ import { FaCamera } from 'react-icons/fa'
 import { GrSearch } from 'react-icons/gr'
 import { useNavigate } from 'react-router-dom'
 import '../../../Login/Receiveotp.css'
+import { io } from 'socket.io-client'
 
+// Tạo nhóm chat
 const AddPopupCreateAGroup = ({ setOpenCreateAGroup }) => {
     const navigate = useNavigate()
 
@@ -18,7 +20,7 @@ const AddPopupCreateAGroup = ({ setOpenCreateAGroup }) => {
     const [isUserFound, setIsUserFound] = useState(false)
     const [addFriend, setAddFriend] = useState('Kết Bạn')
     const user_id = localStorage.getItem('user_id').replace(/"/g, '').trim()
-
+    const socket = io('http://localhost:3001')
     const openPopup = (props) => {
         setOpenCreateAGroup(true)
     }
@@ -145,7 +147,7 @@ const AddPopupCreateAGroup = ({ setOpenCreateAGroup }) => {
                     toast.success('Tạo nhóm thành công!!!')
                     // navigate('/dashboard')
                     handleClose()
-                    // F5 lại trang
+                    
                     setRefreshKey((oldKey) => oldKey + 1)
                 }
             })

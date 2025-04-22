@@ -1,10 +1,16 @@
-// CreateGroupScreen.js
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, FlatList, TouchableOpacity, Image, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import io from 'socket.io-client';
 import { findUserByAccountId, findUserByUserId, createConversationsGroupMobile } from '../services/api';
+
+const socket = io('http://192.168.34.235:3005', {
+    transports: ['websocket'],
+    autoConnect: true,
+    reconnection: true,
+});
 
 const CreateGroupScreen = ({ navigation }) => {
     const [groupName, setGroupName] = useState('');
@@ -86,7 +92,7 @@ const CreateGroupScreen = ({ navigation }) => {
             formData.append('user_id', currentUserId);
             formData.append('contentType', 'image');
 
-            const uploadResponse = await fetch('http://192.168.1.33:3001/message/createMessagesMobile', {
+            const uploadResponse = await fetch('http://192.168.34.235:3001/message/createMessagesMobile', {
                 method: 'POST',
                 body: formData,
                 headers: {
@@ -111,7 +117,7 @@ const CreateGroupScreen = ({ navigation }) => {
             return;
         }
 
-        if (selectedMembers.length < 2) {
+        if (selectedMembers.length < 1) {
             Alert.alert('Lỗi', 'Nhóm phải có ít nhất 2 thành viên');
             return;
         }
@@ -139,6 +145,20 @@ const CreateGroupScreen = ({ navigation }) => {
             if (response.status !== 200) throw new Error(response.data.message || 'Lỗi tạo nhóm');
 
             Alert.alert('Thành công', 'Nhóm đã được tạo');
+
+            socket.emit('conversation_id', response.data.conversation._id);
+
+            //  Emit group-event cho từng thành viên được thêm vào nhóm
+            selectedMembers.forEach((memberId) => {
+                socket.emit('group-event', {
+                    conversation_id: response.data.conversation._id,
+                    event: 'member-added',
+                    data: {
+                        userId: memberId,
+                        userName: friends.find(f => f._id === memberId)?.userName || 'Bạn',
+                    },
+                });
+            });
             navigation.navigate('Chat', {
                 conversation_id: response.data.conversation._id,
                 friend_name: groupName,

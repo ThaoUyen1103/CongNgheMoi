@@ -10,7 +10,7 @@ import io from 'socket.io-client';
 
 const { width, height } = Dimensions.get('window');
 
-const socket = io('http://192.168.1.33:3005', {
+const socket = io('http://192.168.34.235:3005', {
     transports: ['websocket'],
     autoConnect: true,
     reconnection: true,
@@ -60,9 +60,12 @@ const ChatScreen = ({ route, navigation }) => {
     ];
 
     const joinRoom = () => {
-        if (conversation_id) {
-            socket.emit('conversation_id', conversation_id);
-            console.log('Joined room:', conversation_id);
+        if (conversation_id && currentUserId) {
+            socket.emit('join-conversation', {
+                conversation_id,
+                user_id: currentUserId
+            });
+            console.log('✅ Đã emit join-conversation:', conversation_id);
         }
     };
 
@@ -236,7 +239,7 @@ const ChatScreen = ({ route, navigation }) => {
             }
 
             if (!targetConversationId) {
-                const createConvResponse = await fetch('http://192.168.1.33:3001/conversation/create', {
+                const createConvResponse = await fetch('http://192.168.34.235:3001/conversation/create', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ members: [currentUserId, friend.friend_id] }),
@@ -573,7 +576,7 @@ const ChatScreen = ({ route, navigation }) => {
 
         socket.on('receive-message', (data) => {
             try {
-                let message = typeof data === 'string' ? JSON.parse(data) : data;
+                const message = typeof data === 'string' ? JSON.parse(data) : data;
                 if (message.conversation_id === conversation_id) {
                     setMessages((prev) => {
                         if (prev.some((msg) => msg._id === message._id)) return prev;
@@ -802,10 +805,26 @@ const ChatScreen = ({ route, navigation }) => {
     };
 
     const handleDeleteMessage = async (messageId) => {
+        const message = messages.find(msg => msg._id === messageId);
+        if (!message) {
+            Alert.alert('Lỗi', 'Tin nhắn không tồn tại hoặc đã bị xoá');
+            return;
+        }
+
         try {
             const res = await deleteMyMessage(messageId, currentUserId);
             if (res.status !== 200) throw new Error(res.data.message || 'Lỗi khi xóa tin nhắn');
-            socket.emit('delete-my-message', { message_id: messageId, user_id: currentUserId, conversation_id });
+
+            socket.emit('delete-my-message', { message_id: messageId, user_id: currentUserId });
+
+            setMessages((prev) =>
+                prev.map((msg) =>
+                    msg._id === messageId
+                        ? { ...msg, deletedBy: [...(msg.deletedBy || []), currentUserId] }
+                        : msg
+                )
+            );
+
             setContextMenu({ visible: false, messageId: null, isCurrentUser: false, content: null, contentType: null });
         } catch (err) {
             Alert.alert('Lỗi', err.message || 'Không thể xóa tin nhắn');
@@ -823,7 +842,11 @@ const ChatScreen = ({ route, navigation }) => {
                         : msg
                 )
             );
-            socket.emit('recall-message', { message_id: messageId, conversation_id });
+            if (!messageId) {
+                console.warn('❌ messageId bị null khi recall');
+                return;
+            }
+            socket.emit('message-recalled', { _id: messageId, conversation_id });
             setContextMenu({ visible: false, messageId: null, isCurrentUser: false, content: null, contentType: null });
         } catch (err) {
             Alert.alert('Lỗi', err.message || 'Không thể thu hồi tin nhắn');
@@ -831,15 +854,18 @@ const ChatScreen = ({ route, navigation }) => {
     };
 
     const handleForwardMessage = (message) => {
-        if (!message?.content || !message?.contentType) {
-            Alert.alert('Lỗi', 'Nội dung tin nhắn không hợp lệ');
+        if (!message || !message._id || !message.content || !message.contentType) {
+            Alert.alert('Lỗi', 'Dữ liệu tin nhắn không hợp lệ để chuyển tiếp');
             return;
         }
+
         fetchFriends();
         setContextMenu({
             visible: false,
             messageId: message._id,
-            isCurrentUser: typeof message.senderId === 'object' ? message.senderId._id === currentUserId : message.senderId === currentUserId,
+            isCurrentUser: typeof message.senderId === 'object'
+                ? message.senderId?._id === currentUserId
+                : message.senderId === currentUserId,
             content: message.content,
             contentType: message.contentType,
         });
@@ -1146,12 +1172,15 @@ const ChatScreen = ({ route, navigation }) => {
                             </>
                         ) : (
                             <>
-                                <TouchableOpacity style={styles.contextMenuItem} onPress={() => handleForwardMessage({
-                                    _id: contextMenu.messageId,
-                                    content: contextMenu.content,
-                                    contentType: contextMenu.contentType,
-                                    senderId: contextMenu.isCurrentUser ? currentUserId : friend_id,
-                                })}>
+                                <TouchableOpacity
+                                    style={styles.contextMenuItem}
+                                    onPress={() => handleForwardMessage({
+                                        _id: contextMenu.messageId,
+                                        content: contextMenu.content,
+                                        contentType: contextMenu.contentType,
+                                        senderId: contextMenu.isCurrentUser ? currentUserId : friend_id,
+                                    })}
+                                >
                                     <Text style={styles.contextMenuText}>Chuyển tiếp</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity style={styles.contextMenuItem} onPress={() => handleReplyMessage(contextMenu.messageId, contextMenu.content, contextMenu.contentType)}>
