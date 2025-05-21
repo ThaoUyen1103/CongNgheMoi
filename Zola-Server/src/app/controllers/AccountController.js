@@ -295,44 +295,7 @@ class AccountController {
         })
     }
 
-    /// mobile
-    // async login(req, res) {
-    //     const { phoneNumber, password } = req.body
-    //     //check if phoneNumber and password are provided
-    //     if (!phoneNumber || !password) {
-    //         res.status(404).json('Please provide phone number and password')
-    //     }
-    //     //check account in db
-    //     const account = await Account.findOne({ phoneNumber: phoneNumber })
-    //         .then((account) => {
-    //             if (!account) {
-    //                 res.status(404).json('Account not found')
-    //             }
-    //             if (account.password !== password) {
-    //                 res.status(404).json('Password is incorrect')
-    //             }
-    //             const token = createToken(account._id)
-    //             res.status(200).json({ token })
-    //         })
-    //         .catch((err) => {
-    //             console.log('Error at login', err)
-    //             res.status(500).json('Internal server error!!!')
-    //         })
-    // }
-    // // post /register
-    // async register(req, res) {
-    //     const { phoneNumber, password } = req.body
 
-    //     const account = new Account({ phoneNumber, password })
-    //     await account
-    //         .save()
-    //         .then(() => {
-    //             res.json('Register successfully!!!')
-    //         })
-    //         .catch((err) => {
-    //             res.json('Register failure!!!')
-    //         })
-    // }
 
     async findByID(req, res) {
         const id = req.query.account_id

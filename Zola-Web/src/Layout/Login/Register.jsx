@@ -10,6 +10,7 @@ import { Button } from '@mui/material';
 import { toast, Toaster } from 'react-hot-toast';
 import OtpInput from 'otp-input-react';
 import { sendOTP, verifyOTP } from '../../config/firebase.config';
+import { Link } from 'react-router-dom';
 
 export const Register = () => {
     const [firstName, setFirstName] = useState('');
@@ -65,7 +66,7 @@ export const Register = () => {
         try {
             await verifyOTP(confirmationResultRef.current, otp);
             toast.success('Xác thực OTP thành công!');
-            handleFinalRegister(); // Thực hiện đăng ký sau khi xác thực OTP
+            handleFinalRegister();
         } catch (error) {
             toast.error('Mã OTP không chính xác!');
         }
@@ -184,6 +185,11 @@ export const Register = () => {
                                     Gửi lại OTP
                                 </button>
                             )}
+                            <div style={{ textAlign: 'center', marginTop: '15px' }}>
+                                <Link to="/login" style={{ color: '#0190F3', textDecoration: 'none', fontWeight: 'bold' }}>
+                                    Quay lại Đăng nhập
+                                </Link>
+                            </div>
                         </div>
                     ) : (
                         <form onSubmit={register} className="form">
@@ -202,8 +208,8 @@ export const Register = () => {
                                             }}
                                             onKeyDown={(e) => {
                                                 if (e.key === 'Enter') {
-                                                    e.preventDefault() // Ngăn chặn hành động mặc định của phím "Enter"
-                                                    register(e) // Gọi hàm register khi nhấn phím "Enter"
+                                                    e.preventDefault()
+                                                    register(e)
                                                 }
                                             }}
                                         />
@@ -217,8 +223,8 @@ export const Register = () => {
                                             }}
                                             onKeyDown={(e) => {
                                                 if (e.key === 'Enter') {
-                                                    e.preventDefault() // Ngăn chặn hành động mặc định của phím "Enter"
-                                                    register(e) // Gọi hàm register khi nhấn phím "Enter"
+                                                    e.preventDefault()
+                                                    register(e)
                                                 }
                                             }}
                                         />
@@ -236,24 +242,22 @@ export const Register = () => {
                             <div className="inputA">
                                 <div className="inputB">
                                     <DatePicker
-                                        //showIcon
                                         placeholderText="Chọn ngày sinh "
                                         selected={dateOfBirth}
                                         onChange={(e) => setDateOfBirth(e)}
                                         dateFormat="dd/MM/yyyy"
                                         showYearDropdown
-                                        // scrollYearDropdown
                                         onKeyDown={(e) => {
                                             if (e.key === 'Enter') {
-                                                e.preventDefault() // Ngăn chặn hành động mặc định của phím "Enter"
-                                                register(e) // Gọi hàm register khi nhấn phím "Enter"
+                                                e.preventDefault()
+                                                register(e)
                                             }
                                         }}
                                     />
                                 </div>
                                 <div className="inputC">
                                     <div className="div-gender">
-                                        <label for="select"> Giới tính </label>
+                                        <label htmlFor="select"> Giới tính </label>
                                         <select
                                             className="form-select"
                                             id="select"
@@ -263,8 +267,8 @@ export const Register = () => {
                                             }
                                             onKeyDown={(e) => {
                                                 if (e.key === 'Enter') {
-                                                    e.preventDefault() // Ngăn chặn hành động mặc định của phím "Enter"
-                                                    register(e) // Gọi hàm register khi nhấn phím "Enter"
+                                                    e.preventDefault()
+                                                    register(e)
                                                 }
                                             }}
                                         >
@@ -279,14 +283,13 @@ export const Register = () => {
                             <div className="label">Nhập mật khẩu</div>
                             <div className="inputIB">
                                 <input
-                                    // type="password"
                                     type={showPassword ? 'text' : 'password'}
                                     placeholder="Nhập mật khẩu"
                                     onChange={(e) => setPassword(e.target.value)}
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter') {
-                                            e.preventDefault() // Ngăn chặn hành động mặc định của phím "Enter"
-                                            register(e) // Gọi hàm register khi nhấn phím "Enter"
+                                            e.preventDefault()
+                                            register(e)
                                         }
                                     }}
                                 />
@@ -294,8 +297,7 @@ export const Register = () => {
                                     className="span-eye"
                                     onClick={togglePasswordVisibility}
                                 >
-                                    {showPassword ? <FaEyeSlash /> : <FaEye />}{' '}
-                                    {/* Sử dụng icon con mắt */}
+                                    {showPassword ? <FaEyeSlash /> : <FaEye />}
                                 </span>
                             </div>
                             <div className="label">Nhập lại mật khẩu </div>
@@ -303,14 +305,13 @@ export const Register = () => {
                                 <input
                                     type={showPassword ? 'text' : 'password'}
                                     placeholder="Nhập lại mật khẩu"
-                                    // set lấy giá trị confirm password
                                     onChange={(e) =>
                                         setConfirmPassword(e.target.value)
                                     }
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter') {
-                                            e.preventDefault() // Ngăn chặn hành động mặc định của phím "Enter"
-                                            register(e) // Gọi hàm register khi nhấn phím "Enter"
+                                            e.preventDefault()
+                                            register(e)
                                         }
                                     }}
                                 />
@@ -318,13 +319,16 @@ export const Register = () => {
                             <Button type="submit" variant="contained" color="success">
                                 Đăng ký
                             </Button>
+                            <div style={{ textAlign: 'center', marginTop: '15px' }}>
+                                <Link to="/login" style={{ color: '#0190F3', textDecoration: 'none', fontWeight: 'bold' }}>
+                                    Quay lại Đăng nhập
+                                </Link>
+                            </div>
                         </form>
                     )}
                 </div>
             </div>
             <div id="recaptcha-container"></div>
         </div>
-
-
     );
 };

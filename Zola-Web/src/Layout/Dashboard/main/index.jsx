@@ -175,7 +175,6 @@ const Main = ({
     const location = useLocation()
 
     useEffect(() => {
-        // Khi conversation_id hoặc đường dẫn URL thay đổi, đặt replyingTo trở lại null
         setReplyingTo(null)
     }, [conversation_id, location])
 
@@ -196,7 +195,6 @@ const Main = ({
                         [message._id]: JSON.parse(cachedReplyContent),
                     }))
                 } else {
-                    // If the reply content is not in the cache, fetch it
                     axios
                         .post(
                             'http://localhost:3001/message/getMessageReplyContentWeb',
@@ -209,7 +207,6 @@ const Main = ({
                                 response.data.thongbao ===
                                 'Tìm thấy tin nhắn!!!'
                             ) {
-                                // Store the reply content in the cache
                                 localStorage.setItem(
                                     `replyContent_${message._id}`,
                                     JSON.stringify(response.data.message),
@@ -230,11 +227,9 @@ const Main = ({
     }, [messages])
 
     const handleReplyClick = (messageId) => {
-        // Replace with the actual path to the message
         alert('Tính năng đang triển khai')
     }
 
-    // fetchMessage lấy tin nhắn từ conversation_id nhóm trò chuyện
     const fetchMessages = async (conversation_id) => {
         // alert(conversation_id)
         const response = await axios.post(
@@ -262,7 +257,6 @@ const Main = ({
         }
 
         if (response.data.thongbao === 'Tìm thấy tin nhắn!!!') {
-            // alert('Tìm thấy tin nhắn từ conversation_id là', conversation_id)
             const messagesWithAvatar = await Promise.all(
                 response.data.messages.map(async (message) => {
                     let avatar
@@ -292,7 +286,6 @@ const Main = ({
                         localStorage.setItem(`name_${message.senderId}`, name)
                     }
 
-                    // Fetch and replace originalSender if it is a string (ID)
                     if (message.originalSender && typeof message.originalSender === 'string') {
                         const userInfo = await fetchUserInfo(message.originalSender)
                         if (userInfo) {
@@ -316,14 +309,10 @@ const Main = ({
             setIsLoading(false)
         }
     }
-    // useEffect để tạo conversation_id từ currentFriend_Id và friend_id
     useEffect(() => {
-        // kieemr tra 2 id có rỗng ko nếu rỗng thì return
         if (!currentFriend_Id || !user_id) {
-            // toast.error('Không tìm thấy user_id hoặc friend_id!!!')
             return
         }
-        // alert('ĐÃ VÀO USEEFFECT tạo conversation_id từ currentFriend_Id')
 
         axios
             .post('http://localhost:3001/conversation/createConversationsWeb', {
@@ -343,11 +332,9 @@ const Main = ({
                     response.data.message === 'Conversation đã tồn tại!!!' ||
                     response.data.message === 'Tạo conversation thành công!!!'
                 ) {
-                    // alert(response.data.conversation._id)
                     const conversation_id = response.data.conversation._id
                     setConversationId(conversation_id)
                     if (conversation_id) {
-                        // alert('conversation_id bạn bè  là : ' + conversation_id)
                         fetchMessages(conversation_id)
                     }
                 }
@@ -367,7 +354,6 @@ const Main = ({
             setConversationId(currentConversationGroup._id)
         }
     }, [currentConversationGroup])
-    // useEffect để set chỗ cloud của tôi
     useEffect(() => {
         if (currentconversationMyCloud != null) {
             setCurrentSource({
@@ -379,7 +365,6 @@ const Main = ({
         }
     }, [currentconversationMyCloud, clickCurrentCount])
 
-    // useEffect lấy tất cả tin nhắn thu hồi Recallmessage , Lấy tất cả tin nhắn đã xoá ở chỉ mình tôi từ conversation_id
     useEffect(() => {
         if (!conversation_id) {
             return
@@ -392,7 +377,6 @@ const Main = ({
                 if (
                     response.data.thongbao === 'Tìm thấy tin nhắn đã thu hồi!!!'
                 ) {
-                    // toast.success('Tìm thấy tin nhắn đã thu hồi!!!')
                     const messageIds = response.data.messages.map(
                         (message) => message._id,
                     )
@@ -405,7 +389,6 @@ const Main = ({
                     response.data.thongbao ===
                     'Không tìm thấy tin nhắn đã thu hồi!!!'
                 ) {
-                    // toast.success('Không tìm thấy tin nhắn đã thu hồi!!!')
                     setRecalledMessages([])
                 }
             })
@@ -413,7 +396,6 @@ const Main = ({
                 console.error(error)
             })
 
-        // lấy tất cả tin nhắn đã xoá ở chỉ mình tôi
         axios
             .post('http://localhost:3001/message/findAllDeleteMyMessageWeb', {
                 conversation_id: conversation_id,
@@ -423,7 +405,6 @@ const Main = ({
                     response.data.thongbao ===
                     'Tìm thấy tin nhắn đã bị xoá ở phía tôi!!!'
                 ) {
-                    // toast.success('Tìm thấy tin nhắn đã thu hồi!!!')
                     const messageIds = response.data.messages.map(
                         (message) => message._id,
                     )
@@ -436,7 +417,6 @@ const Main = ({
                     response.data.thongbao ===
                     'Không tìm thấy tin nhắn đã bị xoá ở phía tôi!!!'
                 ) {
-                    // toast.success('Không tìm thấy tin nhắn đã thu hồi!!!')
                     setDeleteMyMessage([])
                 }
             })
@@ -445,7 +425,6 @@ const Main = ({
             })
     }, [conversation_id])
 
-    //socket
     useEffect(() => {
         if (!conversation_id) return;
 
@@ -479,7 +458,6 @@ const Main = ({
             return message;
         }
 
-        // Nhận tin nhắn mới
         newSocket.on('receive-message', async (data) => {
             if (Array.isArray(data)) {
                 const processed = await Promise.all(data.map(processMessage));
@@ -490,16 +468,28 @@ const Main = ({
             }
         });
 
-        // Tin nhắn bị thu hồi
-        newSocket.on('message-recalled', (data) => {
-            const recalled = data;
-            setRecalledMessages((prev) => [...prev, recalled._id]);
-            setMessages((prevMessages) =>
-                prevMessages.map((msg) =>
-                    msg._id === recalled._id ? { ...msg, recalled: true } : msg
-                )
-            );
-        });
+       newSocket.on('server-message-recalled', (recalledDataFromServer) => {
+    console.log('✅ Client: Received server-message-recalled event:', recalledDataFromServer);
+
+    if (!recalledDataFromServer || !recalledDataFromServer._id) {
+        console.error('🔴 Client: Invalid data from server-message-recalled', recalledDataFromServer);
+        return;
+    }
+
+    setMessages((prevMessages) =>
+        prevMessages.map((msg) => {
+            if (msg._id === recalledDataFromServer._id) {
+                return {
+                    ...msg, 
+                    recalled: recalledDataFromServer.recalled, 
+                    content: recalledDataFromServer.content,   
+                    
+                };
+            }
+            return msg;
+        })
+    );
+});
 
         // Tin nhắn bị người dùng xóa
         newSocket.on('message-deleted', (message_id) => {
@@ -656,10 +646,10 @@ const Main = ({
                         //     ...prevMessages,
                         //     response.data.messages,
                         // ])
-                        setMessages((prevMessages) => [
-                            ...prevMessages,
-                            messagesWithAvatar,
-                        ])
+                        // setMessages((prevMessages) => [
+                        //     ...prevMessages,
+                        //     messagesWithAvatar,
+                        // ])
                     }
                     if (response.data.thongbao === 'Lỗi khi tạo message!!!') {
                         toast.error('Lỗi khi tạo message!!!')
@@ -1049,92 +1039,89 @@ const Main = ({
             messagesContainerRef.current.scrollTop = scrollHeight
         }
     }
-    const recallMessage = (message_id) => {
-        axios
-            .post('http://localhost:3001/message/recallMessageWeb', {
-                message_id: message_id,
-            })
-            .then((response) => {
-                if (
-                    response.data.thongbao === 'Thu hồi tin nhắn thành công!!!'
-                ) {
-                    toast.success('Thu hồi tin nhắn thành công!!!')
-                    setRecalledMessages([...recalledMessages, message_id])
-                    socket.emit('message-recalled', response.data.message)
-                    // đóng modal
-                    closeModal()
-                }
-                if (response.data.thongbao === 'Lỗi khi thu hồi tin nhắn!!!') {
-                    toast.error('Lỗi khi thu hồi tin nhắn!!!')
-                }
-            })
-    }
-    const deleteMessageForMe = (message_id) => {
-        axios
-            .post('http://localhost:3001/message/deleteMyMessageWeb', {
-                message_id: message_id,
-                user_id: user_id,
-            })
-            .then((response) => {
-                if (
-                    response.data.thongbao ===
-                    'Xoá chỉ ở phía tôi thành công!!!'
-                ) {
-                    toast.success('Xoá chỉ ở phía tôi thành công!!!!')
-                    setDeleteMyMessage([...deleteMyMessage, message_id])
-                    // socket.emit('delete-my-message', message_id)
-                    // truyền message_id và user_id vào 1 biến data rồi truyền data đó quá socket
-                    // create a data object containing message_id and user_id
-                    const data = { message_id, user_id }
-                    // emit the data object
-                    socket.emit('delete-my-message', data)
+const recallMessage = (message_id) => {
+    axios
+        .post('http://localhost:3001/message/recallMessageWeb', {
+            message_id: message_id,
+        })
+        .then((response) => {
+            if (response.data.thongbao === 'Thu hồi tin nhắn thành công!!!') {
+                toast.success('Thu hồi tin nhắn thành công!!!');
 
-                    // setRecalledMessages([...recalledMessages, message_id])
-                    // socket.emit('message-recalled', response.data.message)
-                    // đóng modal
-                    closeModal()
-                }
-                if (response.data.thongbao === 'Tin nhắn không tồn tại') {
-                    toast.error('Tin nhắn không tồn tại')
-                }
-            })
-    }
+                // Cập nhật UI ngay lập tức cho người gửi
+                setMessages((prevMessages) =>
+                    prevMessages.map((msg) => {
+                        if (msg._id === message_id) {
+                            // Đánh dấu là đã thu hồi và có thể cập nhật nội dung
+                            return { ...msg, recalled: true, content: "Tin nhắn đã được thu hồi" };
+                        }
+                        return msg;
+                    })
+                );
 
+                
+                if (response.data.message) {
+                    socket.emit('message-recalled', response.data.message);
+                }
+                closeModal();
+            } else if (response.data.thongbao === 'Lỗi khi thu hồi tin nhắn!!!') {
+                toast.error('Lỗi khi thu hồi tin nhắn!!!');
+            } else {
+                toast.error(response.data.thongbao || 'Lỗi không xác định khi thu hồi!');
+            }
+        })
+        .catch(error => {
+            console.error('Lỗi khi thu hồi tin nhắn:', error);
+            toast.error('Lỗi kết nối khi thu hồi tin nhắn!');
+        });
+};
+   
+const deleteMessageForMe = (message_id) => {
+    axios
+        .post('http://localhost:3001/message/deleteMyMessageWeb', {
+            message_id: message_id,
+            user_id: user_id, // user_id đã được định nghĩa trong scope của component
+        })
+        .then((response) => {
+            if (
+                response.data.thongbao ===
+                'Xoá chỉ ở phía tôi thành công!!!'
+            ) {
+                toast.success('Xoá chỉ ở phía tôi thành công!!!!');
 
-    // const handleForwardMessage = (receiver_id, message_id, type) => {
-    //     if (type === 'user') {
-    //         // Gửi cho 1 người bạn
-    //         axios
-    //             .post('http://localhost:3001/conversation/getConversationIDWeb', {
-    //                 friend_id: receiver_id,
-    //                 user_id: user_id,
-    //             })
-    //             .then((response) => {
-    //                 if (response.data.thongbao === 'Tìm conversation_id thành công!!!') {
-    //                     axios.post('http://localhost:3001/message/forwardMessageWeb', {
-    //                         message_id: message_id,
-    //                         conversation_id: response.data.conversation_id,
-    //                     }).then((res) => {
-    //                         if (res.data.thongbao === 'Chuyển tiếp tin nhắn thành công!!!') {
-    //                             toast.success('Chuyển tiếp tin nhắn thành công!!')
-    //                             socket.emit('send-message', res.data.message)
-    //                         }
-    //                     })
-    //                 }
-    //             })
-    //     } else if (type === 'group') {
-    //         // Gửi trực tiếp vào group_id
-    //         axios.post('http://localhost:3001/message/forwardMessageWeb', {
-    //             message_id: message_id,
-    //             conversation_id: receiver_id, // Với nhóm, receiver_id chính là conversation_id
-    //         }).then((res) => {
-    //             if (res.data.thongbao === 'Chuyển tiếp tin nhắn thành công!!!') {
-    //                 toast.success('Chuyển tiếp tin nhắn thành công!!')
-    //                 socket.emit('send-message', res.data.message)
-    //             }
-    //         })
-    //     }
-    // }
+                // Cập nhật UI ngay lập tức bằng cách cập nhật 'messages' state
+                setMessages((prevMessages) =>
+                    prevMessages.map((msg) => {
+                        if (msg._id === message_id) {
+                            // Thêm user_id vào mảng deletedBy của tin nhắn
+                            const updatedDeletedBy = msg.deletedBy
+                                ? [...msg.deletedBy, user_id]
+                                : [user_id];
+                            return { ...msg, deletedBy: updatedDeletedBy };
+                        }
+                        return msg;
+                    })
+                );
+
+            
+                setDeleteMyMessage((prevDeleteMyMessage) => [...prevDeleteMyMessage, message_id]);
+
+             
+
+                closeModal();
+            } else if (response.data.thongbao === 'Tin nhắn không tồn tại') {
+                toast.error('Tin nhắn không tồn tại');
+            } else {
+                toast.error(response.data.thongbao || 'Lỗi khi xoá tin nhắn!');
+            }
+        })
+        .catch((error) => {
+            console.error('Lỗi khi xóa tin nhắn ở phía tôi:', error);
+            toast.error('Lỗi kết nối khi xoá tin nhắn!');
+        });
+};
+
+   
 
 
     // Gửi tin nhắn với chờ đợi
@@ -1324,559 +1311,187 @@ const Main = ({
                 </div>
 
                 <div
-                    ref={messagesContainerRef}
-                    style={{
-                        // backgroundColor: '#DACBBA',
-                        background: 'linear-gradient(120deg,#BDC4C8, #D9D0BF)',
-                        width: '100%',
-                        height: '85%',
-                        overflow: 'auto', // Thêm dòng này
-                    }}
-                >
-                    {/* {messages.map((message, index) =>
-                        // kiểm tra nếu không có tin nhắn thì return
-                        !message || message.contentType === 'notify'  */}
+    ref={messagesContainerRef}
+    style={{
+        background: 'linear-gradient(120deg,#BDC4C8, #D9D0BF)',
+        width: '100%',
+        height: '85%',
+        overflow: 'auto', 
+    }}
+>
+    {sortedMessages
+        .filter(message => {
+            // Nếu message không tồn tại thì bỏ qua (mặc dù sortedMessages nên là mảng sạch)
+            if (!message) return false;
 
-                    {sortedMessages.map((message, index) =>
-                        // kiểm tra nếu không có tin nhắn thì return
-                        !message ? null : (
-                            <div
-                                key={message._id}
-                                style={{
-                                    display: 'flex',
-                                    // justifyContent:
-                                    //     message.senderId === user_id
-                                    //         ? 'flex-end'
-                                    //         : 'flex-start',
-                                    justifyContent:
-                                        (typeof message.senderId === 'object' &&
-                                            message.senderId !== null
-                                            ? message.senderId._id
-                                            : message.senderId) === user_id
-                                            ? 'flex-end'
-                                            : 'flex-start',
-                                    alignItems: 'center',
-                                    marginLeft: '5px',
-                                }}
-                            >
-                                {/* chỗ này hiện các thông báo ví dụ như xoá khỏi nhóm vv */}
-                                {message.contentType === 'notify' ? (
-                                    <p
-                                        style={{
-                                            display: 'flex',
-                                            justifyContent: 'center',
-                                            alignItems: 'center',
-                                            fontSize: 14,
-                                            marginBottom: 10,
-                                            width: '100%',
-                                        }}
-                                    >
-                                        <span
-                                            style={{
-                                                color: '#798EA2', // Thay đổi màu chữ
-                                                backgroundColor: '#ECE9D6', // Thêm màu nền cho văn bản
-                                                padding: '2px 5px',
-                                                borderRadius: '5px',
-                                            }}
-                                        >
-                                            {message.content}
-                                        </span>
-                                    </p>
-                                ) : null}
-                                {/* chỗ này hiện avatar */}
-                                {message.contentType !== 'notify' &&
-                                    (typeof message.senderId === 'object' && message.senderId !== null
-                                        ? message.senderId._id
-                                        : message.senderId) !== user_id && (
-                                        <img
-                                            src={
-                                                message.avatar
-                                                    ? message.avatar
-                                                    : 'https://zolabk.s3.ap-southeast-1.amazonaws.com/boy.png'
-                                            }
-                                            alt="sender avatar"
-                                            style={{
-                                                width: '50px',
-                                                height: '50px',
-                                                borderRadius: '60%', // Make the image round
-                                                border: '3px solid #2596be',
-                                            }}
-                                        />
-                                    )}
-                                {/* chỗ button hiện cái nút */}
-                                {message.contentType !== 'notify' &&
-                                    /*  message.senderId === user_id && (  */
+            // Kiểm tra nếu trường deletedBy tồn tại và có chứa user_id của người dùng hiện tại
+            if (message.deletedBy && message.deletedBy.includes(user_id)) {
+                return false; // Lọc bỏ tin nhắn này, không render nó
+            }
+            return true; // Giữ lại tin nhắn này để render
+        })
+        .map((message, index) => (
+            // Phần JSX để render một dòng tin nhắn giữ nguyên như cũ
+            // Nó chỉ được gọi cho những tin nhắn không bị lọc ra
+            <div
+                key={message._id}
+                style={{
+                    display: 'flex',
+                    justifyContent:
+                        (typeof message.senderId === 'object' &&
+                            message.senderId !== null
+                            ? message.senderId._id
+                            : message.senderId) === user_id
+                            ? 'flex-end'
+                            : 'flex-start',
+                    alignItems: 'center',
+                    marginLeft: '5px',
+                    // marginRight: '5px' // Cân nhắc thêm nếu cần
+                }}
+            >
+                {/* ... TOÀN BỘ NỘI DUNG RENDER CHO MỘT TIN NHẮN (avatar, tên, nội dung, nút •••, thời gian) ... */}
+                {/* Ví dụ: */}
+                {/* Chỗ này hiện các thông báo ví dụ như xoá khỏi nhóm vv */}
+                {message.contentType === 'notify' ? (
+                    <p /* ... notify styles ... */ >
+                        <span /* ... span styles ... */ >
+                            {message.content}
+                        </span>
+                    </p>
+                ) : null}
 
-                                    (typeof message.senderId === 'object' &&
-                                        message.senderId !== null
-                                        ? message.senderId._id
-                                        : message.senderId) === user_id && (
-                                        <button
-                                            style={{
-                                                border: '1px solid gray',
-                                                borderRadius: '5px',
-                                                // padding: '5px',
-                                                backgroundColor: '#C8D9F0',
-                                                display: 'flex',
-                                                justifyContent: 'center',
-                                                alignItems: 'center',
-                                                width: '27px',
-                                                height: '18px',
-                                            }}
-                                            onClick={(event) => {
-                                                if (
-                                                    !recalledMessages.includes(
-                                                        message._id,
-                                                    )
-                                                ) {
-                                                    openModal(message, event)
-                                                }
-                                            }}
-                                        >
-                                            •••
-                                        </button>
-                                    )}
-                                {/* // Trong component hiển thị tin nhắn */}
-                                {/* {message.replyTo && replyContent && (
-                                    <div className="replying-to">
-                                        Replying to: {replyContent[message._id]}
-                                    </div>
-                                )} */}
+                {/* Avatar (chỉ hiển thị cho tin nhắn của người khác và không phải notify) */}
+                {message.contentType !== 'notify' &&
+                    (typeof message.senderId === 'object' && message.senderId !== null
+                        ? message.senderId._id
+                        : message.senderId) !== user_id && (
+                    <img
+                        src={ message.avatar ? message.avatar : 'https://zolabk.s3.ap-southeast-1.amazonaws.com/boy.png'}
+                        alt="sender avatar"
+                        style={{
+                            width: '50px',
+                            height: '50px',
+                            borderRadius: '60%',
+                            border: '3px solid #2596be',
+                            marginRight: '5px', // Thêm khoảng cách nếu cần
+                        }}
+                    />
+                )}
 
-                                {message.contentType === 'notify' ? null : (
-                                    <div>
-                                        <p
-                                            style={{
-                                                maxWidth: '100%',
-                                                alignSelf: 'flex-start',
-                                                backgroundColor: '#e5e5ea', // light gray
-                                                borderRadius: 10,
-                                                padding: 10,
-                                                marginTop: 10,
-                                                marginBottom: 10,
-                                                marginLeft: 10,
-                                                marginRight: 10,
-                                            }}
-                                        >
-                                            <p>
-                                                {message.contentType !==
-                                                    'notify' &&
-                                                    message.senderId !==
-                                                    user_id && (
-                                                        <p
-                                                            style={{
-                                                                maxWidth:
-                                                                    '100%',
-                                                                color: '#7A8DA5',
-                                                                fontSize: 13,
-                                                                display: 'flex',
-                                                                justifyContent:
-                                                                    'flex-start',
-                                                                alignItems:
-                                                                    'center',
-                                                            }}
-                                                        >
-                                                            <b>
-                                                                {message.name}
-                                                            </b>
-                                                        </p>
-                                                    )}
-                                            </p>
-
-                                            {message.isForwarded && (
-                                                <div
-                                                    style={{
-                                                        fontStyle: 'italic',
-                                                        backgroundColor: '#f1f1f1',
-                                                        padding: '4px 8px',
-                                                        borderLeft: '3px solid #00bcd4',
-                                                        borderRadius: 6,
-                                                        fontSize: 13,
-                                                        color: '#333',
-                                                        marginBottom: 5,
-                                                    }}
-                                                >
-                                                    {/* ↪️ <b>{typeof message.originalSender === 'object'
-                                                        ? message.forwardedBy.userName
-                                                        : message.forwardedBy}</b>{' '}
-                                                    đã chuyển tiếp tin nhắn từ{' '}
-                                                    <b>{typeof message.originalSender === 'object'
-                                                        ? message.original_sender.userName
-                                                        : message.original_sender}</b>
-                                                    <br /> */}
-                                                    ↪️ {' '}
-                                                    đã chuyển tiếp tin nhắn từ{' '}
-                                                    <b>{typeof message.originalSender === 'object'
-                                                        ? message.originalSender.userName || `${message.originalSender.firstName} ${message.originalSender.lastName}`
-                                                        : message.originalSender}</b>
-
-
-
-                                                </div>
-                                            )}
-                                            {message.replyTo &&
-                                                replyContent && (
-                                                    <div
-                                                        className="replying-to"
-                                                        style={{
-                                                            border: '1px solid #EFF0F2', // Thêm viền màu #EFF0F2
-                                                            borderRadius:
-                                                                '10px',
-                                                            padding: '10px',
-
-                                                            alignSelf:
-                                                                'flex-start',
-                                                            backgroundColor:
-                                                                '#C7E0FF',
-                                                            borderRadius: 10,
-                                                        }}
-                                                        onClick={() =>
-                                                            handleReplyClick(
-                                                                message.replyTo,
-                                                            )
-                                                        }
-                                                    >
-                                                        <div className="reply-content">
-                                                            <b>| Trả lời :</b>
-                                                            {
-                                                                replyContent[
-                                                                message._id
-                                                                ]
-                                                            }
-                                                        </div>
-                                                        {/* <div className="reply-message">
-                    {message.content}
-                </div> */}
-                                                    </div>
-                                                )}
-
-                                            {message.contentType !== 'notify' &&
-                                                message.contentType ===
-                                                'file' &&
-                                                message.deletedBy &&
-                                                !message.deletedBy.includes(
-                                                    user_id,
-                                                ) &&
-                                                (recalledMessages.includes(
-                                                    message._id,
-                                                ) ? (
-                                                    <p
-                                                        style={{
-                                                            color: '#8C929C',
-                                                        }}
-                                                    >
-                                                        Tin nhắn đã bị thu hồi
-                                                    </p>
-                                                ) : message.content
-                                                    .split('.')
-                                                    .pop() === 'mp4' ? (
-                                                    <video
-                                                        width="320"
-                                                        height="240"
-                                                        controls
-                                                        style={{
-                                                            width: '200px',
-                                                            height: '200px',
-                                                            display: 'flex',
-                                                            alignItems:
-                                                                'center',
-                                                        }}
-                                                    >
-                                                        <source
-                                                            src={
-                                                                message.content
-                                                            }
-                                                            type="video/mp4"
-                                                        />
-                                                        Your browser does not
-                                                        support the video tag.
-                                                    </video>
-                                                ) : (
-                                                    <a
-                                                        className="file-link"
-                                                        href={message.content}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        style={{
-                                                            display: 'flex',
-                                                            alignItems:
-                                                                'center',
-                                                            color: 'black',
-                                                            textDecoration:
-                                                                'none',
-                                                        }}
-                                                        onClick={(event) => {
-                                                            if (
-                                                                !recalledMessages.includes(
-                                                                    message._id,
-                                                                )
-                                                            ) {
-                                                                openModal(
-                                                                    message,
-                                                                    event,
-                                                                )
-                                                            }
-                                                        }}
-                                                    >
-                                                        {' '}
-                                                        <FileIcon
-                                                            extension={message.content
-                                                                .split('.')
-                                                                .pop()}
-                                                            {...defaultStyles[
-                                                            message.content
-                                                                .split('.')
-                                                                .pop()
-                                                            ]}
-                                                        />
-                                                        <p
-                                                            style={{
-                                                                marginLeft: 10,
-                                                            }}
-                                                        >
-                                                            {message.content
-                                                                .split('/')
-                                                                .pop()}
-                                                        </p>
-                                                    </a>
-                                                ))}
-
-                                            {/* //////////////////////////////// */}
-
-                                            {message.contentType !== 'notify' &&
-                                                message.contentType ===
-                                                'video' &&
-                                                message.deletedBy &&
-                                                !message.deletedBy.includes(
-                                                    user_id,
-                                                ) &&
-                                                (recalledMessages.includes(
-                                                    message._id,
-                                                ) ? (
-                                                    <p
-                                                        style={{
-                                                            color: '#8C929C',
-                                                        }}
-                                                    >
-                                                        Tin nhắn đã bị thu hồi
-                                                    </p>
-                                                ) : message.content
-                                                    .split('.')
-                                                    .pop() === 'mp4' ? (
-                                                    <video
-                                                        width="320"
-                                                        height="240"
-                                                        controls
-                                                        style={{
-                                                            width: '200px',
-                                                            height: '200px',
-                                                            display: 'flex',
-                                                            alignItems:
-                                                                'center',
-                                                        }}
-                                                    >
-                                                        <source
-                                                            src={
-                                                                message.content
-                                                            }
-                                                            type="video/mp4"
-                                                        />
-                                                        Your browser does not
-                                                        support the video tag.
-                                                    </video>
-                                                ) : (
-                                                    <a
-                                                        className="file-link"
-                                                        href={message.content}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        style={{
-                                                            display: 'flex',
-                                                            alignItems:
-                                                                'center',
-                                                            color: 'black',
-                                                            textDecoration:
-                                                                'none',
-                                                        }}
-                                                        onClick={(event) => {
-                                                            if (
-                                                                !recalledMessages.includes(
-                                                                    message._id,
-                                                                )
-                                                            ) {
-                                                                openModal(
-                                                                    message,
-                                                                    event,
-                                                                )
-                                                            }
-                                                        }}
-                                                    >
-                                                        {' '}
-                                                        <FileIcon
-                                                            extension={message.content
-                                                                .split('.')
-                                                                .pop()}
-                                                            {...defaultStyles[
-                                                            message.content
-                                                                .split('.')
-                                                                .pop()
-                                                            ]}
-                                                        />
-                                                        <p
-                                                            style={{
-                                                                marginLeft: 10,
-                                                            }}
-                                                        >
-                                                            {message.content
-                                                                .split('/')
-                                                                .pop()}
-                                                        </p>
-                                                    </a>
-                                                ))}
-
-                                            {message.contentType !== 'notify' &&
-                                                message.contentType ===
-                                                'image' &&
-                                                message.deletedBy &&
-                                                !message.deletedBy.includes(
-                                                    user_id,
-                                                ) &&
-                                                (recalledMessages.includes(
-                                                    message._id,
-                                                ) ? (
-                                                    <p
-                                                        style={{
-                                                            color: '#8C929C',
-                                                        }}
-                                                    >
-                                                        Tin nhắn đã bị thu hồi
-                                                    </p>
-                                                ) : (
-                                                    <img
-                                                        src={message.content}
-                                                        alt="message"
-                                                        onClick={(event) => {
-                                                            if (
-                                                                !recalledMessages.includes(
-                                                                    message._id,
-                                                                )
-                                                            ) {
-                                                                openModal(
-                                                                    message,
-                                                                    event,
-                                                                )
-                                                            }
-                                                        }}
-                                                        style={{
-                                                            width: '200px',
-                                                            height: '200px',
-                                                        }}
-                                                    />
-                                                ))}
-                                            {message.contentType !== 'notify' &&
-                                                message.contentType ===
-                                                'text' &&
-                                                message.deletedBy &&
-                                                !message.deletedBy.includes(
-                                                    user_id,
-                                                ) && (
-                                                    <p
-                                                        onClick={
-                                                            (event) => {
-                                                                if (
-                                                                    !recalledMessages.includes(
-                                                                        message._id,
-                                                                    )
-                                                                ) {
-                                                                    openModal(
-                                                                        message,
-                                                                        event,
-                                                                    )
-                                                                }
-                                                            }
-                                                            // openModal(message, event)
-                                                        }
-                                                        style={{
-                                                            color: 'black',
-                                                            fontSize: 16,
-                                                            display: 'flex',
-                                                            justifyContent:
-                                                                message.senderId ===
-                                                                    user_id
-                                                                    ? 'flex-start'
-                                                                    : 'flex-start',
-                                                            alignItems:
-                                                                'center',
-                                                        }}
-                                                    >
-                                                        {recalledMessages.includes(
-                                                            message._id,
-                                                        ) ? (
-                                                            <p
-                                                                style={{
-                                                                    color: '#8C929C',
-                                                                }}
-                                                            >
-                                                                Tin nhắn đã bị
-                                                                thu hồi
-                                                            </p>
-                                                        ) : (
-                                                            message.content
-                                                        )}
-                                                    </p>
-                                                )}
-
-                                            {message.contentType !==
-                                                'notify' && (
-                                                    <p
-                                                        style={{
-                                                            color: '#a5acb7',
-                                                            fontSize: 13,
-                                                            display: 'flex',
-                                                            justifyContent:
-                                                                'flex-start',
-                                                            alignItems: 'center',
-                                                        }}
-                                                    >
-                                                        {moment(message.createdAt)
-                                                            .utcOffset('+07:00')
-                                                            .format('HH:mm')}
-                                                    </p>
-                                                )}
-                                        </p>
-                                    </div>
-                                )}
-                                {message.contentType !== 'notify' &&
-                                    message.senderId !== user_id && (
-                                        <button
-                                            style={{
-                                                border: '1px solid gray',
-                                                borderRadius: '5px',
-                                                // padding: '5px',
-                                                backgroundColor: '#C8D9F0',
-                                                display: 'flex',
-                                                justifyContent: 'center',
-                                                alignItems: 'center',
-                                                width: '27px',
-                                                height: '18px',
-                                            }}
-                                            onClick={(event) => {
-                                                if (
-                                                    !recalledMessages.includes(
-                                                        message._id,
-                                                    )
-                                                ) {
-                                                    openModal(message, event)
-                                                }
-                                            }}
-                                        >
-                                            •••
-                                        </button>
-                                    )}
-                            </div>
-                        ),
+                {/* Nút "•••" cho tin nhắn của người gửi (bên trái nội dung) */}
+                {message.contentType !== 'notify' &&
+                    (typeof message.senderId === 'object' &&
+                        message.senderId !== null
+                        ? message.senderId._id
+                        : message.senderId) === user_id && !message.recalled && ( // Chỉ hiện khi chưa thu hồi
+                        <button
+                            style={{ /* ... styles ... */ marginRight: '5px' }}
+                            onClick={(event) => {
+                                if (!message.recalled) { // Double check
+                                    openModal(message, event);
+                                }
+                            }}
+                        >
+                            •••
+                        </button>
                     )}
-                </div>
+
+                {/* Khối nội dung chính của tin nhắn (bong bóng chat) */}
+                {message.contentType !== 'notify' && ( // Chỉ render nếu không phải notify
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: ( (typeof message.senderId === 'object' && message.senderId !== null ? message.senderId._id : message.senderId) === user_id ? 'flex-end' : 'flex-start') }}>
+                        <p /* Bong bóng chat */
+                            style={{
+                                maxWidth: '100%', // Hoặc giới hạn kích thước cụ thể
+                                alignSelf: ( (typeof message.senderId === 'object' && message.senderId !== null ? message.senderId._id : message.senderId) === user_id ? 'flex-end' : 'flex-start'),
+                                backgroundColor: ( (typeof message.senderId === 'object' && message.senderId !== null ? message.senderId._id : message.senderId) === user_id ? '#0084ff' : '#e5e5ea'), // Màu khác nhau cho người gửi/nhận
+                                color: ( (typeof message.senderId === 'object' && message.senderId !== null ? message.senderId._id : message.senderId) === user_id ? 'white' : 'black'),
+                                borderRadius: 10,
+                                padding: 10,
+                                marginTop: 5, // Giảm bớt nếu có tên người gửi ở trên
+                                marginBottom: 5,
+                                marginLeft: ( (typeof message.senderId === 'object' && message.senderId !== null ? message.senderId._id : message.senderId) === user_id ? 0 : 0), // Đã có avatar/nút handle margin
+                                marginRight: ( (typeof message.senderId === 'object' && message.senderId !== null ? message.senderId._id : message.senderId) === user_id ? 0 : 0), // Đã có avatar/nút handle margin
+                                position: 'relative', // Cho việc định vị thời gian (nếu muốn đặt bên trong)
+                            }}
+                        >
+                            {/* Tên người gửi (cho group chat) */}
+                            {message.contentType !== 'notify' && 
+                             (typeof message.senderId === 'object' && message.senderId !== null ? message.senderId._id : message.senderId) !== user_id &&
+                             currentConversationGroup && // Chỉ hiện tên trong group
+                             (
+                                <span style={{ fontWeight: 'bold', display: 'block', marginBottom: '3px', color: '#7A8DA5', fontSize: '13px' }}>
+                                    {message.name}
+                                </span>
+                            )}
+
+                            {/* Thông tin chuyển tiếp */}
+                            {message.isForwarded && (
+                                <div /* ... forwarded styles ... */ >
+                                    ↪️ đã chuyển tiếp tin nhắn từ <b>{typeof message.originalSender === 'object' ? message.originalSender.userName || `${message.originalSender.firstName} ${message.originalSender.lastName}` : message.originalSender}</b>
+                                </div>
+                            )}
+                            {/* Thông tin trả lời */}
+                            {message.replyTo && replyContent && replyContent[message._id] && (
+                                <div className="replying-to" /* ... reply styles ... */ onClick={() => handleReplyClick(message.replyTo)}>
+                                    <div className="reply-content">
+                                        <b>| Trả lời :</b> {replyContent[message._id]}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Nội dung chính (text, image, file, video) hoặc placeholder "Tin nhắn đã thu hồi" */}
+                            {message.recalled ? (
+                                <span style={{ color: ( (typeof message.senderId === 'object' && message.senderId !== null ? message.senderId._id : message.senderId) === user_id ? '#e0e0e0' : '#8C929C'), fontStyle: 'italic' }}>Tin nhắn đã bị thu hồi</span>
+                            ) : (
+                                // Render nội dung dựa trên contentType
+                                message.contentType === 'text' ? message.content :
+                                message.contentType === 'image' ? <img src={message.content} alt="message" style={{ width: '200px', height: 'auto', borderRadius: '8px' }} /> :
+                                message.contentType === 'video' ? <video src={message.content} controls style={{ width: '250px', height: 'auto', borderRadius: '8px' }} /> :
+                                message.contentType === 'file' ? (
+                                    <a className="file-link" href={message.content} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', color: ( (typeof message.senderId === 'object' && message.senderId !== null ? message.senderId._id : message.senderId) === user_id ? 'white' : 'black'), textDecoration: 'none' }}>
+                                        <FileIcon extension={message.content.split('.').pop()} {...defaultStyles[message.content.split('.').pop()]} />
+                                        <span style={{ marginLeft: 10 }}>{message.content.split('/').pop()}</span>
+                                    </a>
+                                ) : null
+                            )}
+
+                            {/* Thời gian (chỉ hiển thị nếu CHƯA thu hồi) */}
+                            {!message.recalled && (
+                                <span style={{
+                                    fontSize: 11,
+                                    color: ( (typeof message.senderId === 'object' && message.senderId !== null ? message.senderId._id : message.senderId) === user_id ? '#cce6ff' : '#a5acb7'), // Màu nhạt hơn
+                                    display: 'block', // Để xuống dòng hoặc ở góc
+                                    textAlign: 'right', // Căn phải trong bong bóng
+                                    marginTop: '5px',
+                                }}>
+                                    {moment(message.createdAt).utcOffset('+07:00').format('HH:mm')}
+                                </span>
+                            )}
+                        </p>
+                    </div>
+                )}
+
+                {/* Nút "•••" cho tin nhắn của người nhận (bên phải nội dung) */}
+                {message.contentType !== 'notify' &&
+                    (typeof message.senderId === 'object' &&
+                        message.senderId !== null
+                        ? message.senderId._id
+                        : message.senderId) !== user_id && !message.recalled && ( // Chỉ hiện khi chưa thu hồi
+                        <button
+                            style={{ /* ... styles ... */ marginLeft: '5px' }}
+                            onClick={(event) => {
+                                if (!message.recalled) { // Double check
+                                    openModal(message, event);
+                                }
+                            }}
+                        >
+                            •••
+                        </button>
+                    )}
+            </div>
+        ))
+    }
+</div>
                 <Modal
                     isOpen={modalIsOpen}
                     onRequestClose={closeModal}
