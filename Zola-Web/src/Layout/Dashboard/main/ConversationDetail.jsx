@@ -9,45 +9,34 @@ import { TfiPinAlt } from 'react-icons/tfi'
 import { AiOutlineEdit } from 'react-icons/ai'
 import { io } from 'socket.io-client'
 import { useState } from 'react'
-import demo from '../../../Assets/demo.jpg'
-import PopupYou from './pupopYou'
 import AddPupopYou from './addPupopYou'
 import PopupStranger from './pupopStranger'
 import AddPupopStranger from './addPupopStranger'
 import Modal from 'react-modal'
 import axios from 'axios'
 import { FaTrash } from 'react-icons/fa'
-import { FaTR } from 'react-icons/fa'
 import { GrSearch } from 'react-icons/gr'
 import { toast, Toaster } from 'react-hot-toast'
-import SideBar from '../sideBar/index'
-import Popup from '../sideBar/popup'
 import { FileIcon, defaultStyles } from 'react-file-icon'
 const ConversationDetail = ({
     currentSource,
     conversation_id,
     friend_list,
 }) => {
-    // Tạo một biến trạng thái để lưu trữ kết nối socket
     const [socket, setSocket] = useState(null)
     const [isPhotoVidOpen, setPhotoVidOpen] = React.useState(true)
     const [isFileOpen, setFileOpen] = React.useState(true)
     const [isLinkOpen, setLinkOpen] = React.useState(true)
     const [openInfoYou, setOpenInfoYou] = useState(false)
     const [openInfoStranger, setOpenInfoStranger] = useState(false)
-    // Tạo một state để lưu trữ danh sách thành viên
     const [member_list, setMemberList] = useState([])
     const [friend_ids, setFriend_ids] = useState([])
-
     const [isModalOpenMember, setIsModalOpenMember] = React.useState(false)
-    // tạo 1 state lưu trữ modal nhóm chung
     const [isModalOpenCommonGroup, setIsModalOpenCommonGroup] =
         React.useState(false)
-
     const [isModalOpenAuthorGroupLeader, setIsModalOpenAuthorGroupLeader] =
         React.useState(false)
     const [checkedItems, setCheckedItems] = useState({})
-
     const [isButtonPressed, setIsButtonPressed] = useState(false)
     const [isButtonPressed1, setIsButtonPressed1] = useState(false)
     const [isButtonPressed2, setIsButtonPressed2] = useState(false)
@@ -59,33 +48,11 @@ const ConversationDetail = ({
     const [selectedFriend, setSelectedFriend] = useState(null)
     const user_id = localStorage.getItem('user_id').replace(/"/g, '').trim()
     const [user, setUser] = useState('')
-
-    // Thêm trạng thái mới để lưu member_id hiện tại
     const [currentMemberId, setCurrentMemberId] = useState(null)
     const [groupLeaderId, setgroupLeaderId] = useState(null)
-    // tạo 1 mảng deputyLeaderIds để lưu trữ danh sách id phó nhóm
     const [deputyLeaderIds, setDeputyLeaderIds] = useState([])
-
-    // tạo 1 list để lưu trữ danh sách ảnh , video của conversation
     const [mediaList, setMediaList] = useState([])
-
-    // hãy fake data của medialist gồm 8 phần tử là link hình ảnh thật
-    const mediaListFake = [
-        'https://cafebiz.cafebizcdn.vn/162123310254002176/2024/4/2/photo-1-1681864188096974929463-1682044225998-16820442270031529811004-1682059999880-16820600001211239566695-1712016336135724736933.jpg',
-        'https://afamilycdn.com/150157425591193600/2020/8/12/15970512419671084945176-15972226002571624600843.jpg',
-        'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQN6SNOMg33K4zzy-Qvd9t0nmLNzqeaJitwIw&usqp=CAU',
-        'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR7al-zLoropig_jfwUWVR3fKa8ytOi4TxLIQ&usqp=CAU',
-        'https://cafebiz.cafebizcdn.vn/162123310254002176/2024/4/2/photo-1-1681864188096974929463-1682044225998-16820442270031529811004-1682059999880-16820600001211239566695-1712016336135724736933.jpg',
-        'https://afamilycdn.com/150157425591193600/2020/8/12/15970512419671084945176-15972226002571624600843.jpg',
-        'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQN6SNOMg33K4zzy-Qvd9t0nmLNzqeaJitwIw&usqp=CAU',
-        'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR7al-zLoropig_jfwUWVR3fKa8ytOi4TxLIQ&usqp=CAU',
-        'https://afamilycdn.com/150157425591193600/2020/8/12/15970512419671084945176-15972226002571624600843.jpg',
-        'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQN6SNOMg33K4zzy-Qvd9t0nmLNzqeaJitwIw&usqp=CAU',
-        'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR7al-zLoropig_jfwUWVR3fKa8ytOi4TxLIQ&usqp=CAU',
-    ]
-    // tạo 1 list để lưu trữ danh sách file của conversation
     const [fileList, setFileList] = useState([])
-    // từ conversation_id gọi useEffect để lấy mediaList
     const fileListFake = [
         {
             fileName: '2024-04-04+10-41-45.mp4',
@@ -107,7 +74,6 @@ const ConversationDetail = ({
         if (!conversation_id) {
             return
         }
-        // Set mediaList to an empty array before making the axios request
         setMediaList([])
         setFileList([])
         axios
@@ -116,12 +82,9 @@ const ConversationDetail = ({
             })
             .then((res) => {
                 if (res.data.thongbao === 'Tìm thấy media!!!') {
-                    // toast.success('Lấy danh sách ảnh , video thành công!!!')
-                    // alert(JSON.stringify(res.data.mediaList))
                     setMediaList(res.data.media)
                 }
                 if (res.data.thongbao === 'Không tìm thấy media!!!') {
-                    // toast.error('Không tìm thấy media!!!')
                 }
             })
             .catch((error) => {
@@ -129,7 +92,6 @@ const ConversationDetail = ({
             })
     }, [conversation_id])
 
-    // gọi useEffect để lấy danh sách file
     useEffect(() => {
         if (!conversation_id) {
             return
@@ -143,7 +105,6 @@ const ConversationDetail = ({
                     setFileList(res.data.files)
                 }
                 if (res.data.thongbao === 'Không tìm thấy file!!!') {
-                    // toast.error('Không tìm thấy file!!!')
                 }
             })
             .catch((error) => {
@@ -152,9 +113,7 @@ const ConversationDetail = ({
     }, [conversation_id])
 
     const [isGroup, setIsGroup] = useState(false)
-    // tạo 1 biến lưu trữ số lương nhóm chung giữa 2 người user_id và friend_id
     const [groupCommon, setGroupCommon] = useState(0)
-    // tạo 1 mảng lưu trữ thông tin nhóm chung
     const [groupCommonList, setGroupCommonList] = useState([])
 
     useEffect(() => {
@@ -181,7 +140,6 @@ const ConversationDetail = ({
                 console.error(error)
             }
         }
-        //check nhóm chung
         setGroupCommon(0)
         const checkGroupCommonWeb = async () => {
             setIsGroup(false)
@@ -197,7 +155,6 @@ const ConversationDetail = ({
                     )
 
                     if (response.data.message === 'Có nhóm chung!!!') {
-                        // alert('Có nhóm chung!!!')
 
                         setGroupCommon(response.data.conversationCount)
                         setGroupCommonList(response.data.conversation)
@@ -211,35 +168,10 @@ const ConversationDetail = ({
             }
         }
 
-        // alert(JSON.stringify(currentSource.friend_id))
         checkIfGroup()
         checkGroupCommonWeb()
     }, [conversation_id])
 
-    // if (groupCommonList) {
-    //     alert(JSON.stringify(groupCommonList))
-    // }
-    // check xem groupCommonList có phải là mảng đã có phần tử hay không
-    //  if (groupCommonList.length > 0) {
-
-    // nếu có mediaList thì hiển thị ra giao diện
-    // if (mediaList.length > 0) {
-    //     alert(JSON.stringify(mediaList))
-    // }
-
-    // useEffect(() => {
-    //     if (!conversation_id) {
-    //         return
-    //     }
-    //     const newSocket = io('http://localhost:3001')
-    //     newSocket.emit('conversation_id', conversation_id)
-
-    //     setSocket(newSocket)
-
-    //     return () => {
-    //         newSocket.disconnect()
-    //     }
-    // }, [conversation_id])
 
     const handleInfo = (friend) => {
         setShowPopup(true)
@@ -298,7 +230,6 @@ const ConversationDetail = ({
         setIsModalOpenEditMember(false)
     }
     const fetchUser = () => {
-        // Hàm để fetch thông tin người dùng
         axios
             .post('http://localhost:3001/user/findUserByUserID', {
                 user_id: user_id,
@@ -318,7 +249,6 @@ const ConversationDetail = ({
             })
     }
 
-    // useEffect lấy danh sách member trong cuộC hội thoại
     useEffect(() => {
         fetchUser()
         if (!conversation_id) {
@@ -359,7 +289,6 @@ const ConversationDetail = ({
                             )
                             // Cập nhật state
                             setMemberList(newMemberList)
-                            // alert(JSON.stringify(member_list))
                         })
                     }
                 })
@@ -372,7 +301,6 @@ const ConversationDetail = ({
         }
     }, [conversation_id])
 
-    // useEffect lấy danh sách id  phó nhóm và trưởng nhóm
     useEffect(() => {
         if (!member_list) {
             return
@@ -396,11 +324,7 @@ const ConversationDetail = ({
                         // Duyệt qua mỗi member_id và lấy thông tin của họ
                         setgroupLeaderId(res.data.groupLeaderId)
                         setDeputyLeaderIds(res.data.deputyLeaderIds)
-                        // alert(
-                        //     JSON.stringify(groupLeaderId) +
-                        //         ',' +
-                        //         JSON.stringify(deputyLeaderIds),
-                        // )
+
                     }
                 })
                 .catch((error) => {
@@ -415,10 +339,6 @@ const ConversationDetail = ({
     const isGroupLeader = user_id === groupLeaderId
     const isDeputyLeader = deputyLeaderIds.includes(user_id)
 
-    // replace with your server URL
-
-    //socket là
-
     useEffect(() => {
         if (!conversation_id) {
             return
@@ -426,13 +346,10 @@ const ConversationDetail = ({
         const newSocket = io('http://localhost:3005')
         //const newSocket = io('http://192.168.1.17:3005')
 
-        // gọi tới socket notification
         setSocket(newSocket)
-
         const user_id = localStorage.getItem('user_id')?.replace(/"/g, '').trim()
         newSocket.emit('join-conversation', { conversation_id, user_id })
 
-        // Add socket event listeners for real-time updates
         newSocket.on('leave-group', (data) => {
             if (data.conversation_id === conversation_id) {
                 setMemberList((prevList) =>
@@ -440,24 +357,19 @@ const ConversationDetail = ({
                 )
             }
         })
-
         newSocket.on('disband-group', (data) => {
             if (data.conversation_id === conversation_id) {
                 setMemberList([])
             }
         })
-
         newSocket.on('conversation-group', (data) => {
-            // Placeholder: handle new group creation if needed
-            // For example, refresh group list or notify user
-            // console.log('New group created:', data)
-        })
 
+        })
         newSocket.on('add-member', (data) => {
             if (data.conversation_id === conversation_id) {
-                // Add new members to member_list state
+
                 setMemberList((prevList) => {
-                    // Create new members array from friend_ids
+
                     const newMembers = data.friend_ids.map((id) => {
                         const friend = friend_list.find(
                             (f) => f.friend_id === id,
@@ -1884,165 +1796,243 @@ const ConversationDetail = ({
                     Thêm thành viên
                 </button> */}
             </Modal>
-            {/* // modal chức năng hiển thị bên cạnh nút chọn hiển thị các chức năng  */}
-            <Modal
-                isOpen={isModalOpenEditMember}
-                onRequestClose={handleCloseModalEditMember}
-                contentLabel="Edit Member Modal"
+            {/* // modal chức năng hiển thị bên cạnh nút chọn hiển thị các chức năng */}
+<Modal
+    isOpen={isModalOpenEditMember}
+    onRequestClose={handleCloseModalEditMember}
+    contentLabel="Edit Member Modal"
+    style={{
+        content: {
+            position: 'absolute',
+            top: '50%',
+            left: 'calc(50% + 170px)', 
+            right: 'auto',
+            bottom: 'auto',
+            transform: 'translate(-50%, -50%)',
+            display: 'flex',
+            flexDirection: 'column',
+            minWidth: '220px', 
+            maxWidth: '250px',
+            padding: '15px',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            gap: '8px', 
+        },
+        overlay: {
+            backgroundColor: 'rgba(0, 0, 0, 0.6)',
+            zIndex: 999, 
+        },
+    }}
+>
+    {selectedFriend && (
+        <>
+            {/* 1. Xem thông tin (Luôn hiển thị) */}
+            <button
                 style={{
-                    content: {
-                        position: 'absolute',
-                        top: '50%',
-                        left: 'calc(50% + 250px)', // Đặt vị trí của modal 100px bên phải so với giữa màn hình
-                        right: 'auto',
-                        bottom: 'auto',
-                        marginRight: '-50%',
-                        transform: 'translate(-50%, -50%)',
-
-                        display: 'flex',
-                        flexDirection: 'column',
-                    },
+                    backgroundColor: isButtonPressed ? 'lightgray' : 'white',
+                    padding: '10px 12px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    fontSize: '14px',
+                }}
+                onMouseEnter={() => setIsButtonPressed(true)}
+                onMouseDown={() => setIsButtonPressed(true)}
+                onMouseUp={() => setIsButtonPressed(false)}
+                onMouseLeave={() => setIsButtonPressed(false)}
+                onClick={() => {
+                    setShowPopup(true); 
                 }}
             >
-                <button
-                    style={{
-                        backgroundColor: isButtonPressed
-                            ? 'lightgray'
-                            : 'white',
-                    }}
-                    onMouseEnter={() => setIsButtonPressed(true)}
-                    onMouseDown={() => setIsButtonPressed(true)}
-                    onMouseUp={() => setIsButtonPressed(false)}
-                    onMouseLeave={() => setIsButtonPressed(false)}
-                    onClick={(e) => {
-                        handleInfo(e)
-                    }}
-                >
-                    Xem thông tin
-                </button>
+                Xem thông tin
+            </button>
 
-                <button
-                    style={{
-                        backgroundColor: isButtonPressed1
-                            ? 'lightgray'
-                            : 'white',
-                    }}
-                    onMouseEnter={() => setIsButtonPressed1(true)}
-                    onMouseDown={() => setIsButtonPressed1(true)}
-                    onMouseUp={() => setIsButtonPressed1(false)}
-                    onMouseLeave={() => setIsButtonPressed1(false)}
-                    onClick={() => {
-                        // handleOpenModalFriend()
-                        handleLeaveGroup(currentMemberId)
-                    }}
-                >
-                    Rời nhóm
-                </button>
-                {isGroupLeader && (
-                    <>
+            {/* --- Các nút chức năng tùy theo điều kiện --- */}
+
+            {/* TRƯỜNG HỢP 1: NGƯỜI DÙNG CHỌN CHÍNH MÌNH */}
+            {selectedFriend.id === user_id && (
+                <>
+                    {/* Nút "Rời nhóm": Chỉ hiển thị nếu người dùng chọn chính mình VÀ KHÔNG PHẢI là Trưởng nhóm */}
+                    {!isGroupLeader && (
                         <button
                             style={{
-                                backgroundColor: isButtonPressed3
-                                    ? 'lightgray'
-                                    : 'white',
+                                backgroundColor: isButtonPressed1 ? 'lightgray' : 'white',
+                                padding: '10px 12px',
+                                border: '1px solid #ddd',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                textAlign: 'left',
+                                fontSize: '14px',
                             }}
-                            onMouseEnter={() => setIsButtonPressed3(true)}
-                            onMouseDown={() => setIsButtonPressed3(true)}
-                            onMouseUp={() => setIsButtonPressed3(false)}
-                            onMouseLeave={() => setIsButtonPressed3(false)}
+                            onMouseEnter={() => setIsButtonPressed1(true)}
+                            onMouseDown={() => setIsButtonPressed1(true)}
+                            onMouseUp={() => setIsButtonPressed1(false)}
+                            onMouseLeave={() => setIsButtonPressed1(false)}
                             onClick={() => {
-                                handleDeleteMember(currentMemberId) // Sử dụng member_id hiện tại
+                                handleLeaveGroup(); 
                             }}
                         >
-                            Xoá thành viên
+                            Rời nhóm
                         </button>
+                    )}
 
-                        <button
+                    {/* Nút "Giải tán nhóm": Chỉ hiển thị nếu người dùng chọn chính mình VÀ LÀ Trưởng nhóm */}
+                    {isGroupLeader && (
+                        <button 
                             style={{
-                                backgroundColor: isButtonPressed4
-                                    ? 'lightgray'
-                                    : 'white',
+                                backgroundColor: isButtonPressed4 ? 'lightgray' : 'white',
+                                padding: '10px 12px',
+                                border: '1px solid #ddd',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                textAlign: 'left',
+                                fontSize: '14px',
+                                color: 'red', 
                             }}
                             onMouseEnter={() => setIsButtonPressed4(true)}
                             onMouseDown={() => setIsButtonPressed4(true)}
                             onMouseUp={() => setIsButtonPressed4(false)}
                             onMouseLeave={() => setIsButtonPressed4(false)}
-                            onClick={() => {
-                                handledisbandGroupWeb()
-                            }}
+                            onClick={() => handledisbandGroupWeb()}
                         >
                             Giải tán nhóm
                         </button>
-                        <button
-                            style={{
-                                backgroundColor: isButtonPressed5
-                                    ? 'lightgray'
-                                    : 'white',
-                            }}
-                            onMouseEnter={() => setIsButtonPressed5(true)}
-                            onMouseDown={() => setIsButtonPressed5(true)}
-                            onMouseUp={() => setIsButtonPressed5(false)}
-                            onMouseLeave={() => setIsButtonPressed5(false)}
-                            onClick={() => {
-                                handleAddDeputyLeader(currentMemberId)
-                            }}
-                        >
-                            Thêm Phó Nhóm
-                        </button>
-                        <button
-                            style={{
-                                backgroundColor: isButtonPressed2
-                                    ? 'lightgray'
-                                    : 'white',
-                            }}
-                            onMouseEnter={() => setIsButtonPressed2(true)}
-                            onMouseDown={() => setIsButtonPressed2(true)}
-                            onMouseUp={() => setIsButtonPressed2(false)}
-                            onMouseLeave={() => setIsButtonPressed2(false)}
-                            onClick={() => {
-                                handleDeleteDeputyLeader(currentMemberId)
-                            }}
-                        >
-                            Gỡ quyền phó nhóm
-                        </button>
-                        <button
-                            style={{
-                                backgroundColor: isButtonPressed6
-                                    ? 'lightgray'
-                                    : 'white',
-                            }}
-                            onMouseEnter={() => setIsButtonPressed6(true)}
-                            onMouseDown={() => setIsButtonPressed6(true)}
-                            onMouseUp={() => setIsButtonPressed6(false)}
-                            onMouseLeave={() => setIsButtonPressed6(false)}
-                            onClick={() => {
-                                handleAddGroupLeader(currentMemberId)
-                            }}
-                        >
-                            Chuyển quyền trưởng nhóm
-                        </button>
-                    </>
-                )}
+                    )}
+                </>
+            )}
 
-                {isDeputyLeader && (
-                    <button
-                        style={{
-                            backgroundColor: isButtonPressed3
-                                ? 'lightgray'
-                                : 'white',
-                        }}
-                        onMouseEnter={() => setIsButtonPressed3(true)}
-                        onMouseDown={() => setIsButtonPressed3(true)}
-                        onMouseUp={() => setIsButtonPressed3(false)}
-                        onMouseLeave={() => setIsButtonPressed3(false)}
-                        onClick={() => {
-                            handleDeleteMember(currentMemberId) // Sử dụng member_id hiện tại
-                        }}
-                    >
-                        Xoá thành viên
-                    </button>
-                )}
-            </Modal>
+            {/* TRƯỜNG HỢP 2: NGƯỜI DÙNG CHỌN MỘT THÀNH VIÊN KHÁC */}
+            {selectedFriend.id !== user_id && (
+                <>
+                    {/* Các hành động của Trưởng nhóm (isGroupLeader) đối với thành viên khác */}
+                    {isGroupLeader && (
+                        <>
+                            <button
+                                style={{
+                                    backgroundColor: isButtonPressed3 ? 'lightgray' : 'white',
+                                    padding: '10px 12px',
+                                    border: '1px solid #ddd',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    textAlign: 'left',
+                                    fontSize: '14px',
+                                }}
+                                onMouseEnter={() => setIsButtonPressed3(true)}
+                                onMouseDown={() => setIsButtonPressed3(true)}
+                                onMouseUp={() => setIsButtonPressed3(false)}
+                                onMouseLeave={() => setIsButtonPressed3(false)}
+                                onClick={() => handleDeleteMember()}
+                            >
+                                Xoá thành viên
+                            </button>
+                            
+                            <button
+                                style={{
+                                    backgroundColor: isButtonPressed5 ? 'lightgray' : 'white',
+                                    padding: '10px 12px',
+                                    border: '1px solid #ddd',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    textAlign: 'left',
+                                    fontSize: '14px',
+                                }}
+                                onMouseEnter={() => setIsButtonPressed5(true)}
+                                onMouseDown={() => setIsButtonPressed5(true)}
+                                onMouseUp={() => setIsButtonPressed5(false)}
+                                onMouseLeave={() => setIsButtonPressed5(false)}
+                                onClick={() => handleAddDeputyLeader()}
+                            >
+                                Thêm Phó Nhóm
+                            </button>
+                            <button
+                                style={{
+                                    backgroundColor: isButtonPressed2 ? 'lightgray' : 'white',
+                                    padding: '10px 12px',
+                                    border: '1px solid #ddd',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    textAlign: 'left',
+                                    fontSize: '14px',
+                                }}
+                                onMouseEnter={() => setIsButtonPressed2(true)}
+                                onMouseDown={() => setIsButtonPressed2(true)}
+                                onMouseUp={() => setIsButtonPressed2(false)}
+                                onMouseLeave={() => setIsButtonPressed2(false)}
+                                onClick={() => handleDeleteDeputyLeader()}
+                            >
+                                Gỡ quyền phó nhóm
+                            </button>
+                            <button
+                                style={{
+                                    backgroundColor: isButtonPressed6 ? 'lightgray' : 'white',
+                                    padding: '10px 12px',
+                                    border: '1px solid #ddd',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    textAlign: 'left',
+                                    fontSize: '14px',
+                                }}
+                                onMouseEnter={() => setIsButtonPressed6(true)}
+                                onMouseDown={() => setIsButtonPressed6(true)}
+                                onMouseUp={() => setIsButtonPressed6(false)}
+                                onMouseLeave={() => setIsButtonPressed6(false)}
+                                onClick={() => handleAddGroupLeader(currentMemberId)}
+                            >
+                                Chuyển quyền trưởng nhóm
+                            </button>
+                            <button
+                                style={{
+                                    backgroundColor: isButtonPressed4 ? 'lightgray' : 'white',
+                                    padding: '10px 12px',
+                                    border: '1px solid #ddd',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    textAlign: 'left',
+                                    fontSize: '14px',
+                                    color: 'red',
+                                }}
+                                onMouseEnter={() => setIsButtonPressed4(true)}
+                                onMouseDown={() => setIsButtonPressed4(true)}
+                                onMouseUp={() => setIsButtonPressed4(false)}
+                                onMouseLeave={() => setIsButtonPressed4(false)}
+                                onClick={() => handledisbandGroupWeb()}
+                            >
+                                Giải tán nhóm
+                            </button>
+                        </>
+                    )}
+
+                    {/* Các hành động của Phó nhóm (isDeputyLeader VÀ KHÔNG PHẢI là Trưởng nhóm) đối với thành viên khác */}
+                    {isDeputyLeader && !isGroupLeader && (
+                        <>
+                            {selectedFriend.id !== groupLeaderId && (
+                                <button
+                                    style={{
+                                        backgroundColor: isButtonPressed3 ? 'lightgray' : 'white',
+                                        padding: '10px 12px',
+                                        border: '1px solid #ddd',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer',
+                                        textAlign: 'left',
+                                        fontSize: '14px',
+                                    }}
+                                    onMouseEnter={() => setIsButtonPressed3(true)}
+                                    onMouseDown={() => setIsButtonPressed3(true)}
+                                    onMouseUp={() => setIsButtonPressed3(false)}
+                                    onMouseLeave={() => setIsButtonPressed3(false)}
+                                    onClick={() => handleDeleteMember()}
+                                >
+                                    Xoá thành viên
+                                </button>
+                            )}
+                        </>
+                    )}
+                </>
+            )}
+        </>
+    )}
+</Modal>
             {showPopup && (
                 <div
                     style={{

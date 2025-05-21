@@ -468,28 +468,28 @@ const Main = ({
             }
         });
 
-       newSocket.on('server-message-recalled', (recalledDataFromServer) => {
-    console.log('✅ Client: Received server-message-recalled event:', recalledDataFromServer);
+        newSocket.on('server-message-recalled', (recalledDataFromServer) => {
+            console.log('✅ Client: Received server-message-recalled event:', recalledDataFromServer);
 
-    if (!recalledDataFromServer || !recalledDataFromServer._id) {
-        console.error('🔴 Client: Invalid data from server-message-recalled', recalledDataFromServer);
-        return;
-    }
-
-    setMessages((prevMessages) =>
-        prevMessages.map((msg) => {
-            if (msg._id === recalledDataFromServer._id) {
-                return {
-                    ...msg, 
-                    recalled: recalledDataFromServer.recalled, 
-                    content: recalledDataFromServer.content,   
-                    
-                };
+            if (!recalledDataFromServer || !recalledDataFromServer._id) {
+                console.error('🔴 Client: Invalid data from server-message-recalled', recalledDataFromServer);
+                return;
             }
-            return msg;
-        })
-    );
-});
+
+            setMessages((prevMessages) =>
+                prevMessages.map((msg) => {
+                    if (msg._id === recalledDataFromServer._id) {
+                        return {
+                            ...msg,
+                            recalled: recalledDataFromServer.recalled,
+                            content: recalledDataFromServer.content,
+
+                        };
+                    }
+                    return msg;
+                })
+            );
+        });
 
         // Tin nhắn bị người dùng xóa
         newSocket.on('message-deleted', (message_id) => {
@@ -1039,89 +1039,89 @@ const Main = ({
             messagesContainerRef.current.scrollTop = scrollHeight
         }
     }
-const recallMessage = (message_id) => {
-    axios
-        .post('http://localhost:3001/message/recallMessageWeb', {
-            message_id: message_id,
-        })
-        .then((response) => {
-            if (response.data.thongbao === 'Thu hồi tin nhắn thành công!!!') {
-                toast.success('Thu hồi tin nhắn thành công!!!');
+    const recallMessage = (message_id) => {
+        axios
+            .post('http://localhost:3001/message/recallMessageWeb', {
+                message_id: message_id,
+            })
+            .then((response) => {
+                if (response.data.thongbao === 'Thu hồi tin nhắn thành công!!!') {
+                    toast.success('Thu hồi tin nhắn thành công!!!');
 
-                // Cập nhật UI ngay lập tức cho người gửi
-                setMessages((prevMessages) =>
-                    prevMessages.map((msg) => {
-                        if (msg._id === message_id) {
-                            // Đánh dấu là đã thu hồi và có thể cập nhật nội dung
-                            return { ...msg, recalled: true, content: "Tin nhắn đã được thu hồi" };
-                        }
-                        return msg;
-                    })
-                );
+                    // Cập nhật UI ngay lập tức cho người gửi
+                    setMessages((prevMessages) =>
+                        prevMessages.map((msg) => {
+                            if (msg._id === message_id) {
+                                // Đánh dấu là đã thu hồi và có thể cập nhật nội dung
+                                return { ...msg, recalled: true, content: "Tin nhắn đã được thu hồi" };
+                            }
+                            return msg;
+                        })
+                    );
 
-                
-                if (response.data.message) {
-                    socket.emit('message-recalled', response.data.message);
+
+                    if (response.data.message) {
+                        socket.emit('message-recalled', response.data.message);
+                    }
+                    closeModal();
+                } else if (response.data.thongbao === 'Lỗi khi thu hồi tin nhắn!!!') {
+                    toast.error('Lỗi khi thu hồi tin nhắn!!!');
+                } else {
+                    toast.error(response.data.thongbao || 'Lỗi không xác định khi thu hồi!');
                 }
-                closeModal();
-            } else if (response.data.thongbao === 'Lỗi khi thu hồi tin nhắn!!!') {
-                toast.error('Lỗi khi thu hồi tin nhắn!!!');
-            } else {
-                toast.error(response.data.thongbao || 'Lỗi không xác định khi thu hồi!');
-            }
-        })
-        .catch(error => {
-            console.error('Lỗi khi thu hồi tin nhắn:', error);
-            toast.error('Lỗi kết nối khi thu hồi tin nhắn!');
-        });
-};
-   
-const deleteMessageForMe = (message_id) => {
-    axios
-        .post('http://localhost:3001/message/deleteMyMessageWeb', {
-            message_id: message_id,
-            user_id: user_id, // user_id đã được định nghĩa trong scope của component
-        })
-        .then((response) => {
-            if (
-                response.data.thongbao ===
-                'Xoá chỉ ở phía tôi thành công!!!'
-            ) {
-                toast.success('Xoá chỉ ở phía tôi thành công!!!!');
+            })
+            .catch(error => {
+                console.error('Lỗi khi thu hồi tin nhắn:', error);
+                toast.error('Lỗi kết nối khi thu hồi tin nhắn!');
+            });
+    };
 
-                // Cập nhật UI ngay lập tức bằng cách cập nhật 'messages' state
-                setMessages((prevMessages) =>
-                    prevMessages.map((msg) => {
-                        if (msg._id === message_id) {
-                            // Thêm user_id vào mảng deletedBy của tin nhắn
-                            const updatedDeletedBy = msg.deletedBy
-                                ? [...msg.deletedBy, user_id]
-                                : [user_id];
-                            return { ...msg, deletedBy: updatedDeletedBy };
-                        }
-                        return msg;
-                    })
-                );
+    const deleteMessageForMe = (message_id) => {
+        axios
+            .post('http://localhost:3001/message/deleteMyMessageWeb', {
+                message_id: message_id,
+                user_id: user_id, // user_id đã được định nghĩa trong scope của component
+            })
+            .then((response) => {
+                if (
+                    response.data.thongbao ===
+                    'Xoá chỉ ở phía tôi thành công!!!'
+                ) {
+                    toast.success('Xoá chỉ ở phía tôi thành công!!!!');
 
-            
-                setDeleteMyMessage((prevDeleteMyMessage) => [...prevDeleteMyMessage, message_id]);
+                    // Cập nhật UI ngay lập tức bằng cách cập nhật 'messages' state
+                    setMessages((prevMessages) =>
+                        prevMessages.map((msg) => {
+                            if (msg._id === message_id) {
+                                // Thêm user_id vào mảng deletedBy của tin nhắn
+                                const updatedDeletedBy = msg.deletedBy
+                                    ? [...msg.deletedBy, user_id]
+                                    : [user_id];
+                                return { ...msg, deletedBy: updatedDeletedBy };
+                            }
+                            return msg;
+                        })
+                    );
 
-             
 
-                closeModal();
-            } else if (response.data.thongbao === 'Tin nhắn không tồn tại') {
-                toast.error('Tin nhắn không tồn tại');
-            } else {
-                toast.error(response.data.thongbao || 'Lỗi khi xoá tin nhắn!');
-            }
-        })
-        .catch((error) => {
-            console.error('Lỗi khi xóa tin nhắn ở phía tôi:', error);
-            toast.error('Lỗi kết nối khi xoá tin nhắn!');
-        });
-};
+                    setDeleteMyMessage((prevDeleteMyMessage) => [...prevDeleteMyMessage, message_id]);
 
-   
+
+
+                    closeModal();
+                } else if (response.data.thongbao === 'Tin nhắn không tồn tại') {
+                    toast.error('Tin nhắn không tồn tại');
+                } else {
+                    toast.error(response.data.thongbao || 'Lỗi khi xoá tin nhắn!');
+                }
+            })
+            .catch((error) => {
+                console.error('Lỗi khi xóa tin nhắn ở phía tôi:', error);
+                toast.error('Lỗi kết nối khi xoá tin nhắn!');
+            });
+    };
+
+
 
 
     // Gửi tin nhắn với chờ đợi
@@ -1308,187 +1308,197 @@ const deleteMessageForMe = (message_id) => {
                 </div>
 
                 <div
-    ref={messagesContainerRef}
-    style={{
-        background: 'linear-gradient(120deg,#BDC4C8, #D9D0BF)',
-        width: '100%',
-        height: '85%',
-        overflow: 'auto', 
-    }}
->
-    {sortedMessages
-        .filter(message => {
-            // Nếu message không tồn tại thì bỏ qua (mặc dù sortedMessages nên là mảng sạch)
-            if (!message) return false;
+                    ref={messagesContainerRef}
+                    style={{
+                        background: 'linear-gradient(120deg,#BDC4C8, #D9D0BF)',
+                        width: '100%',
+                        height: '85%',
+                        overflow: 'auto',
+                    }}
+                >
+                    {sortedMessages
+                        .filter(message => {
+                            if (!message) return false;
 
-            // Kiểm tra nếu trường deletedBy tồn tại và có chứa user_id của người dùng hiện tại
-            if (message.deletedBy && message.deletedBy.includes(user_id)) {
-                return false; // Lọc bỏ tin nhắn này, không render nó
-            }
-            return true; // Giữ lại tin nhắn này để render
-        })
-        .map((message, index) => (
-            // Phần JSX để render một dòng tin nhắn giữ nguyên như cũ
-            // Nó chỉ được gọi cho những tin nhắn không bị lọc ra
-            <div
-                key={message._id}
-                style={{
-                    display: 'flex',
-                    justifyContent:
-                        (typeof message.senderId === 'object' &&
-                            message.senderId !== null
-                            ? message.senderId._id
-                            : message.senderId) === user_id
-                            ? 'flex-end'
-                            : 'flex-start',
-                    alignItems: 'center',
-                    marginLeft: '5px',
-                    // marginRight: '5px' // Cân nhắc thêm nếu cần
-                }}
-            >
-                {/* ... TOÀN BỘ NỘI DUNG RENDER CHO MỘT TIN NHẮN (avatar, tên, nội dung, nút •••, thời gian) ... */}
-                {/* Ví dụ: */}
-                {/* Chỗ này hiện các thông báo ví dụ như xoá khỏi nhóm vv */}
-                {message.contentType === 'notify' ? (
-                    <p /* ... notify styles ... */ >
-                        <span /* ... span styles ... */ >
-                            {message.content}
-                        </span>
-                    </p>
-                ) : null}
 
-                {/* Avatar (chỉ hiển thị cho tin nhắn của người khác và không phải notify) */}
-                {message.contentType !== 'notify' &&
-                    (typeof message.senderId === 'object' && message.senderId !== null
-                        ? message.senderId._id
-                        : message.senderId) !== user_id && (
-                    <img
-                        src={ message.avatar ? message.avatar : 'https://zolabk.s3.ap-southeast-1.amazonaws.com/boy.png'}
-                        alt="sender avatar"
-                        style={{
-                            width: '50px',
-                            height: '50px',
-                            borderRadius: '60%',
-                            border: '3px solid #2596be',
-                            marginRight: '5px', // Thêm khoảng cách nếu cần
-                        }}
-                    />
-                )}
+                            if (message.deletedBy && message.deletedBy.includes(user_id)) {
+                                return false;
+                            }
+                            return true;
+                        })
+                        .map((message, index) => (
 
-                {/* Nút "•••" cho tin nhắn của người gửi (bên trái nội dung) */}
-                {message.contentType !== 'notify' &&
-                    (typeof message.senderId === 'object' &&
-                        message.senderId !== null
-                        ? message.senderId._id
-                        : message.senderId) === user_id && !message.recalled && ( // Chỉ hiện khi chưa thu hồi
-                        <button
-                            style={{ /* ... styles ... */ marginRight: '5px' }}
-                            onClick={(event) => {
-                                if (!message.recalled) { // Double check
-                                    openModal(message, event);
-                                }
-                            }}
-                        >
-                            •••
-                        </button>
-                    )}
+                            <div
+                                key={message._id}
+                                style={{
+                                    display: 'flex',
+                                    justifyContent:
+                                        (typeof message.senderId === 'object' &&
+                                            message.senderId !== null
+                                            ? message.senderId._id
+                                            : message.senderId) === user_id
+                                            ? 'flex-end'
+                                            : 'flex-start',
+                                    alignItems: 'center',
+                                    marginLeft: '5px',
+                                    // marginRight: '5px' // Cân nhắc thêm nếu cần
+                                }}
+                            >
+                                {/* ... TOÀN BỘ NỘI DUNG RENDER CHO MỘT TIN NHẮN (avatar, tên, nội dung, nút •••, thời gian) ... */}
+                         
+                                {/* Chỗ này hiện các thông báo ví dụ như xoá khỏi nhóm vv */}
+                                {message.contentType === 'notify' ? (
+                                    <p style={{
+                                            display: 'flex',
+                                            justifyContent: 'center',
+                                            alignItems: 'center',
+                                            fontSize: 14,
+                                            marginBottom: 10,
+                                            width: '100%',
+                                        }} >
+                                        <span style={{
+                                                color: '#798EA2', 
+                                                backgroundColor: '#ECE9D6', 
+                                                padding: '2px 5px',
+                                                borderRadius: '5px', 
+                                            }}>
+                                            {message.content}
+                                        </span>
+                                    </p>
+                                ) : null}
 
-                {/* Khối nội dung chính của tin nhắn (bong bóng chat) */}
-                {message.contentType !== 'notify' && ( // Chỉ render nếu không phải notify
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: ( (typeof message.senderId === 'object' && message.senderId !== null ? message.senderId._id : message.senderId) === user_id ? 'flex-end' : 'flex-start') }}>
-                        <p /* Bong bóng chat */
-                            style={{
-                                maxWidth: '100%', // Hoặc giới hạn kích thước cụ thể
-                                alignSelf: ( (typeof message.senderId === 'object' && message.senderId !== null ? message.senderId._id : message.senderId) === user_id ? 'flex-end' : 'flex-start'),
-                                backgroundColor: ( (typeof message.senderId === 'object' && message.senderId !== null ? message.senderId._id : message.senderId) === user_id ? '#0084ff' : '#e5e5ea'), // Màu khác nhau cho người gửi/nhận
-                                color: ( (typeof message.senderId === 'object' && message.senderId !== null ? message.senderId._id : message.senderId) === user_id ? 'white' : 'black'),
-                                borderRadius: 10,
-                                padding: 10,
-                                marginTop: 5, // Giảm bớt nếu có tên người gửi ở trên
-                                marginBottom: 5,
-                                marginLeft: ( (typeof message.senderId === 'object' && message.senderId !== null ? message.senderId._id : message.senderId) === user_id ? 0 : 0), // Đã có avatar/nút handle margin
-                                marginRight: ( (typeof message.senderId === 'object' && message.senderId !== null ? message.senderId._id : message.senderId) === user_id ? 0 : 0), // Đã có avatar/nút handle margin
-                                position: 'relative', // Cho việc định vị thời gian (nếu muốn đặt bên trong)
-                            }}
-                        >
-                            {/* Tên người gửi (cho group chat) */}
-                            {message.contentType !== 'notify' && 
-                             (typeof message.senderId === 'object' && message.senderId !== null ? message.senderId._id : message.senderId) !== user_id &&
-                             currentConversationGroup && // Chỉ hiện tên trong group
-                             (
-                                <span style={{ fontWeight: 'bold', display: 'block', marginBottom: '3px', color: '#7A8DA5', fontSize: '13px' }}>
-                                    {message.name}
-                                </span>
-                            )}
+                                {/* Avatar (chỉ hiển thị cho tin nhắn của người khác và không phải notify) */}
+                                {message.contentType !== 'notify' &&
+                                    (typeof message.senderId === 'object' && message.senderId !== null
+                                        ? message.senderId._id
+                                        : message.senderId) !== user_id && (
+                                        <img
+                                            src={message.avatar ? message.avatar : 'https://zolabk.s3.ap-southeast-1.amazonaws.com/boy.png'}
+                                            alt="sender avatar"
+                                            style={{
+                                                width: '50px',
+                                                height: '50px',
+                                                borderRadius: '60%',
+                                                border: '3px solid #2596be',
+                                                marginRight: '5px', // Thêm khoảng cách nếu cần
+                                            }}
+                                        />
+                                    )}
 
-                            {/* Thông tin chuyển tiếp */}
-                            {message.isForwarded && (
-                                <div /* ... forwarded styles ... */ >
-                                    ↪️ đã chuyển tiếp tin nhắn từ <b>{typeof message.originalSender === 'object' ? message.originalSender.userName || `${message.originalSender.firstName} ${message.originalSender.lastName}` : message.originalSender}</b>
-                                </div>
-                            )}
-                            {/* Thông tin trả lời */}
-                            {message.replyTo && replyContent && replyContent[message._id] && (
-                                <div className="replying-to" /* ... reply styles ... */ onClick={() => handleReplyClick(message.replyTo)}>
-                                    <div className="reply-content">
-                                        <b>| Trả lời :</b> {replyContent[message._id]}
+                                {/* Nút "•••" cho tin nhắn của người gửi (bên trái nội dung) */}
+                                {message.contentType !== 'notify' &&
+                                    (typeof message.senderId === 'object' &&
+                                        message.senderId !== null
+                                        ? message.senderId._id
+                                        : message.senderId) === user_id && !message.recalled && ( // Chỉ hiện khi chưa thu hồi
+                                        <button
+                                            style={{ /* ... styles ... */ marginRight: '5px' }}
+                                            onClick={(event) => {
+                                                if (!message.recalled) { // Double check
+                                                    openModal(message, event);
+                                                }
+                                            }}
+                                        >
+                                            •••
+                                        </button>
+                                    )}
+
+                                {/* Khối nội dung chính của tin nhắn (bong bóng chat) */}
+                                {message.contentType !== 'notify' && ( // Chỉ render nếu không phải notify
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: ((typeof message.senderId === 'object' && message.senderId !== null ? message.senderId._id : message.senderId) === user_id ? 'flex-end' : 'flex-start') }}>
+                                        <p /* Bong bóng chat */
+                                            style={{
+                                                maxWidth: '100%', // Hoặc giới hạn kích thước cụ thể
+                                                alignSelf: ((typeof message.senderId === 'object' && message.senderId !== null ? message.senderId._id : message.senderId) === user_id ? 'flex-end' : 'flex-start'),
+                                                backgroundColor: ((typeof message.senderId === 'object' && message.senderId !== null ? message.senderId._id : message.senderId) === user_id ? '#0084ff' : '#e5e5ea'), // Màu khác nhau cho người gửi/nhận
+                                                color: ((typeof message.senderId === 'object' && message.senderId !== null ? message.senderId._id : message.senderId) === user_id ? 'white' : 'black'),
+                                                borderRadius: 10,
+                                                padding: 10,
+                                                marginTop: 5, // Giảm bớt nếu có tên người gửi ở trên
+                                                marginBottom: 5,
+                                                marginLeft: ((typeof message.senderId === 'object' && message.senderId !== null ? message.senderId._id : message.senderId) === user_id ? 0 : 0), // Đã có avatar/nút handle margin
+                                                marginRight: ((typeof message.senderId === 'object' && message.senderId !== null ? message.senderId._id : message.senderId) === user_id ? 0 : 0), // Đã có avatar/nút handle margin
+                                                position: 'relative', // Cho việc định vị thời gian (nếu muốn đặt bên trong)
+                                            }}
+                                        >
+                                            {/* Tên người gửi (cho group chat) */}
+                                            {message.contentType !== 'notify' &&
+                                                (typeof message.senderId === 'object' && message.senderId !== null ? message.senderId._id : message.senderId) !== user_id &&
+                                                currentConversationGroup && // Chỉ hiện tên trong group
+                                                (
+                                                    <span style={{ fontWeight: 'bold', display: 'block', marginBottom: '3px', color: '#7A8DA5', fontSize: '13px' }}>
+                                                        {message.name}
+                                                    </span>
+                                                )}
+
+                                            {/* Thông tin chuyển tiếp */}
+                                            {message.isForwarded && (
+                                                <div /* ... forwarded styles ... */ >
+                                                    ↪️ đã chuyển tiếp tin nhắn từ <b>{typeof message.originalSender === 'object' ? message.originalSender.userName || `${message.originalSender.firstName} ${message.originalSender.lastName}` : message.originalSender}</b>
+                                                </div>
+                                            )}
+                                            {/* Thông tin trả lời */}
+                                            {message.replyTo && replyContent && replyContent[message._id] && (
+                                                <div className="replying-to" /* ... reply styles ... */ onClick={() => handleReplyClick(message.replyTo)}>
+                                                    <div className="reply-content">
+                                                        <b>| Trả lời :</b> {replyContent[message._id]}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Nội dung chính (text, image, file, video) hoặc placeholder "Tin nhắn đã thu hồi" */}
+                                            {message.recalled ? (
+                                                <span style={{ color: ((typeof message.senderId === 'object' && message.senderId !== null ? message.senderId._id : message.senderId) === user_id ? '#e0e0e0' : '#8C929C'), fontStyle: 'italic' }}>Tin nhắn đã bị thu hồi</span>
+                                            ) : (
+                                                // Render nội dung dựa trên contentType
+                                                message.contentType === 'text' ? message.content :
+                                                    message.contentType === 'image' ? <img src={message.content} alt="message" style={{ width: '200px', height: 'auto', borderRadius: '8px' }} /> :
+                                                        message.contentType === 'video' ? <video src={message.content} controls style={{ width: '250px', height: 'auto', borderRadius: '8px' }} /> :
+                                                            message.contentType === 'file' ? (
+                                                                <a className="file-link" href={message.content} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', color: ((typeof message.senderId === 'object' && message.senderId !== null ? message.senderId._id : message.senderId) === user_id ? 'white' : 'black'), textDecoration: 'none' }}>
+                                                                    <FileIcon extension={message.content.split('.').pop()} {...defaultStyles[message.content.split('.').pop()]} />
+                                                                    <span style={{ marginLeft: 10 }}>{message.content.split('/').pop()}</span>
+                                                                </a>
+                                                            ) : null
+                                            )}
+
+                                            {/* Thời gian (chỉ hiển thị nếu CHƯA thu hồi) */}
+                                            {!message.recalled && (
+                                                <span style={{
+                                                    fontSize: 11,
+                                                    color: ((typeof message.senderId === 'object' && message.senderId !== null ? message.senderId._id : message.senderId) === user_id ? '#cce6ff' : '#a5acb7'), // Màu nhạt hơn
+                                                    display: 'block', // Để xuống dòng hoặc ở góc
+                                                    textAlign: 'right', // Căn phải trong bong bóng
+                                                    marginTop: '5px',
+                                                }}>
+                                                    {moment(message.createdAt).utcOffset('+07:00').format('HH:mm')}
+                                                </span>
+                                            )}
+                                        </p>
                                     </div>
-                                </div>
-                            )}
+                                )}
 
-                            {/* Nội dung chính (text, image, file, video) hoặc placeholder "Tin nhắn đã thu hồi" */}
-                            {message.recalled ? (
-                                <span style={{ color: ( (typeof message.senderId === 'object' && message.senderId !== null ? message.senderId._id : message.senderId) === user_id ? '#e0e0e0' : '#8C929C'), fontStyle: 'italic' }}>Tin nhắn đã bị thu hồi</span>
-                            ) : (
-                                // Render nội dung dựa trên contentType
-                                message.contentType === 'text' ? message.content :
-                                message.contentType === 'image' ? <img src={message.content} alt="message" style={{ width: '200px', height: 'auto', borderRadius: '8px' }} /> :
-                                message.contentType === 'video' ? <video src={message.content} controls style={{ width: '250px', height: 'auto', borderRadius: '8px' }} /> :
-                                message.contentType === 'file' ? (
-                                    <a className="file-link" href={message.content} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', color: ( (typeof message.senderId === 'object' && message.senderId !== null ? message.senderId._id : message.senderId) === user_id ? 'white' : 'black'), textDecoration: 'none' }}>
-                                        <FileIcon extension={message.content.split('.').pop()} {...defaultStyles[message.content.split('.').pop()]} />
-                                        <span style={{ marginLeft: 10 }}>{message.content.split('/').pop()}</span>
-                                    </a>
-                                ) : null
-                            )}
-
-                            {/* Thời gian (chỉ hiển thị nếu CHƯA thu hồi) */}
-                            {!message.recalled && (
-                                <span style={{
-                                    fontSize: 11,
-                                    color: ( (typeof message.senderId === 'object' && message.senderId !== null ? message.senderId._id : message.senderId) === user_id ? '#cce6ff' : '#a5acb7'), // Màu nhạt hơn
-                                    display: 'block', // Để xuống dòng hoặc ở góc
-                                    textAlign: 'right', // Căn phải trong bong bóng
-                                    marginTop: '5px',
-                                }}>
-                                    {moment(message.createdAt).utcOffset('+07:00').format('HH:mm')}
-                                </span>
-                            )}
-                        </p>
-                    </div>
-                )}
-
-                {/* Nút "•••" cho tin nhắn của người nhận (bên phải nội dung) */}
-                {message.contentType !== 'notify' &&
-                    (typeof message.senderId === 'object' &&
-                        message.senderId !== null
-                        ? message.senderId._id
-                        : message.senderId) !== user_id && !message.recalled && ( // Chỉ hiện khi chưa thu hồi
-                        <button
-                            style={{ /* ... styles ... */ marginLeft: '5px' }}
-                            onClick={(event) => {
-                                if (!message.recalled) { // Double check
-                                    openModal(message, event);
-                                }
-                            }}
-                        >
-                            •••
-                        </button>
-                    )}
-            </div>
-        ))
-    }
-</div>
+                                {/* Nút "•••" cho tin nhắn của người nhận (bên phải nội dung) */}
+                                {message.contentType !== 'notify' &&
+                                    (typeof message.senderId === 'object' &&
+                                        message.senderId !== null
+                                        ? message.senderId._id
+                                        : message.senderId) !== user_id && !message.recalled && ( // Chỉ hiện khi chưa thu hồi
+                                        <button
+                                            style={{ /* ... styles ... */ marginLeft: '5px' }}
+                                            onClick={(event) => {
+                                                if (!message.recalled) { // Double check
+                                                    openModal(message, event);
+                                                }
+                                            }}
+                                        >
+                                            •••
+                                        </button>
+                                    )}
+                            </div>
+                        ))
+                    }
+                </div>
                 <Modal
                     isOpen={modalIsOpen}
                     onRequestClose={closeModal}
@@ -1797,9 +1807,7 @@ const deleteMessageForMe = (message_id) => {
                 <div
                     style={{
                         width: '100%',
-                        // minHeight: '13%',
-                        //nếu mãng images rỗng thì set minheight là 13% còn không thì là 25%
-                        // minHeight: images.length > 0 ? '25%' : '13%',
+                        
                         minHeight:
                             images.length > 0 || replyingTo != null
                                 ? '30%'
@@ -1845,7 +1853,7 @@ const deleteMessageForMe = (message_id) => {
                                     type="file"
                                     multiple
                                     ref={fileImgRef}
-                                    style={{ display: 'none' }} // Ẩn thẻ input[type="file"]
+                                    style={{ display: 'none' }} 
                                     onChange={handleImageChange}
                                 />
                             </div>
@@ -1917,7 +1925,7 @@ const deleteMessageForMe = (message_id) => {
                                     </b>
                                     <p>{replyingTo.content}</p>
                                     {/* Add more information about the message being replied to here */}
-                                    <button
+                                    <buttonPPConfigure Default Formatter
                                         style={{
                                             position: 'absolute',
                                             top: 0,
@@ -1928,7 +1936,7 @@ const deleteMessageForMe = (message_id) => {
                                         onClick={() => setReplyingTo(null)}
                                     >
                                         X
-                                    </button>
+                                    </buttonPPConfigure>
                                 </div>
                             )}
                             <input
@@ -1953,8 +1961,7 @@ const deleteMessageForMe = (message_id) => {
                                             sendMessage.trim() !== '' &&
                                             images.length > 0
                                         ) {
-                                            // Có cả tin nhắn và hình ảnh để gửi
-                                            // xoá hình ảnh trước
+
                                             setImages([])
                                             setSend(!isSend)
 
@@ -2010,7 +2017,7 @@ const deleteMessageForMe = (message_id) => {
                                             }}
                                             onClick={() =>
                                                 handleRemoveImage(index)
-                                            } // Truyền index để xác định ảnh cần xóa
+                                            }
                                         >
                                             X
                                         </button>
