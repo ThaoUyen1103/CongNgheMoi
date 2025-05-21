@@ -80,37 +80,33 @@ io.on('connection', (socket) => {
     });
 
     // THU HỒI TIN NHẮN (CHO MỌI NGƯỜI)
-    socket.on('message-recalled', (recalledMessageFromClient) => { // 'recalledMessageFromClient' là response.data.message từ client
+    socket.on('message-recalled', (recalledMessageFromClient) => { 
     console.log('📢 Received client-side message-recalled event with data:', recalledMessageFromClient);
 
-    // Trích xuất thông tin cần thiết từ object tin nhắn client gửi lên
-    // Client đã gửi response.data.message, đây là object tin nhắn đầy đủ đã được cập nhật ở backend (API)
+ 
     const message_id = recalledMessageFromClient._id;
     const conversation_id = recalledMessageFromClient.conversation_id;
-    const user_id_recalled = recalledMessageFromClient.senderId; // Giả sử senderId là người thu hồi
-    const updated_content = recalledMessageFromClient.content; // Nội dung đã được cập nhật, ví dụ: "Tin nhắn đã bị thu hồi"
-    const is_recalled_flag = recalledMessageFromClient.recalled; // Trạng thái thu hồi, nên là true
+    const user_id_recalled = recalledMessageFromClient.senderId; 
+    const updated_content = recalledMessageFromClient.content;
+    const is_recalled_flag = recalledMessageFromClient.recalled; 
 
     if (!message_id || !conversation_id || typeof is_recalled_flag === 'undefined') {
         console.error('🔴 Invalid data for message-recalled. Expected full message object from client. Received:', recalledMessageFromClient);
         return;
     }
 
-    // Tạo object dữ liệu để gửi tới các client trong phòng chat
+  
     const dataToEmitToRoom = {
-        _id: message_id, // Client sẽ dùng _id để tìm và cập nhật tin nhắn
+        _id: message_id, 
         conversation_id: conversation_id,
-        user_id_recalled: user_id_recalled, // Người đã thu hồi tin nhắn
-        recalled: is_recalled_flag,         // Trạng thái thu hồi (quan trọng)
-        content: updated_content,           // Nội dung mới của tin nhắn (quan trọng)
-        senderId: recalledMessageFromClient.senderId, // Giữ lại senderId gốc
-        // Thêm các trường khác của tin nhắn nếu client cần để hiển thị đúng
-        // ví dụ: timestamp, avatar (nếu có sự thay đổi),...
-        // Về cơ bản, bạn có thể gửi lại chính `recalledMessageFromClient` nếu nó đã chứa tất cả thông tin client cần.
+        user_id_recalled: user_id_recalled, 
+        recalled: is_recalled_flag,        
+        content: updated_content,          
+        senderId: recalledMessageFromClient.senderId, 
+  
     };
 
-    // Thông báo cho tất cả user trong conversation_id rằng tin nhắn đã được thu hồi
-    // Sử dụng tên sự kiện mà client người nhận sẽ lắng nghe
+   
     io.to(conversation_id).emit('server-message-recalled', dataToEmitToRoom);
     console.log(`📢 Emitted 'server-message-recalled' for message ${message_id} in conversation ${conversation_id} by user ${user_id_recalled || 'unknown'}. Data:`, dataToEmitToRoom);
 });

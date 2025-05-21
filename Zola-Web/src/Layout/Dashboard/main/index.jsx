@@ -1242,7 +1242,6 @@ const deleteMessageForMe = (message_id) => {
                     justifyContent: 'space-between',
                 }}
             >
-                {/* // này là code nguyên cái khung đps luôn mà hiện mấy cái image với cái tên*/}
                 <div
                     style={{
                         width: '100%',
@@ -1253,7 +1252,6 @@ const deleteMessageForMe = (message_id) => {
                         alignItems: 'center',
                     }}
                 >
-                    {/* // này là khúc mà hiện mấy cái image với cái tên*/}
                     <div
                         style={{
                             display: 'flex',
@@ -1288,7 +1286,6 @@ const deleteMessageForMe = (message_id) => {
                         </label>
                     </div>
 
-                    {/* // này là đoạn mấy nút call và nút bấm hiện thông tin */}
                     <div style={{ display: 'flex', gap: 15 }}>
                         <div>
                             <IoCallOutline size="1.6rem" />
