@@ -121,25 +121,21 @@ io.on('connection', (socket) => {
             return;
         }
 
-        // Thông báo cho tất cả user trong conversation_id rằng tin nhắn đã bị xóa
         io.to(conversation_id).emit('server-message-deleted-for-everyone', { 
             message_id, 
             conversation_id,
-            user_id_deleted // Gửi kèm ID người xóa nếu cần
+            user_id_deleted 
         });
         console.log(`🗑️ Message ${message_id} deleted for everyone in conversation ${conversation_id} by user ${user_id_deleted || 'unknown'}`);
     });
     
     // XÓA TIN NHẮN (CHỈ CHO NGƯỜI GỬI - ĐỒNG BỘ TRÊN CÁC THIẾT BỊ CỦA HỌ)
-    // Sự kiện này giả định `data.user_id` là một "room" mà chỉ các socket của người dùng đó tham gia,
-    // để đồng bộ hành động "xóa ở phía tôi" trên các thiết bị của họ.
     socket.on('delete-my-message', (data) => {
         console.log('➖ Received delete-my-message (for sender only):', data);
-        if (!data.message_id || !data.user_id_room) { // Đổi tên thành user_id_room để rõ ràng hơn
+        if (!data.message_id || !data.user_id_room) { 
             console.error('🔴 Invalid data for delete-my-message. Need message_id and user_id_room.', data);
             return;
         }
-        // Gửi sự kiện xóa chỉ đến các socket của người dùng này
         io.to(data.user_id_room).emit('message-deleted-for-me', { message_id: data.message_id });
         console.log(`➖ Sent message-deleted-for-me for message ${data.message_id} to user room ${data.user_id_room}`);
     });
