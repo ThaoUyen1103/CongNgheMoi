@@ -1,3 +1,5 @@
+// cái này là component Cha của Sidebar, MainContent, ContactsMainView
+
 import React, { useState } from 'react';
 import '../styles/ZaloPCLayout.css';
 import Sidebar from './Sidebar';

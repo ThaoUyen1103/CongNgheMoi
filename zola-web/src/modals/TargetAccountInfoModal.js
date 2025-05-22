@@ -1,3 +1,5 @@
+// thông tin chi tiết tài khoản của người dùng
+
 import React from 'react';
 import '../styles/TargetAccountInfoModal.css'; // Import CSS
 import { FaTimes, FaPhone, FaCommentDots } from 'react-icons/fa'; // Ví dụ icon

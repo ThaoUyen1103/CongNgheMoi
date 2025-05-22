@@ -1,3 +1,5 @@
+// cái này là thông báo xác nhận
+
 import React from 'react';
 import '../styles/ConfirmationDialog.css'; // Import CSS
 

@@ -1,3 +1,5 @@
+// file này là màn hình chat chính
+
 import React, { useState, useRef, useEffect } from 'react';
 import '../styles/MainContent.css';
 import { FaPhoneAlt, FaVideo, FaInfoCircle, FaPaperclip, FaImage, FaEllipsisH, FaSmile } from 'react-icons/fa'; // Thêm FaSmile

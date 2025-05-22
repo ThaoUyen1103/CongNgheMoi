@@ -1,3 +1,5 @@
+// Chi tiết group nhóm
+
 import React, { useState, useRef } from 'react'; // Thêm useRef
 import '../styles/GroupDetailsModal.css';
 import { FaTimes, FaPen, FaCommentDots, FaUserFriends, FaCamera, FaLink, FaCopy, FaShareSquare, FaCog, FaSignOutAlt, FaPhotoVideo, FaTrashAlt } from 'react-icons/fa';

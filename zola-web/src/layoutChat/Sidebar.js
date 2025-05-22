@@ -1,3 +1,5 @@
+// file này là thanh chọn bên trái của ứng dụng zalo
+
 import React, { useState, useEffect, useRef } from 'react';
 import '../styles/Sidebar.css';
 

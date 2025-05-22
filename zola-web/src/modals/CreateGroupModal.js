@@ -1,3 +1,5 @@
+// Tạo nhóm
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import '../styles/CreateGroupModal.css';

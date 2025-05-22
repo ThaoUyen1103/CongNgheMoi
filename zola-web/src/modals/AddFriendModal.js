@@ -1,3 +1,5 @@
+// Modal thêm bạn bè
+
 import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
 import '../styles/AddFriendModal.css';

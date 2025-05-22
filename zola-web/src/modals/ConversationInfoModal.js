@@ -1,3 +1,5 @@
+// Thông tin chi tiết của nhóm
+
 import React, { useState, useMemo, useEffect } from 'react';
 import '../styles/ConversationInfoModal.css';
 import {

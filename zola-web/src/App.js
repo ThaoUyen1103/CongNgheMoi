@@ -9,7 +9,7 @@ import ForgotPassword from './screens/ForgotPassword'; // THÊM IMPORT NÀY
 import ZaloPCLayout from './layoutChat/ZaloPCLayout';
 
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(true);
 
   const handleLoginSuccess = () => {
     setIsLoggedIn(true);

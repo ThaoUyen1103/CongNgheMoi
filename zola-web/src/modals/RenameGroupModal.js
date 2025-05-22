@@ -1,3 +1,5 @@
+// Đổi tên nhóm
+
 import React, { useState, useEffect } from 'react';
 import '../styles/RenameGroupModal.css'; // Import CSS
 import { FaTimes } from 'react-icons/fa';

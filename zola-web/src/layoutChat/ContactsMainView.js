@@ -1,3 +1,6 @@
+// file này là màn hình danh bạ chính, hiển thị danh sách bạn bè, nhóm và lời mời kết bạn. Nó bao gồm các chức năng tìm kiếm, lọc và sắp xếp danh sách.
+
+
 import React, { useState, useEffect } from 'react';
 import '../styles/ContactsMainView.css';
 import { FaSearch, FaFilter, FaEllipsisH, FaSortAmountDown, FaAddressBook, FaUsers, FaUserPlus, FaUserClock, FaUserCheck, FaTimesCircle, FaCommentDots } from 'react-icons/fa';
