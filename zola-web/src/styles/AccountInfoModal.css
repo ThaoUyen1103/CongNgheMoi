@@ -1,0 +1,251 @@
+/* AccountInfoModal.css */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6); /* Tăng độ mờ của lớp phủ một chút */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.modal-content.account-info-modal {
+  background-color: #ffffff;
+  border-radius: 8px; /* Giữ nguyên bo góc */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); /* Điều chỉnh đổ bóng nhẹ */
+  width: 500px; /* Điều chỉnh chiều rộng cho khớp với hình ảnh hơn (hình ảnh có vẻ hẹp hơn 560px) */
+  max-width: calc(100vw - 32px); /* Đảm bảo có khoảng đệm trên màn hình nhỏ */
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.account-info-modal .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px; /* Điều chỉnh padding */
+  border-bottom: 1px solid #f0f0f0; /* Màu viền nhạt hơn */
+}
+
+.account-info-modal .modal-header h2 {
+  font-size: 16px; /* Kích thước font nhỏ hơn cho tiêu đề */
+  font-weight: 500; /* Font weight trung bình */
+  color: #050505; /* Màu đen tuyền hơn */
+  margin: 0;
+}
+
+.account-info-modal .modal-close-btn {
+  background: none;
+  border: none;
+  font-size: 20px; /* Kích thước nút đóng nhỏ hơn */
+  color: #606770; /* Màu xám cho nút đóng */
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+}
+.account-info-modal .modal-close-btn:hover {
+  color: #050505;
+}
+
+.account-info-modal .modal-body {
+  padding: 0; /* Bỏ padding ở đây vì các section con sẽ tự quản lý */
+  max-height: calc(100vh - 150px); /* Giới hạn chiều cao để tránh tràn màn hình */
+  overflow-y: auto;
+}
+
+.account-info-modal .modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+.account-info-modal .modal-body::-webkit-scrollbar-thumb {
+  background: #cccccc;
+  border-radius: 3px;
+}
+.account-info-modal .modal-body::-webkit-scrollbar-thumb:hover {
+  background: #bbbbbb;
+}
+
+.account-profile-header {
+  position: relative;
+  text-align: center;
+  background-color: #ffffff; /* Nền trắng cho phần header này */
+  /* padding-bottom đã bị xóa, sẽ được xử lý bởi margin của profile-name-section */
+}
+
+.cover-photo {
+  width: 100%;
+  height: 170px; /* Chiều cao ảnh bìa điều chỉnh cho khớp hình */
+  overflow: hidden;
+  background-color: #f0f2f5; /* Màu nền cho ảnh bìa nếu ảnh không tải được */
+}
+
+.cover-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-section-modal {
+  /* Không cần position: absolute nữa, sẽ dùng flexbox trong parent */
+  /* display: flex và justify-content: center cũng không cần thiết ở đây */
+  margin-top: -60px; /* Kéo avatar lên trên ảnh bìa. (100px/2 avatar + 10px khoảng cách mong muốn) */
+  position: relative; /* Để z-index hoạt động */
+  z-index: 10; /* Đảm bảo avatar nằm trên ảnh bìa */
+  display: flex; /* Thêm để căn giữa wrapper */
+  justify-content: center; /* Thêm để căn giữa wrapper */
+}
+
+.profile-avatar-wrapper-modal {
+  position: relative;
+  width: 100px; /* Đặt kích thước cố định cho wrapper */
+  height: 100px; /* Đặt kích thước cố định cho wrapper */
+  border: 3px solid white; /* Viền trắng dày hơn một chút */
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1); /* Đổ bóng nhẹ hơn */
+  background-color: white; /* Đảm bảo nền trắng nếu avatar có phần trong suốt */
+}
+
+.profile-avatar-modal {
+  width: 100%; /* Để avatar chiếm toàn bộ wrapper */
+  height: 100%; /* Để avatar chiếm toàn bộ wrapper */
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
+
+.change-avatar-btn-modal {
+  position: absolute;
+  bottom: 2px; /* Điều chỉnh vị trí nút camera */
+  right: 2px;  /* Điều chỉnh vị trí nút camera */
+  background-color: #e4e6eb; /* Màu nền xám nhạt cho nút camera */
+  color: #050505; /* Màu icon đen */
+  border: 1px solid #ccced2; /* Viền nhẹ cho nút */
+  border-radius: 50%;
+  width: 28px; /* Kích thước nút camera nhỏ hơn */
+  height: 28px; /* Kích thước nút camera nhỏ hơn */
+  font-size: 14px; /* Kích thước icon camera nhỏ hơn */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  line-height: 1;
+}
+.change-avatar-btn-modal:hover {
+  background-color: #d8dadf;
+}
+
+.profile-name-section-modal {
+  margin-top: 12px; /* Khoảng cách từ avatar đến tên */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px; /* Khoảng cách giữa tên và nút sửa */
+  padding-bottom: 20px; /* Khoảng cách dưới tên trước khi vào phần thông tin cá nhân */
+}
+
+.profile-name-modal {
+  font-size: 20px; /* Kích thước font cho tên */
+  font-weight: 600; /* Tên đậm hơn một chút */
+  color: #050505;
+}
+
+.edit-name-btn-modal {
+  background: none;
+  border: none;
+  color: #606770; /* Màu icon chỉnh sửa xám hơn */
+  font-size: 18px; /* Kích thước icon chỉnh sửa */
+  cursor: pointer;
+  padding: 4px; /* Tăng vùng click */
+  line-height: 1; /* Đảm bảo icon căn chỉnh tốt */
+}
+.edit-name-btn-modal:hover {
+  color: #050505;
+}
+
+.account-personal-info {
+  padding: 0 20px 20px 20px; /* Điều chỉnh padding: trên 0 (vì đã có padding-bottom từ name-section), trái/phải 20px, dưới 20px */
+  text-align: left;
+}
+
+.account-personal-info h4 {
+  font-size: 14px; /* Font cho tiêu đề "Thông tin cá nhân" */
+  font-weight: 600; /* Đậm hơn một chút */
+  color: #606770; /* Màu xám cho tiêu đề */
+  margin-top: 0;
+  margin-bottom: 12px; /* Khoảng cách dưới tiêu đề */
+  /* Bỏ border-bottom để giống hình */
+  padding-bottom: 0;
+}
+
+.info-grid {
+  display: grid;
+  /* Bỏ grid-template-columns vì chúng ta sẽ để mỗi item tự xử lý */
+  gap: 10px 0; /* Chỉ cần khoảng cách giữa các dòng */
+  align-items: flex-start; /* Căn các item lên trên nếu nội dung khác chiều cao */
+}
+
+.info-item {
+  display: flex; /* Sử dụng flex để căn chỉnh label và value */
+  /* Đẩy label và value ra hai bên */
+  font-size: 14px; /* Kích thước font chung cho các item */
+  padding: 4px 0; /* Thêm chút padding cho mỗi item */
+}
+
+.info-label {
+  color: #606770; /* Màu cho nhãn */
+  font-weight: normal; /* Font weight bình thường */
+  /* grid-column đã bị bỏ */
+  margin-right: 10px; /* Khoảng cách giữa label và value nếu value ngắn */
+}
+
+.info-value {
+  color: #050505; /* Màu cho giá trị */
+  /* grid-column đã bị bỏ */
+  word-break: break-word; /* Giữ nguyên để tránh tràn chữ */
+   
+}
+
+/* Xóa bỏ style riêng cho sensitive-info nếu muốn màu mặc định như trong hình */
+/* .info-value.sensitive-info {
+  color: #0068ff;
+} */
+
+
+.phone-privacy-note {
+  font-size: 12px;
+  color: #606770;
+  margin-top: 12px; /* Khoảng cách trên ghi chú */
+  background-color: transparent; /* Bỏ nền xám */
+  padding: 0; /* Bỏ padding */
+  border-radius: 0; /* Bỏ bo góc */
+  text-align: left; /* Căn trái */
+}
+
+.account-info-modal .modal-footer {
+  padding: 16px 20px; /* Điều chỉnh padding */
+  border-top: 1px solid #f0f0f0; /* Màu viền nhạt hơn */
+  display: flex;
+  justify-content: flex-end;
+  background-color: #f5f6f7; /* Màu nền nhạt cho footer */
+}
+
+.update-profile-btn {
+  background-color: #1b74e4; /* Màu xanh dương chuẩn của Facebook/Meta */
+  color: white;
+  border: none;
+  padding: 8px 16px; /* Padding nhỏ hơn cho nút */
+  font-size: 14px;
+  font-weight: 600; /* Chữ đậm hơn */
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.update-profile-btn:hover {
+  background-color: #1868cd; /* Màu khi hover đậm hơn một chút */
+}
