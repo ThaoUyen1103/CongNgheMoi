@@ -57,7 +57,7 @@
   flex-grow: 1;
 }
 .contacts-controls:not(.friend-requests-controls) .contacts-search-bar {
-     margin-right: 16px; /* Chỉ áp dụng margin khi có filter */
+    margin-right: 16px; /* Chỉ áp dụng margin khi có filter */
 }
 
 
@@ -111,13 +111,19 @@
   flex-grow: 1;
   overflow-y: auto;
   padding: 10px 24px 20px 24px; /* Padding xung quanh list */
+  background-color: #ffffff; /* Nền trắng cho khu vực danh sách bạn bè, nhóm */
 }
+
 .contacts-list-container.groups-list-container {
     padding-top: 15px;
+    background-color: #ffffff; 
+    background-image: none !important; 
 }
+
+
 .contacts-list-container.friend-requests-container {
-    padding: 0; /* Container của friend request không cần padding, section sẽ có */
-    background-color: #f0f2f5; /* Nền chung */
+    padding: 0; 
+    background-color: #f0f2f5; 
 }
 
 .contacts-list-container::-webkit-scrollbar { width: 7px; }
@@ -139,11 +145,11 @@
   padding: 4px 0px 4px 0;
   text-transform: uppercase;
   position: sticky;
-  top: -10px; /* Điều chỉnh để dính sát mép trên của .contacts-list-container */
-  background-color: #ffffff; /* Phải cùng màu với .contacts-list-container */
+  top: -10px; 
+  background-color: #ffffff; 
   z-index: 1;
-  margin-left: -24px; /* Bù padding của parent */
-  margin-right: -24px; /* Bù padding của parent */
+  margin-left: -24px; 
+  margin-right: -24px;
   padding-left: 24px;
 }
 
@@ -151,32 +157,15 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 0px; /* Chỉ padding dọc, padding ngang sẽ do content con quyết định */
-  border-bottom: 1px solid #e7e9ec;
+  padding: 8px;
+  border-radius: 6px;
   transition: background-color 0.15s ease;
-  background-color: #ffffff; /* Nền trắng cho item */
+  position: relative; /* Thêm position relative để định vị menu con */
 }
-.contact-list-item:first-child, .group-list-item:first-child {
-   /* border-top: 1px solid #e7e9ec; */
-}
-.contact-list-item:last-child, .group-list-item:last-child {
-  border-bottom: none;
-}
+
 .contact-list-item:hover, .group-list-item:hover {
   background-color: #f5f6f7;
 }
-/* Thêm padding cho các items trong friends và groups view */
-.contacts-list-container:not(.friend-requests-container) .contact-list-item,
-.contacts-list-container:not(.friend-requests-container) .group-list-item {
-    padding-left: 10px;
-    padding-right: 10px;
-    border-radius: 6px;
-    margin-bottom: 2px; /* Khoảng cách nhỏ giữa các item */
-}
-.contacts-list-container:not(.friend-requests-container) .contact-group .contact-list-item:first-of-type {
-    margin-top: 5px;
-}
-
 
 .contact-item-main-info, .group-item-main-info {
   display: flex;
@@ -192,6 +181,30 @@
   margin-right: 12px;
   object-fit: cover;
   flex-shrink: 0;
+}
+
+.group-item-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    margin-right: 12px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background-color: #e4e6eb;
+}
+
+.group-item-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.group-item-avatar svg {
+    font-size: 20px;
+    color: #007bff;
 }
 
 .contact-item-info, .group-item-info {
@@ -219,6 +232,12 @@
   text-overflow: ellipsis;
 }
 
+/* --- BẮT ĐẦU: CSS CHO NÚT OPTIONS VÀ MENU --- */
+.contact-item-options-container {
+    position: relative;
+    flex-shrink: 0;
+}
+
 .contact-item-options-btn {
   background: none;
   border: none;
@@ -228,7 +247,6 @@
   padding: 8px;
   border-radius: 50%;
   margin-left: 10px;
-  flex-shrink: 0;
   width: 32px;
   height: 32px;
   display: flex;
@@ -240,74 +258,73 @@
   color: #1c1e21;
 }
 
+.group-item-menu {
+    position: absolute;
+    top: 100%; /* Hiển thị ngay dưới nút options */
+    right: 0;
+    background-color: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    z-index: 100;
+    width: 180px;
+    padding: 8px 0;
+    overflow: hidden;
+}
+
+.menu-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 10px 16px;
+    background: none;
+    border: none;
+    text-align: left;
+    font-size: 14px;
+    color: #333;
+    cursor: pointer;
+}
+
+.menu-item:hover {
+    background-color: #f5f5f5;
+}
+
+.menu-item-icon {
+    font-size: 14px;
+    color: #606770;
+}
+
+.menu-item.menu-item-danger {
+    color: #d93025; /* Màu đỏ cho hành động nguy hiểm */
+}
+.menu-item.menu-item-danger .menu-item-icon {
+    color: #d93025;
+}
+
+.menu-item.menu-item-danger:hover {
+    background-color: #fdf0ef;
+}
+/* --- KẾT THÚC: CSS CHO NÚT OPTIONS VÀ MENU --- */
+
 .no-contacts-found {
   text-align: center;
   margin-top: 40px;
   padding: 20px;
   color: #606770;
   font-size: 14.5px;
-  background-color: #ffffff;
 }
 
-.group-item-avatar-stack {
-  width: 40px;
-  height: 40px;
-  position: relative;
-  margin-right: 12px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.group-item-avatar-placeholder {
-    width: 40px;
-    height: 40px;
-    border-radius: 8px;
-    background-color: #007bffb0; /* Màu placeholder cho avatar nhóm */
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-}
 
-.stacked-avatar {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 1.5px solid #ffffff;
-  position: absolute;
-  box-shadow: 0 0 2px rgba(0,0,0,0.1);
-}
-.stacked-avatar-0 { top: 0; left: 0; z-index: 3; }
-.stacked-avatar-1 { top: 10px; left: 10px; z-index: 2; width: 24px; height: 24px;}
-.stacked-avatar-2 { top: 3px; left: 18px; z-index: 1; width: 20px; height: 20px;}
-
-.group-item-avatar-stack img:only-child {
-    width: 40px;
-    height: 40px;
-    position: static;
-    border-radius: 8px;
-    border: none;
-    box-shadow: none;
-}
-.group-item-avatar-stack img.stacked-avatar-0:nth-last-child(2) { top: 3px; left: 3px; width: 26px; height: 26px;}
-.group-item-avatar-stack img.stacked-avatar-1:nth-last-child(1) { top: 11px; left: 11px; width: 26px; height: 26px;}
-
-
+/* ... (Toàn bộ CSS còn lại giữ nguyên) ... */
 /* Friend Requests View Styles */
 .friend-requests-section {
   background-color: #ffffff;
-  margin-bottom: 10px; /* Khoảng cách giữa các section */
-  border-radius: 8px; /* Bo góc cho section */
-  /* box-shadow: 0 1px 2px rgba(0,0,0,0.05); */ /* Bỏ shadow nếu không muốn */
-}
-.friend-requests-section:first-child {
-    margin-top: 15px; /* Margin top cho section đầu */
+  margin: 15px;
+  border-radius: 8px; 
 }
 .friend-requests-section:last-child {
-    margin-bottom: 20px; /* Margin bottom cho section cuối */
+  margin-bottom: 20px; 
 }
 
 
@@ -317,18 +334,18 @@
   color: #1c1e21;
   padding: 12px 16px;
   margin: 0;
-  border-bottom: 1px solid #f0f2f5; /* Đường kẻ dưới tiêu đề section */
+  border-bottom: 1px solid #f0f2f5; 
 }
 
 .friend-request-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); /* Lưới responsive cho card */
-  gap: 16px; /* Khoảng cách giữa các card */
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
+  gap: 16px; 
   padding: 16px;
 }
 
 .friend-request-card {
-  background-color: #ffffff; /* Nền card có thể khác nền section */
+  background-color: #ffffff; 
   border: 1px solid #dddfe2;
   border-radius: 8px;
   padding: 16px;
@@ -339,8 +356,7 @@
   box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 .friend-request-card.sent-request-card {
-    /* Có thể thêm style riêng cho card lời mời đã gửi */
-    background-color: #f7f9fa; /* Nền hơi khác một chút */
+    background-color: #f7f9fa; 
 }
 
 
@@ -354,14 +370,14 @@
 
 .request-card-info {
   margin-bottom: 12px;
-  flex-grow: 1; /* Để đẩy action xuống dưới nếu card có height cố định */
+  flex-grow: 1; 
 }
 
 .request-card-name {
   font-size: 15px;
   font-weight: 500;
   color: #1c1e21;
-  display: block; /* Để chiếm trọn dòng */
+  display: block; 
   margin-bottom: 3px;
 }
 
@@ -374,13 +390,13 @@
 
 .request-card-actions {
   display: flex;
-  gap: 10px; /* Khoảng cách giữa các nút */
-  width: 100%; /* Actions chiếm toàn bộ chiều rộng card */
-  justify-content: center; /* Căn giữa các nút */
+  gap: 10px; 
+  width: 100%; 
+  justify-content: center; 
 }
 
 .request-action-btn {
-  flex-grow: 1; /* Các nút chia đều không gian */
+  flex-grow: 1; 
   padding: 8px 12px;
   font-size: 13px;
   font-weight: 500;
@@ -388,47 +404,60 @@
   cursor: pointer;
   border: 1px solid transparent;
   transition: background-color 0.2s, border-color 0.2s, color 0.2s;
-  max-width: 150px; /* Giới hạn chiều rộng nút */
+  max-width: 150px; 
 }
 
 .request-action-btn.withdraw-btn,
-.request-action-btn.ignore-btn {
+.request-action-btn.decline-btn {
   background-color: #e4e6eb;
   color: #1c1e21;
   border-color: #ced0d4;
 }
 .request-action-btn.withdraw-btn:hover,
-.request-action-btn.ignore-btn:hover {
+.request-action-btn.decline-btn:hover {
   background-color: #d8dade;
   border-color: #b0b3b8;
 }
 
-.request-action-btn.add-friend-btn {
-  background-color: #0068ff;
+.request-action-btn.add-friend-btn,
+.request-action-btn.accept-btn {
+  background-color: #007bff;
   color: #ffffff;
 }
-.request-action-btn.add-friend-btn:hover {
-  background-color: #0052cc;
+.request-action-btn.add-friend-btn:hover,
+.request-action-btn.accept-btn:hover {
+  background-color: #0056b3;
 }
-
-.request-action-btn.chat-icon-btn {
-    flex-grow: 0; /* Nút chat không chiếm không gian */
-    background-color: #e4e6eb;
-    color: #3c4043;
-    border-color: #ced0d4;
-    padding: 8px;
-    width: 36px; /* Vuông */
-    height: 36px;
-    font-size: 16px;
-}
-.request-action-btn.chat-icon-btn:hover {
-    background-color: #d8dade;
-}
-
 
 .no-requests-message {
     font-size: 13.5px;
     color: #606770;
     text-align: center;
     padding: 15px 0;
+}
+
+.request-action-feedback {
+  font-size: 0.8em;
+  color: #6c757d; 
+  margin-top: 4px;
+  display: block;
+}
+
+.loading-requests {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  font-size: 14px;
+  color: #606770;
+}
+
+.loading-requests .spinner-icon {
+  margin-right: 8px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }

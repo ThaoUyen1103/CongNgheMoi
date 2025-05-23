@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
-import axios from 'axios';
 import '../styles/UpdateInfoModal.css';
 
 const UpdateInfoModal = ({ isOpen, onClose, userData }) => {
@@ -9,20 +8,16 @@ const UpdateInfoModal = ({ isOpen, onClose, userData }) => {
   const [day, setDay] = useState('');
   const [month, setMonth] = useState('');
   const [year, setYear] = useState('');
-  const [form, setForm] = useState({
-    userName: userData?.userName || '',
-    gender: userData?.gender || '',
-    dateOfBirth: userData?.dateOfBirth || '',
-  });
+
   const mapGenderToUI = (value) => {
     if (!value) return '';
     return value.toLowerCase() === 'male' ? 'Nam' : value.toLowerCase() === 'female' ? 'Nữ' : '';
   };
+
   const mapGenderToServer = (value) => {
     if (!value) return '';
     return value === 'Nam' ? 'male' : value === 'Nữ' ? 'female' : '';
   };
-
 
   useEffect(() => {
     if (userData) {
@@ -33,47 +28,41 @@ const UpdateInfoModal = ({ isOpen, onClose, userData }) => {
       setYear(userData.dateOfBirth?.year || '2000');
     }
   }, [userData]);
-  useEffect(() => {
-    // Lấy user từ localStorage (login đã lưu)
-    const storedUser = JSON.parse(localStorage.getItem('user'));
 
+  useEffect(() => {
+    const storedUser = JSON.parse(localStorage.getItem('user'));
     if (storedUser) {
       setDisplayName(storedUser.userName || '');
-      if (storedUser) {
-        setDisplayName(storedUser.userName || '');
-        setGender(mapGenderToUI(storedUser.gender));
-
-      }
-
-
+      setGender(mapGenderToUI(storedUser.gender));
       const dob = storedUser.dateOfBirth || '01/01/2000';
       const [d, m, y] = dob.split('/');
       setDay(d || '01');
       setMonth(m || '01');
       setYear(y || '2000');
     }
-  }, [isOpen]); // Chỉ khi mở modal mới load
+  }, [isOpen]);
 
   useEffect(() => {
     const fetchUser = async () => {
       if (isOpen && userData?._id) {
         try {
-          const res = await axios.post('http://localhost:3001/user/findUserByUserID', {
-            user_id: userData._id,
+          const res = await fetch('http://localhost:3001/user/findUserByUserID', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userData._id }),
           });
 
-          const user = res.data.user;
+          const result = await res.json();
+          const user = result.user;
+
           if (user) {
             setDisplayName(user.userName || '');
-
             setGender(mapGenderToUI(user.gender));
-
             const dob = user.dateOfBirth || '01/01/2000';
             const [parsedDay, parsedMonth, parsedYear] = dob.split('/');
             setDay(parsedDay || '01');
             setMonth(parsedMonth || '01');
             setYear(parsedYear || '2000');
-
           }
         } catch (error) {
           console.error('Lỗi khi lấy thông tin người dùng:', error);
@@ -84,15 +73,12 @@ const UpdateInfoModal = ({ isOpen, onClose, userData }) => {
     fetchUser();
   }, [isOpen, userData]);
 
-
   if (!isOpen) return null;
 
   const days = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0'));
   const months = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 100 }, (_, i) => String(currentYear - i));
-
-
 
   const handleSubmit = async () => {
     try {
@@ -109,13 +95,12 @@ const UpdateInfoModal = ({ isOpen, onClose, userData }) => {
           gender: genderServer,
           dateOfBirth: formattedDOB,
         }),
-
       });
 
       const data = await response.json();
       if (data.message === 'Cập nhật thông tin thành công!!!') {
         alert('Cập nhật thành công!');
-        localStorage.setItem('user', JSON.stringify(data.user)); // cập nhật lại localStorage
+        localStorage.setItem('user', JSON.stringify(data.user));
         onClose();
       } else {
         alert('Cập nhật thất bại!');
@@ -125,7 +110,6 @@ const UpdateInfoModal = ({ isOpen, onClose, userData }) => {
       alert('Lỗi kết nối server!');
     }
   };
-
 
   const modalContent = (
     <div className="update-modal-overlay" onClick={onClose}>

@@ -39,7 +39,7 @@ router.get('/findAllUsers', userController.findAllUsers)
 
 router.put('/addFriend', userController.addFriend)
 
-// website findallW
+
 
 // router.post('/findUserWeb', userController.findUserByAccountIDWeb)
 
@@ -73,6 +73,9 @@ router.post('/sendFriendRequestWeb', userController.sendFriendRequestWeb)
 router.post('/acceptFriendRequestWeb', userController.acceptFriendRequestWeb)
 router.post('/cancelFriendRequestWeb', userController.cancelFriendRequestWeb)
 router.post('/deleteFriendRequestWeb', userController.deleteFriendRequestWeb)
+
+
+
 
 // old
 // router.post('/addFriendWeb', userController.addFriendWeb)

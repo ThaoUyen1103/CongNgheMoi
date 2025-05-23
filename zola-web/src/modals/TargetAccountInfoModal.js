@@ -1,28 +1,47 @@
-// thông tin chi tiết tài khoản của người dùng
-
-import React from 'react';
-import '../styles/TargetAccountInfoModal.css'; // Import CSS
-import { FaTimes, FaPhone, FaCommentDots } from 'react-icons/fa'; // Ví dụ icon
+import React, { useState, useEffect } from 'react';
+import '../styles/TargetAccountInfoModal.css';
+import { FaTimes, FaPhone, FaCommentDots } from 'react-icons/fa';
 
 function TargetAccountInfoModal({ isOpen, onClose, userData }) {
+  const [avatarLoadError, setAvatarLoadError] = useState(false);
+
+  useEffect(() => {
+    // Reset trạng thái lỗi mỗi khi modal mở với dữ liệu người dùng mới
+    if (isOpen) {
+      setAvatarLoadError(false);
+    }
+  }, [isOpen]);
+  
   if (!isOpen || !userData) {
     return null;
   }
 
-  // Sử dụng placeholder nếu thiếu thông tin
+  // === BẮT ĐẦU SỬA LỖI: Chuẩn hóa lại cách lấy dữ liệu ===
   const name = userData.name || "Không có tên";
-  const avatar = userData.avatar; // Chữ cái đầu
-  const avatarUrl = userData.avatarUrl; // URL ảnh
-  const coverPhotoUrl = userData.coverPhotoUrl || "https://via.placeholder.com/400x150?text=Ảnh+bìa"; // Placeholder
+  const avatarUrl = userData.avatar; // Chỉ sử dụng một biến duy nhất cho avatar từ props
+  const coverPhotoUrl = userData.coverPhotoUrl || "https://via.placeholder.com/400x150?text=Ảnh+bìa";
   const gender = userData.gender || "Chưa cập nhật";
   const dob = userData.dob || "Chưa cập nhật";
   const phone = userData.phone || "Chưa cập nhật";
+
+  // Component con để render avatar một cách an toàn
+  const SafeAvatar = () => {
+    const isValidUrl = typeof avatarUrl === 'string' && (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:image'));
+
+    if (avatarLoadError || !isValidUrl) {
+      const initials = name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || name.charAt(0).toUpperCase();
+      return <div className="avatar-content">{initials}</div>;
+    }
+
+    return <img src={avatarUrl} alt={name} onError={() => setAvatarLoadError(true)} />;
+  };
+  // === KẾT THÚC SỬA LỖI ===
 
   return (
     <div className={`target-account-info-overlay ${isOpen ? 'active' : ''}`} onMouseDown={onClose}>
       <div className="target-account-info-modal-content" onMouseDown={(e) => e.stopPropagation()}>
         <div className="target-account-info-header">
-          <span style={{width: '32px'}}></span> {/* Spacer để tiêu đề căn giữa */}
+          <span style={{width: '32px'}}></span>
           <h3>Thông tin tài khoản</h3>
           <button className="target-account-info-close-btn" onClick={onClose}>
             <FaTimes />
@@ -33,20 +52,15 @@ function TargetAccountInfoModal({ isOpen, onClose, userData }) {
           <div className="target-cover-photo">
             <img src={coverPhotoUrl} alt="Ảnh bìa" onError={(e) => e.target.src = "https://via.placeholder.com/400x150?text=Ảnh+bìa"} />
           </div>
+          {/* === SỬA LỖI: Thay thế toàn bộ logic cũ bằng SafeAvatar === */}
           <div className="target-profile-avatar-container">
-            {avatarUrl ? (
-              <img src={avatarUrl} alt={name} onError={(e) => e.target.style.display = 'none'}/>
-            ) : (
-              <div className="avatar-content">{avatar || name.charAt(0).toUpperCase()}</div>
-            )}
-             {/* Nếu avatarUrl lỗi hoặc không có, và avatar (chữ) cũng không có, thì hiển thị chữ cái đầu của tên */}
-            {!avatarUrl && !avatar && name && <div className="avatar-content">{name.charAt(0).toUpperCase()}</div>}
+            <SafeAvatar />
           </div>
+          {/* === KẾT THÚC SỬA LỖI === */}
         </div>
 
         <h2 className="target-profile-name">{name}</h2>
 
-        {/* Các nút hành động ví dụ */}
         <div className="target-profile-actions">
           <button className="target-profile-action-btn">
             <FaPhone style={{ marginRight: '5px' }} /> Gọi điện
@@ -71,15 +85,6 @@ function TargetAccountInfoModal({ isOpen, onClose, userData }) {
             <span>{phone}</span>
           </div>
         </div>
-        
-        {/* Các section khác có thể thêm ở đây */}
-        {/* Ví dụ:
-        <div className="target-details-section">
-          <h4>Hình ảnh</h4>
-          <p className="target-placeholder-text">Chưa có ảnh nào được chia sẻ.</p>
-        </div>
-        */}
-
       </div>
     </div>
   );

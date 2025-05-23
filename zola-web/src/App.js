@@ -1,23 +1,37 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import './App.css';
 import ZaloLogin from './screens/login';
 import ZaloRegistration from './screens/register';
 import OtpVerification from './screens/otpVerification';
-import ForgotPassword from './screens/ForgotPassword'; // THÊM IMPORT NÀY
-// import OtpResetPassword from './screens/otpResetPassword'; // Placeholder cho bước tiếp theo
+import ForgotPassword from './screens/ForgotPassword';
 import ZaloPCLayout from './layoutChat/ZaloPCLayout';
 
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(null); // ban đầu là null, chờ kiểm tra
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loggedIn = localStorage.getItem('isLoggedIn') === 'true';
+    setIsLoggedIn(loggedIn);
+    setLoading(false);
+  }, []);
 
   const handleLoginSuccess = () => {
+    localStorage.setItem('isLoggedIn', 'true');
     setIsLoggedIn(true);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('isLoggedIn');
+    setIsLoggedIn(false);
   };
 
   const handleRegisterSuccess = () => {
     console.log('Đăng ký thành công (cần qua bước OTP), chuyển về trang đăng nhập.');
   };
+
+  if (loading) return <div>Loading...</div>; // tránh nhảy lung tung trong khi chưa xác minh xong
 
   return (
     <Router>
@@ -45,12 +59,8 @@ function App() {
             }
           />
 
-          <Route
-            path="/otp-verification"
-            element={<OtpVerification />}
-          />
+          <Route path="/otp-verification" element={<OtpVerification />} />
 
-          {/* THÊM ROUTE CHO QUÊN MẬT KHẨU */}
           <Route
             path="/forgot-password"
             element={
@@ -62,31 +72,17 @@ function App() {
             }
           />
 
-          {/* ROUTE PLACEHOLDER CHO OTP ĐẶT LẠI MẬT KHẨU */}
-          {/*
-          <Route
-            path="/otp-reset-password"
-            element={
-              isLoggedIn ? (
-                <Navigate to="/app" replace />
-              ) : (
-                // <OtpResetPassword /> // Bạn sẽ tạo component này ở bước tiếp theo
-                <div>Trang Nhập OTP Để Đặt Lại Mật Khẩu (sẽ được tạo)</div>
-              )
-            }
-          />
-          */}
-
           <Route
             path="/app"
             element={
               isLoggedIn ? (
-                <ZaloPCLayout />
+                <ZaloPCLayout onLogout={handleLogout} />
               ) : (
                 <Navigate to="/login" replace />
               )
             }
           />
+
           <Route
             path="*"
             element={<Navigate to={isLoggedIn ? "/app" : "/login"} replace />}

@@ -36,21 +36,19 @@ function OtpVerification() {
   }, [resendTimer, canResend]);
 
   const handleChange = (element, index) => {
-    if (isNaN(element.value)) return false; // Chỉ cho phép nhập số
+    if (isNaN(element.value)) return false; 
 
     const newOtp = [...otp];
     newOtp[index] = element.value;
     setOtp(newOtp);
-    setError(''); // Xóa lỗi khi người dùng bắt đầu nhập
+    setError(''); 
 
-    // Chuyển focus sang input tiếp theo
     if (element.value !== "" && index < OTP_LENGTH - 1) {
       inputRefs.current[index + 1].focus();
     }
   };
 
   const handleKeyDown = (e, index) => {
-    // Chuyển focus về input trước đó khi nhấn Backspace và input hiện tại rỗng
     if (e.key === "Backspace" && !otp[index] && index > 0) {
       inputRefs.current[index - 1].focus();
     }

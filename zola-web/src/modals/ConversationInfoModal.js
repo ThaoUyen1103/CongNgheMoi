@@ -1,12 +1,10 @@
-// Thông tin chi tiết của nhóm
-
 import React, { useState, useMemo, useEffect } from 'react';
 import '../styles/ConversationInfoModal.css';
 import {
   FaTimes, FaUserPlus, FaBellSlash, FaThumbtack, FaEyeSlash, FaTrashAlt, FaBan,
   FaPhotoVideo, FaFileAlt, FaLink, FaUsers, FaExclamationTriangle, FaUserEdit, FaSignOutAlt, FaUserCog,
   FaFilm, FaFolderOpen, FaArrowLeft, FaSearch,
-  FaPen // Đã có sẵn trong import của bạn
+  FaPen
 } from 'react-icons/fa';
 import { FaUserPlus as FaUserPlusForAddMember } from 'react-icons/fa';
 
@@ -14,20 +12,7 @@ import AddMembersModal from './AddMembersModal';
 import TargetAccountInfoModal from './TargetAccountInfoModal';
 import GroupDetailsModal from './GroupDetailsModal';
 import ConfirmationDialog from './ConfirmationDialog';
-import RenameGroupModal from './RenameGroupModal'; // Import RenameGroupModal
-
-const mockContactsDataForAddModal = [
-    { id: 'userContact1', name: 'Nguyễn Văn A', avatarUrl: 'https://i.pravatar.cc/40?u=contactA', category: 'Bạn bè' },
-    { id: 'userContact2', name: 'Trần Thị B', avatarUrl: 'https://i.pravatar.cc/40?u=contactB', category: 'Đồng nghiệp' },
-    { id: 'userContact3', name: 'Lê Văn C', avatarUrl: null, category: 'Gia đình' },
-    { id: 'memExisting1', name: 'Thảo Uyên', avatarUrl: 'https://i.pravatar.cc/40?u=thao_uyen', category: 'Bạn bè' },
-    { id: 'memExisting2', name: 'Mạnh Developer', avatarUrl: 'https://i.pravatar.cc/40?u=manh_dev', category: 'Đồng nghiệp' },
-];
-const mockRecentConversationsDataForAddModal = [
-    mockContactsDataForAddModal[0],
-    mockContactsDataForAddModal[1],
-    mockContactsDataForAddModal[3], 
-];
+import RenameGroupModal from './RenameGroupModal';
 
 function ConversationInfoModal({ isOpen, onClose, chatData, currentUserId }) {
   const [activeStorageTab, setActiveStorageTab] = useState('media');
@@ -38,32 +23,33 @@ function ConversationInfoModal({ isOpen, onClose, chatData, currentUserId }) {
   const [isGroupDetailsModalOpen, setIsGroupDetailsModalOpen] = useState(false);
   const [isLeaveGroupConfirmOpen, setIsLeaveGroupConfirmOpen] = useState(false);
   const [isDisbandGroupConfirmOpen, setIsDisbandGroupConfirmOpen] = useState(false);
-  const [isHeaderRenameModalOpen, setIsHeaderRenameModalOpen] = useState(false); // State mới
+  const [isHeaderRenameModalOpen, setIsHeaderRenameModalOpen] = useState(false);
+  const [avatarLoadError, setAvatarLoadError] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setCurrentView('info');
       setSearchTerm('');
+      setAvatarLoadError(false);
     } else {
       setIsAddMembersModalOpen(false);
       setIsTargetAccountInfoModalOpen(false);
       setIsGroupDetailsModalOpen(false);
       setIsLeaveGroupConfirmOpen(false);
       setIsDisbandGroupConfirmOpen(false);
-      setIsHeaderRenameModalOpen(false); 
+      setIsHeaderRenameModalOpen(false);
     }
   }, [isOpen]);
 
   const currentMemberIdsInGroup = useMemo(() => {
     const idsFromChatData = chatData?.members?.map(m => m.id) || [];
-    const demoAlreadyInGroupIds = ['memExisting1', 'memExisting2'];
-    return Array.from(new Set([...idsFromChatData, ...demoAlreadyInGroupIds]));
+    return Array.from(new Set(idsFromChatData));
   }, [chatData?.members]);
 
   const enrichedChatData = useMemo(() => {
     if (chatData) {
         let generatedGroupLink;
-        const isAdmin = chatData.type === 'group' && chatData.adminId === currentUserId; 
+        const isAdmin = chatData.type === 'group' && chatData.adminId === currentUserId;
 
         if (chatData.type === 'group') {
             if (chatData.groupLink) {
@@ -71,7 +57,7 @@ function ConversationInfoModal({ isOpen, onClose, chatData, currentUserId }) {
             } else {
                 const idString = chatData.id != null ? String(chatData.id) : '';
                 const slicedId = idString.slice(0, 8);
-                generatedGroupLink = `https://zalo.me/g/${slicedId || 'testgroup123'}`; 
+                generatedGroupLink = `https://zalo.me/g/${slicedId || 'testgroup123'}`;
             }
         }
         return {
@@ -92,6 +78,19 @@ function ConversationInfoModal({ isOpen, onClose, chatData, currentUserId }) {
     return null;
   }
 
+  const SafeAvatar = ({ data }) => {
+    const avatarUrl = data?.avatar;
+    const name = data?.name || '?';
+    const isValidUrl = typeof avatarUrl === 'string' && (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:image'));
+
+    if (avatarLoadError || !isValidUrl) {
+      const initials = name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || name.charAt(0).toUpperCase();
+      return <span>{initials}</span>;
+    }
+
+    return <img src={avatarUrl} alt={name} onError={() => setAvatarLoadError(true)} />;
+  };
+
   const isGroup = enrichedChatData.type === 'group';
   const mediaMessages = enrichedChatData.messages?.filter(m => m.type === 'image' && m.imageUrl) || [];
   const fileMessages = enrichedChatData.messages?.filter(m => m.type === 'file') || [];
@@ -105,7 +104,7 @@ function ConversationInfoModal({ isOpen, onClose, chatData, currentUserId }) {
     return 0;
   }
   const memberCountDisplay = getMemberCountForDisplay(enrichedChatData);
-  
+
   const handleHeaderEntityClick = () => {
     if (isGroup) {
         setIsGroupDetailsModalOpen(true);
@@ -115,7 +114,7 @@ function ConversationInfoModal({ isOpen, onClose, chatData, currentUserId }) {
   };
 
   const handleOpenRenameModalFromHeader = (e) => {
-    e.stopPropagation(); 
+    e.stopPropagation();
     if (isGroup && enrichedChatData.currentUserIsAdmin) {
       setIsHeaderRenameModalOpen(true);
     }
@@ -123,64 +122,65 @@ function ConversationInfoModal({ isOpen, onClose, chatData, currentUserId }) {
 
   const handleAction = (action, data = null) => {
     if (action === 'view_all_members') {
-      setCurrentView('memberList'); 
-    } else if (action === 'request_add_member_view' || action === 'add_member_to_group') { 
+      setCurrentView('memberList');
+    } else if (action === 'request_add_member_view' || action === 'add_member_to_group') {
       setIsAddMembersModalOpen(true);
     } else if (action === 'connect_friend') {
       console.log('Request to connect with member ID:', data);
     }
-    else if (action === 'leave_group' && isGroup) { 
+    else if (action === 'leave_group' && isGroup) {
         requestLeaveGroupConfirmation();
     } else {
       console.log(`Action: ${action}`, data ? `with data: ${JSON.stringify(data)}` : `on chat ID: ${enrichedChatData.id}, Name: ${enrichedChatData.name}`);
     }
   };
-  
+
   const handleConfirmAddMembers = (newUserIds) => {
     console.log('Thêm các thành viên mới vào nhóm (ID):', newUserIds);
     setIsAddMembersModalOpen(false);
   };
+
   const handleBackToInfo = () => {
     setCurrentView('info');
   };
+
   const handleManageMembersInGroupDetails = () => {
-    setIsGroupDetailsModalOpen(false); 
-    setCurrentView('memberList');    
+    setIsGroupDetailsModalOpen(false);
+    setCurrentView('memberList');
     setSearchTerm('');
   };
 
   const requestLeaveGroupConfirmation = () => {
     setIsLeaveGroupConfirmOpen(true);
   };
+
   const executeLeaveGroup = () => {
     console.log("Đã xác nhận rời nhóm:", enrichedChatData.id);
     setIsLeaveGroupConfirmOpen(false);
     setIsGroupDetailsModalOpen(false);
-    onClose(); 
+    onClose();
   };
 
   const handleRenameGroupConfirmed = (newName) => {
     console.log(`Yêu cầu đổi tên nhóm ${enrichedChatData.id} thành: ${newName} (từ GroupDetailsModal)`);
     alert(`Đã đổi tên nhóm thành: ${newName} (cần logic cập nhật thực tế)`);
-    // Chỗ này sẽ cập nhật state hoặc gọi API, sau đó có thể cần đóng GroupDetailsModal nếu nó đang mở
-    // Hoặc refresh data.
   };
 
   const handleConfirmRenameFromHeader = (newName) => {
     console.log(`Yêu cầu đổi tên nhóm ${enrichedChatData.id} thành: ${newName} (từ Header)`);
     alert(`Đã đổi tên nhóm thành: ${newName} (cần logic cập nhật thực tế)`);
     setIsHeaderRenameModalOpen(false);
-    // Tương tự, cần logic cập nhật dữ liệu thực tế
   };
 
   const requestDisbandGroupConfirmation = () => {
     setIsDisbandGroupConfirmOpen(true);
   };
+
   const executeDisbandGroup = () => {
     console.log("Đã xác nhận GIẢI TÁN nhóm:", enrichedChatData.id);
     setIsDisbandGroupConfirmOpen(false);
     setIsGroupDetailsModalOpen(false);
-    onClose(); 
+    onClose();
   };
 
   const members = enrichedChatData?.members || [];
@@ -195,7 +195,7 @@ function ConversationInfoModal({ isOpen, onClose, chatData, currentUserId }) {
       .slice(0, 4)
     : [];
 
-  const renderStorageTabContent = () => { 
+  const renderStorageTabContent = () => {
     switch (activeStorageTab) {
       case 'media':
         return (
@@ -259,8 +259,9 @@ function ConversationInfoModal({ isOpen, onClose, chatData, currentUserId }) {
         return null;
     }
   };
-  const renderMemberListContent = () => { 
-    if (!isGroup) return null; 
+
+  const renderMemberListContent = () => {
+    if (!isGroup) return null;
 
     return (
       <>
@@ -303,7 +304,7 @@ function ConversationInfoModal({ isOpen, onClose, chatData, currentUserId }) {
                     <span className="member-role">{member.role}</span>
                   )}
                 </div>
-                {member.id !== currentUserId && !member.isCurrentUser && ( 
+                {member.id !== currentUserId && !member.isCurrentUser && (
                     <button className="member-action-btn" onClick={() => handleAction('connect_friend', member.id)}>
                         Kết bạn
                     </button>
@@ -319,42 +320,41 @@ function ConversationInfoModal({ isOpen, onClose, chatData, currentUserId }) {
       </>
     );
   };
-  const renderInfoContent = () => { 
+
+  const renderInfoContent = () => {
     return (
     <>
       <div className="conv-info-header">
         <button className="modal-close-btn-conv-info" onClick={onClose} title="Đóng">
           <FaTimes />
         </button>
-        <div 
+        <div
           className={`avatar modal-avatar ${isGroup ? 'group-avatar' : 'user-avatar'} ${enrichedChatData.online && !isGroup ? 'online' : ''}`}
-          onClick={handleHeaderEntityClick} 
-          style={{ cursor: 'pointer' }} 
+          onClick={handleHeaderEntityClick}
+          style={{ cursor: 'pointer' }}
         >
-          {enrichedChatData.avatarUrl ? <img src={enrichedChatData.avatarUrl} alt={enrichedChatData.name} /> : enrichedChatData.avatar}
+          <SafeAvatar data={enrichedChatData} />
           {enrichedChatData.online && !isGroup && <span className="online-indicator"></span>}
         </div>
         <div className="conv-info-name-wrapper">
-            <h2 
-            onClick={handleHeaderEntityClick} 
+            <h2
+            onClick={handleHeaderEntityClick}
             style={{ cursor: 'pointer', display: 'inline-block' }}
             title={isGroup ? "Xem thông tin nhóm" : "Xem thông tin tài khoản"}
             >
             {enrichedChatData.name}
             </h2>
             {isGroup && enrichedChatData.currentUserIsAdmin && (
-            <FaPen 
-                className="conv-info-rename-group-icon" 
+            <FaPen
+                className="conv-info-rename-group-icon"
                 title="Đổi tên nhóm"
                 onClick={handleOpenRenameModalFromHeader}
             />
             )}
         </div>
-        
         {isGroup && <p>{memberCountDisplay} thành viên</p>}
         {!isGroup && <p className={enrichedChatData.online ? 'status-online' : 'status-offline'}>{enrichedChatData.online ? "Đang hoạt động" : "Không hoạt động"}</p>}
       </div>
-
       <div className="conv-info-actions-bar">
         <button className="conv-action-item-bar" onClick={() => handleAction('toggle_notifications')}>
           <FaBellSlash /> <span>Thông báo</span>
@@ -371,90 +371,85 @@ function ConversationInfoModal({ isOpen, onClose, chatData, currentUserId }) {
           </button>
         )}
       </div>
-
       <div className="conv-info-body">
-          <div className="conv-info-section storage-section">
-            <div className="storage-tabs-nav">
-              <button
-                className={`storage-tab-btn ${activeStorageTab === 'media' ? 'active' : ''}`}
-                onClick={() => setActiveStorageTab('media')}
-              >
-                <FaPhotoVideo /> Ảnh/Video ({sharedMediaCount})
-              </button>
-              <button
-                className={`storage-tab-btn ${activeStorageTab === 'files' ? 'active' : ''}`}
-                onClick={() => setActiveStorageTab('files')}
-              >
-                <FaFolderOpen /> File ({sharedFilesCount})
-              </button>
-              <button
-                className={`storage-tab-btn ${activeStorageTab === 'links' ? 'active' : ''}`}
-                onClick={() => setActiveStorageTab('links')}
-              >
-                <FaLink /> Link ({sharedLinksCount})
-              </button>
+        <div className="conv-info-section storage-section">
+          <div className="storage-tabs-nav">
+            <button
+              className={`storage-tab-btn ${activeStorageTab === 'media' ? 'active' : ''}`}
+              onClick={() => setActiveStorageTab('media')}
+            >
+              <FaPhotoVideo /> Ảnh/Video ({sharedMediaCount})
+            </button>
+            <button
+              className={`storage-tab-btn ${activeStorageTab === 'files' ? 'active' : ''}`}
+              onClick={() => setActiveStorageTab('files')}
+            >
+              <FaFolderOpen /> File ({sharedFilesCount})
+            </button>
+            <button
+              className={`storage-tab-btn ${activeStorageTab === 'links' ? 'active' : ''}`}
+              onClick={() => setActiveStorageTab('links')}
+            >
+              <FaLink /> Link ({sharedLinksCount})
+            </button>
+          </div>
+          {renderStorageTabContent()}
+        </div>
+        {isGroup && (
+          <div className="conv-info-section">
+            <h3>Thành viên ({memberCountDisplay})</h3>
+            <div className="member-list-preview">
+              {uniqueSendersPreview.map((senderName, idx) => (
+                <div key={idx} className="avatar member-avatar-small" title={senderName}>{senderName.charAt(0).toUpperCase()}</div>
+              ))}
             </div>
-            {renderStorageTabContent()}
-          </div>
-
-          {isGroup && (
-          <div className="conv-info-section">
-              <h3>Thành viên ({memberCountDisplay})</h3>
-              <div className="member-list-preview">
-                  {uniqueSendersPreview.map((senderName, idx) => (
-                      <div key={idx} className="avatar member-avatar-small" title={senderName}>{senderName.charAt(0).toUpperCase()}</div>
-                  ))}
-              </div>
-              <div className="conv-info-item" onClick={() => handleAction('view_all_members')}>
-                  <FaUsers /> Xem danh sách thành viên
-              </div>
-              <div className="conv-info-item" onClick={() => handleAction('add_member_to_group')}>
+            <div className="conv-info-item" onClick={() => handleAction('view_all_members')}>
+              <FaUsers /> Xem danh sách thành viên
+            </div>
+            <div className="conv-info-item" onClick={() => handleAction('add_member_to_group')}>
               <FaUserPlus /> Thêm thành viên
-              </div>
+            </div>
           </div>
-          )}
-
-          {!isGroup && (
+        )}
+        {!isGroup && (
           <div className="conv-info-section">
-              <h3>Tuỳ chọn</h3>
-              <div className="conv-info-item" onClick={() => handleAction('create_group_with_user')}>
+            <h3>Tuỳ chọn</h3>
+            <div className="conv-info-item" onClick={() => handleAction('create_group_with_user')}>
               <FaUserPlus /> Tạo nhóm với {enrichedChatData.name}
-              </div>
-              <div className="conv-info-item" onClick={() => handleAction('view_common_groups')}>
+            </div>
+            <div className="conv-info-item" onClick={() => handleAction('view_common_groups')}>
               <FaUsers /> Xem nhóm chung
-              </div>
+            </div>
           </div>
-          )}
-
-          <div className="conv-info-section conv-info-danger-zone">
+        )}
+        <div className="conv-info-section conv-info-danger-zone">
           <h3>Thiết lập bảo mật & khác</h3>
           {isGroup && (
-                  <div className="conv-info-item" onClick={() => handleAction('group_settings')}>
-                      <FaUserEdit /> Tuỳ chỉnh nhóm
-                  </div>
+            <div className="conv-info-item" onClick={() => handleAction('group_settings')}>
+              <FaUserEdit /> Tuỳ chỉnh nhóm
+            </div>
           )}
           <div className="conv-info-item danger" onClick={() => handleAction('delete_history')}>
-              <FaTrashAlt /> Xóa lịch sử trò chuyện
+            <FaTrashAlt /> Xóa lịch sử trò chuyện
           </div>
           {!isGroup && (
-              <div className="conv-info-item danger" onClick={() => handleAction('block_user')}>
+            <div className="conv-info-item danger" onClick={() => handleAction('block_user')}>
               <FaBan /> Chặn {enrichedChatData.name}
-              </div>
+            </div>
           )}
-              <div className="conv-info-item danger" onClick={() => handleAction('report_user_or_group')}>
-              <FaExclamationTriangle /> Báo xấu
+          <div className="conv-info-item danger" onClick={() => handleAction('report_user_or_group')}>
+            <FaExclamationTriangle /> Báo xấu
           </div>
           {isGroup && (
-              <div className="conv-info-item danger" onClick={() => handleAction('leave_group')}>
+            <div className="conv-info-item danger" onClick={() => handleAction('leave_group')}>
               <FaSignOutAlt /> Rời nhóm
-              </div>
+            </div>
           )}
-          </div>
+        </div>
       </div>
     </>
     );
   };
-
 
   return (
     <>
@@ -468,22 +463,20 @@ function ConversationInfoModal({ isOpen, onClose, chatData, currentUserId }) {
         isOpen={isAddMembersModalOpen}
         onClose={() => setIsAddMembersModalOpen(false)}
         onConfirm={handleConfirmAddMembers}
-        recentConversations={mockRecentConversationsDataForAddModal}
-        contacts={mockContactsDataForAddModal}
         currentGroupMemberIds={currentMemberIdsInGroup}
       />
 
       <TargetAccountInfoModal
         isOpen={isTargetAccountInfoModalOpen}
         onClose={() => setIsTargetAccountInfoModalOpen(false)}
-        userData={enrichedChatData} 
+        userData={enrichedChatData}
       />
 
       <GroupDetailsModal
         isOpen={isGroupDetailsModalOpen}
         onClose={() => setIsGroupDetailsModalOpen(false)}
-        groupData={enrichedChatData} 
-        onManageMembers={handleManageMembersInGroupDetails} 
+        groupData={enrichedChatData}
+        onManageMembers={handleManageMembersInGroupDetails}
         onLeaveGroup={requestLeaveGroupConfirmation}
         onRenameGroup={handleRenameGroupConfirmed}
         onDisbandGroup={requestDisbandGroupConfirmation}

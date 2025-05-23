@@ -115,45 +115,69 @@ class ConversationController {
     }
 
     //api tạo nhóm trò chuyện
-    async createConversationsGroupWeb(req, res) {
-        const user_id = req.body.user_id
-        const friend_ids = req.body.friend_ids
-        const groupLeader = req.body.user_id
-        const conversationName = req.body.conversationName
+   async createConversationsGroupWeb(req, res) {
+    const user_id_creator = req.body.user_id; // ID của người tạo, cũng là trưởng nhóm
+    const friend_ids = req.body.friend_ids;
+    const conversationName = req.body.conversationName;
 
-        // Kiểm tra rỗng các id thì trả về lỗi
-        if (!user_id || !friend_ids || friend_ids.length === 0) {
-            console.log('Không tìm thấy user_id hoặc friend_ids!!!')
-            return res.status(200).json({
-                message: 'Không tìm thấy user_id hoặc friend_ids!!!',
-            })
+    if (!user_id_creator || !friend_ids || !Array.isArray(friend_ids) || friend_ids.length === 0) {
+        console.log('Không tìm thấy user_id hoặc friend_ids không hợp lệ!!!');
+        return res.status(400).json({ // Nên dùng 400 Bad Request cho lỗi đầu vào
+            message: 'Không tìm thấy user_id hoặc friend_ids không hợp lệ!!!',
+        });
+    }
+    if (!conversationName || conversationName.trim() === '') {
+        return res.status(400).json({ message: 'Tên nhóm không được để trống.' });
+    }
+    // Giả sử nhóm cần ít nhất 3 người (1 người tạo + 2 người bạn)
+    if (friend_ids.length < 2) {
+        return res.status(400).json({ message: 'Nhóm phải có ít nhất 3 thành viên (bao gồm bạn).' });
+    }
+
+
+    const members = [user_id_creator, ...friend_ids];
+    
+    try {
+        const creator = await User.findById(user_id_creator).lean();
+        if (!creator) {
+            return res.status(404).json({ message: 'Không tìm thấy người dùng tạo nhóm.' });
         }
-        const members = [user_id, ...friend_ids]
+        const actualGroupLeaderName = creator.userName; // Lấy userName của người tạo
+
         const conversation = new Conversation({
             members,
-            groupLeader,
+            groupLeader: user_id_creator, 
             conversationName,
-        })
+        });
 
-        await conversation
-            .save()
-            .then(() => {
-                console.log('Tạo conversationGroup thành công!!!')
-                emitGroupEvent(conversation._id, 'group-created', { conversationName, userName: groupLeaderName });
+        await conversation.save(); 
 
-                return res.status(200).json({
-                    message: 'Tạo conversationGroup thành công!!!',
-                    conversation: conversation,
-                })
-            })
-            .catch((err) => {
-                console.error(err) // log lỗi
-                return res.status(200).json({
-                    message: 'Lỗi khi tạo conversation!!!',
-                    error: err.message, // thêm chi tiết lỗi
-                })
-            })
+        console.log('Tạo conversationGroup thành công!!!');
+        if (typeof emitGroupEvent === 'function') {
+            emitGroupEvent(conversation._id.toString(), 'group-created', { 
+                conversationId: conversation._id.toString(),
+                conversationName: conversation.conversationName, 
+                creatorName: actualGroupLeaderName, // SỬA Ở ĐÂY
+                members: conversation.members,
+                groupLeader: conversation.groupLeader 
+            });
+        } else {
+            console.warn("emitGroupEvent is not a function or not available.");
+        }
+
+        return res.status(200).json({
+            message: 'Tạo conversationGroup thành công!!!',
+            conversation: conversation,
+        });
+
+    } catch (err) {
+        console.error('Lỗi khi tạo conversationGroup:', err);
+        return res.status(500).json({ // Dùng 500 Internal Server Error cho lỗi server
+            message: 'Lỗi khi tạo conversation!!!',
+            error: err.message,
+        });
     }
+}
 
     // xây dựng 1 api thêm thành viên nhóm addMemberToConversationGroupWeb
     async addMemberToConversationGroupWeb(req, res) {

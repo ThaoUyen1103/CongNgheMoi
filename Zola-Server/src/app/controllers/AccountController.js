@@ -12,6 +12,7 @@ const createToken = (accountId) => {
     return token
 }
 
+
 class AccountController {
     // POST http://localhost:3001/account/login WEb
     async loginWeb(req, res) {

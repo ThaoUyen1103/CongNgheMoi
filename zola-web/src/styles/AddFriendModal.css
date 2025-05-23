@@ -242,3 +242,26 @@
 .search-btn-modal:hover {
   background-color: #005ae0;
 }
+
+.add-friend-btn-item.cancel-request-btn {
+  background-color: #f0f2f5; /* Màu nền xám nhạt */
+  color: #606770; /* Màu chữ xám đậm */
+  border-color: #ced0d4; 
+}
+
+.add-friend-btn-item.cancel-request-btn:hover {
+  background-color: #e4e6eb; /* Hơi đậm hơn khi hover */
+}
+
+/* Tin nhắn thông báo hành động */
+.add-friend-message {
+  padding: 8px;
+  margin-top: 10px;
+  margin-bottom: 10px;
+  border-radius: 4px;
+  text-align: center;
+  font-size: 14px;
+  color: #0f5132; /* Màu xanh lá cho thành công, có thể thay đổi */
+  background-color: #d1e7dd; /* Nền xanh lá nhạt */
+  border: 1px solid #badbcc;
+}
