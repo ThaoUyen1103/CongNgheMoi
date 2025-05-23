@@ -9,7 +9,7 @@ import ForgotPassword from './screens/ForgotPassword'; // THÊM IMPORT NÀY
 import ZaloPCLayout from './layoutChat/ZaloPCLayout';
 
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   const handleLoginSuccess = () => {
     setIsLoggedIn(true);
@@ -33,27 +33,21 @@ function App() {
               )
             }
           />
-          
+
           <Route
             path="/register"
             element={
               isLoggedIn ? (
                 <Navigate to="/app" replace />
               ) : (
-                <ZaloRegistration onRegisterSuccess={handleRegisterSuccess} /> 
+                <ZaloRegistration onRegisterSuccess={handleRegisterSuccess} />
               )
             }
           />
 
           <Route
             path="/otp-verification"
-            element={
-              isLoggedIn ? (
-                <Navigate to="/app" replace />
-              ) : (
-                <OtpVerification /> 
-              )
-            }
+            element={<OtpVerification />}
           />
 
           {/* THÊM ROUTE CHO QUÊN MẬT KHẨU */}
@@ -61,13 +55,13 @@ function App() {
             path="/forgot-password"
             element={
               isLoggedIn ? (
-                <Navigate to="/app" replace /> 
+                <Navigate to="/app" replace />
               ) : (
                 <ForgotPassword />
               )
             }
           />
-          
+
           {/* ROUTE PLACEHOLDER CHO OTP ĐẶT LẠI MẬT KHẨU */}
           {/*
           <Route

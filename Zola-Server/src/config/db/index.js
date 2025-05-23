@@ -1,17 +1,17 @@
 import mongoose from 'mongoose'
-import dotenv from 'dotenv'
-
-dotenv.config()
 
 async function connect() {
     try {
-        await mongoose.connect(process.env.MONGO_URI, {
+        await mongoose.connect('mongodb+srv://zola:sapassword@cluster0.zidv2ja.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0', {
             useNewUrlParser: true,
             useUnifiedTopology: true,
+            serverSelectionTimeoutMS: 30000,
+            socketTimeoutMS: 45000,
         })
         console.log('Connect to Database successfully!!!')
     } catch (err) {
         console.log('Connect failure!!!')
+        console.error(err)
     }
 }
 

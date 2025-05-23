@@ -8,7 +8,7 @@ router.post('/loginWeb', accountController.loginWeb)
 // router.post('/login-phone', accountController.loginphone)
 router.post('/loginPhoneWeb', accountController.loginPhoneWeb)
 router.post('/addAccountWeb', accountController.registerWeb)
-
+router.get('/check-phone', accountController.checkPhoneNumberExists);
 router.post('/forgot-account', accountController.forgot)
 
 // viết 1 router đổi mật khẩu

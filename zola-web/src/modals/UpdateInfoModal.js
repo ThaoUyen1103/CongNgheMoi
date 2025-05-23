@@ -1,25 +1,89 @@
-// Cập nhật hồ sơ cá nhân
-
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
-import '../styles/UpdateInfoModal.css'; // Đảm bảo bạn có CSS cho nút quay lại nếu cần
+import axios from 'axios';
+import '../styles/UpdateInfoModal.css';
 
-const UpdateInfoModal = ({ isOpen, onClose, userData, onUpdate }) => {
+const UpdateInfoModal = ({ isOpen, onClose, userData }) => {
   const [displayName, setDisplayName] = useState('');
   const [gender, setGender] = useState('');
   const [day, setDay] = useState('');
   const [month, setMonth] = useState('');
   const [year, setYear] = useState('');
+  const [form, setForm] = useState({
+    userName: userData?.userName || '',
+    gender: userData?.gender || '',
+    dateOfBirth: userData?.dateOfBirth || '',
+  });
+  const mapGenderToUI = (value) => {
+    if (!value) return '';
+    return value.toLowerCase() === 'male' ? 'Nam' : value.toLowerCase() === 'female' ? 'Nữ' : '';
+  };
+  const mapGenderToServer = (value) => {
+    if (!value) return '';
+    return value === 'Nam' ? 'male' : value === 'Nữ' ? 'female' : '';
+  };
+
 
   useEffect(() => {
     if (userData) {
-      setDisplayName(userData.name || '');
-      setGender(userData.gender || 'Nam');
-      setDay(userData.dob?.day || '01');
-      setMonth(userData.dob?.month || '01');
-      setYear(userData.dob?.year || '2002');
+      setDisplayName(userData.userName || '');
+      setGender(mapGenderToUI(userData.gender));
+      setDay(userData.dateOfBirth?.day || '01');
+      setMonth(userData.dateOfBirth?.month || '01');
+      setYear(userData.dateOfBirth?.year || '2000');
     }
   }, [userData]);
+  useEffect(() => {
+    // Lấy user từ localStorage (login đã lưu)
+    const storedUser = JSON.parse(localStorage.getItem('user'));
+
+    if (storedUser) {
+      setDisplayName(storedUser.userName || '');
+      if (storedUser) {
+        setDisplayName(storedUser.userName || '');
+        setGender(mapGenderToUI(storedUser.gender));
+
+      }
+
+
+      const dob = storedUser.dateOfBirth || '01/01/2000';
+      const [d, m, y] = dob.split('/');
+      setDay(d || '01');
+      setMonth(m || '01');
+      setYear(y || '2000');
+    }
+  }, [isOpen]); // Chỉ khi mở modal mới load
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      if (isOpen && userData?._id) {
+        try {
+          const res = await axios.post('http://localhost:3001/user/findUserByUserID', {
+            user_id: userData._id,
+          });
+
+          const user = res.data.user;
+          if (user) {
+            setDisplayName(user.userName || '');
+
+            setGender(mapGenderToUI(user.gender));
+
+            const dob = user.dateOfBirth || '01/01/2000';
+            const [parsedDay, parsedMonth, parsedYear] = dob.split('/');
+            setDay(parsedDay || '01');
+            setMonth(parsedMonth || '01');
+            setYear(parsedYear || '2000');
+
+          }
+        } catch (error) {
+          console.error('Lỗi khi lấy thông tin người dùng:', error);
+        }
+      }
+    };
+
+    fetchUser();
+  }, [isOpen, userData]);
+
 
   if (!isOpen) return null;
 
@@ -28,25 +92,52 @@ const UpdateInfoModal = ({ isOpen, onClose, userData, onUpdate }) => {
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 100 }, (_, i) => String(currentYear - i));
 
-  const handleSubmit = () => {
-    onUpdate({
-      name: displayName,
-      gender,
-      dob: { day, month, year },
-    });
+
+
+  const handleSubmit = async () => {
+    try {
+      const formattedDOB = `${day}/${month}/${year}`;
+      const storedUser = JSON.parse(localStorage.getItem('user'));
+      const genderServer = mapGenderToServer(gender);
+
+      const response = await fetch('http://localhost:3001/user/updateUserWeb', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: storedUser._id,
+          userName: displayName,
+          gender: genderServer,
+          dateOfBirth: formattedDOB,
+        }),
+
+      });
+
+      const data = await response.json();
+      if (data.message === 'Cập nhật thông tin thành công!!!') {
+        alert('Cập nhật thành công!');
+        localStorage.setItem('user', JSON.stringify(data.user)); // cập nhật lại localStorage
+        onClose();
+      } else {
+        alert('Cập nhật thất bại!');
+      }
+    } catch (err) {
+      console.error('Lỗi khi cập nhật thông tin:', err);
+      alert('Lỗi kết nối server!');
+    }
   };
 
+
   const modalContent = (
-    <div className="update-modal-overlay" onClick={onClose}> {/* Kích lớp phủ cũng sẽ quay lại */}
-      <div className="update-modal-content" onClick={e => e.stopPropagation()}>
+    <div className="update-modal-overlay" onClick={onClose}>
+      <div className="update-modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="update-modal-header">
-          {/* Nút mũi tên quay lại */}
           <button className="update-modal-back-btn" onClick={onClose}>
-            &#x2190; {/* Ký tự mũi tên trái */}
+            &#x2190;
           </button>
           <h2>Cập nhật thông tin cá nhân</h2>
           <button className="update-modal-close-btn" onClick={onClose}>✕</button>
         </div>
+
         <div className="update-modal-body">
           <div className="form-group">
             <label htmlFor="displayName">Tên hiển thị</label>
@@ -59,7 +150,7 @@ const UpdateInfoModal = ({ isOpen, onClose, userData, onUpdate }) => {
           </div>
 
           <div className="form-group">
-            <label>Thông tin cá nhân</label>
+            <label>Giới tính</label>
             <div className="gender-options">
               <label htmlFor="male">
                 <input
@@ -90,19 +181,19 @@ const UpdateInfoModal = ({ isOpen, onClose, userData, onUpdate }) => {
             <label>Ngày sinh</label>
             <div className="dob-selects">
               <select value={day} onChange={(e) => setDay(e.target.value)}>
-                {days.map(d => <option key={d} value={d}>{d}</option>)}
+                {days.map((d) => <option key={d} value={d}>{d}</option>)}
               </select>
               <select value={month} onChange={(e) => setMonth(e.target.value)}>
-                {months.map(m => <option key={m} value={m}>{m}</option>)}
+                {months.map((m) => <option key={m} value={m}>{m}</option>)}
               </select>
               <select value={year} onChange={(e) => setYear(e.target.value)}>
-                {years.map(y => <option key={y} value={y}>{y}</option>)}
+                {years.map((y) => <option key={y} value={y}>{y}</option>)}
               </select>
             </div>
           </div>
         </div>
+
         <div className="update-modal-footer">
-          {/* Nút Hủy giờ cũng sẽ gọi props.onClose để quay lại */}
           <button className="cancel-btn" onClick={onClose}>Hủy</button>
           <button className="submit-btn" onClick={handleSubmit}>Cập nhật</button>
         </div>
@@ -110,10 +201,7 @@ const UpdateInfoModal = ({ isOpen, onClose, userData, onUpdate }) => {
     </div>
   );
 
-  return ReactDOM.createPortal(
-    modalContent,
-    document.getElementById('modal-root')
-  );
+  return ReactDOM.createPortal(modalContent, document.getElementById('modal-root'));
 };
 
 export default UpdateInfoModal;

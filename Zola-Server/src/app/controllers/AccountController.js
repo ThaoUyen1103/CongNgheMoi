@@ -3,6 +3,8 @@ import { HTTP_STATUS_BAD_REQUEST } from '../../util/erorCode.js'
 import User from '../models/User.js'
 import { response } from 'express'
 
+
+
 import jwt from 'jsonwebtoken'
 const createToken = (accountId) => {
     const payload = { accountId: accountId }
@@ -16,48 +18,89 @@ class AccountController {
         console.log('Đang đăng nhập')
 
         const { phoneNumber, password } = req.body
-        const data = [phoneNumber, password]
-        console.log('data: ' + JSON.stringify(data))
+        const account = await Account.findOne({ phoneNumber })
 
-        const account = await Account.findOne({ phoneNumber: phoneNumber })
         if (!account) {
-            return res.status(200).json({
-                message: 'Account not found!!!',
-            })
+            return res.status(200).json({ message: 'Account not found!!!' })
         }
+
         if (account.password !== password) {
             return res.status(200).json({ message: 'Password not match!!!' })
         }
-        // lấy biến account_id từ account
-        const account_id = account._id
-        if (account && account.password === password) {
-            console.log('Đăng nhập thành công')
-            res.status(200).json({
-                message: 'Login successfully!!!',
-                account_id: account_id,
-            })
-        }
+
+        const user = await User.findOne({ account_id: account._id });
+
+        console.log('Đăng nhập thành công')
+        return res.status(200).json({
+            message: 'Login successfully!!!',
+            account_id: account._id,
+            user: user || null, // user có thể null nếu chưa tạo user
+        })
     }
 
     // post /register
-    async registerWeb(req, res) {
-        const { phoneNumber, password } = req.body
 
-        const account = new Account({ phoneNumber, password })
-        await account
-            .save()
-            .then(() => {
-                // Gửi phản hồi trả về client
-                res.status(200).json({
-                    message: 'Đăng ký thành công!!!',
-                    account_id: account._id,
-                })
-            })
-            .catch((err) => {
-                console.error('lỗi này', err)
-                res.status(500).json({ message: 'Register failure!!!' })
-            })
+
+
+    async registerWeb(req, res) {
+        const { phoneNumber, password, fullName, dateOfBirth, gender } = req.body;
+
+        try {
+            const existingAccount = await Account.findOne({ phoneNumber });
+            if (existingAccount) {
+                return res.status(400).json({ message: 'Số điện thoại đã được đăng ký!' });
+            }
+
+            const account = new Account({ phoneNumber, password });
+            await account.save();
+
+            // 👉 Split họ tên để lấy firstName, lastName
+            const nameParts = fullName.trim().split(' ');
+            const lastName = nameParts[0];
+            const firstName = nameParts.slice(1).join(' ') || '';
+
+            const user = new User({
+                account_id: account._id,
+                userName: fullName,
+                firstName,
+                lastName,
+                phoneNumber,
+                dateOfBirth,
+                gender,
+                avatar: 'https://i.imgur.com/0y0y0y0.png', // default avatar
+                conversation_id: [],
+                friend: [],
+                deleteFriend: [],
+            });
+
+            await user.save();
+
+            res.status(200).json({
+                message: 'Đăng ký thành công!!!',
+                account_id: account._id,
+            });
+        } catch (err) {
+            console.error('❌ Lỗi khi đăng ký:', err);
+            res.status(500).json({ message: 'Đăng ký thất bại!' });
+        }
     }
+
+
+    //get check phone 
+    async checkPhoneNumberExists(req, res) {
+        const { phoneNumber } = req.query;
+        try {
+            const account = await Account.findOne({ phoneNumber });
+            if (account) {
+                return res.status(200).json({ exists: true });
+            }
+            return res.status(200).json({ exists: false });
+        } catch (error) {
+            console.error('Lỗi kiểm tra số điện thoại:', error);
+            return res.status(500).json({ message: 'Lỗi server' });
+        }
+    }
+
 
     // POST WEb
     async loginPhoneWeb(req, res) {

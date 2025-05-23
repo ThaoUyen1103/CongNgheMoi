@@ -27,18 +27,46 @@ function SettingsModal({ isOpen, onClose }) {
     { id: 'utilities', label: 'Tiện ích', icon: <FaPuzzlePiece /> },
   ];
 
-  const handlePasswordChangeSubmit = (e) => {
+  const handlePasswordChangeSubmit = async (e) => {
     e.preventDefault();
+
     if (newPassword !== confirmNewPassword) {
       alert('Mật khẩu mới không khớp!');
       return;
     }
-    console.log('Đổi mật khẩu:', { currentPassword, newPassword });
-    alert('Mật khẩu đã được thay đổi (giả lập)!');
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmNewPassword('');
-    setActiveSetting('account_main');
+
+    const storedUser = JSON.parse(localStorage.getItem('user'));
+    const phoneNumber = storedUser?.phoneNumber;
+
+    if (!phoneNumber) {
+      alert('Không tìm thấy số điện thoại để đổi mật khẩu!');
+      return;
+    }
+
+    try {
+      const response = await fetch('http://localhost:3001/account/changePasswordWeb', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phoneNumber: phoneNumber,
+          password: currentPassword,
+          passwordnew: newPassword,
+        }),
+      });
+
+      const data = await response.json();
+      alert(data.message);
+
+      if (data.message === 'Mật khẩu đã được thay đổi thành công') {
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmNewPassword('');
+        setActiveSetting('account_main');
+      }
+    } catch (err) {
+      console.error('Lỗi khi đổi mật khẩu:', err);
+      alert('Đã xảy ra lỗi khi kết nối đến máy chủ!');
+    }
   };
 
   const renderGeneralSettings = () => (
@@ -46,10 +74,10 @@ function SettingsModal({ isOpen, onClose }) {
       <h4>Danh bạ</h4>
       <p className="setting-description">Danh sách bạn bè được hiển thị trong danh bạ</p>
       <div className="setting-option radio-option">
-        <label><input type="radio" name="contactDisplay" value="all"/> <span className="radio-custom"></span> Hiển thị tất cả bạn bè</label>
+        <label><input type="radio" name="contactDisplay" value="all" /> <span className="radio-custom"></span> Hiển thị tất cả bạn bè</label>
       </div>
       <div className="setting-option radio-option">
-        <label><input type="radio" name="contactDisplay" value="zaloOnly" defaultChecked/> <span className="radio-custom"></span> Chỉ hiển thị bạn bè đang sử dụng Zalo</label>
+        <label><input type="radio" name="contactDisplay" value="zaloOnly" defaultChecked /> <span className="radio-custom"></span> Chỉ hiển thị bạn bè đang sử dụng Zalo</label>
       </div>
       <h4 className="mt-4">Ngôn ngữ</h4>
       <div className="setting-option">
@@ -63,7 +91,7 @@ function SettingsModal({ isOpen, onClose }) {
       </div>
       <div className="setting-option toggle-option">
         <span>Ghi nhớ tài khoản đăng nhập</span>
-        <label className="switch"><input type="checkbox" defaultChecked/><span className="slider round"></span></label>
+        <label className="switch"><input type="checkbox" defaultChecked /><span className="slider round"></span></label>
       </div>
     </div>
   );
@@ -73,14 +101,14 @@ function SettingsModal({ isOpen, onClose }) {
       <h4>Tài khoản</h4>
       <div className="setting-option action-option">
         <div className="option-label-description">
-          <span className="setting-label-main"><FaKey className="option-icon"/> Đổi mật khẩu</span>
+          <span className="setting-label-main"><FaKey className="option-icon" /> Đổi mật khẩu</span>
           <span className="setting-description-small">Nên đổi mật khẩu định kỳ để bảo vệ tài khoản tốt hơn.</span>
         </div>
         <button className="setting-action-btn" onClick={() => setActiveSetting('account_change_password')}>Đổi</button>
       </div>
       <div className="setting-option action-option">
         <div className="option-label-description">
-          <span className="setting-label-main"><FaEnvelope className="option-icon"/> Email khôi phục</span>
+          <span className="setting-label-main"><FaEnvelope className="option-icon" /> Email khôi phục</span>
           <span className="setting-description-small">Chưa thiết lập. Thêm email để khôi phục tài khoản khi cần.</span>
         </div>
         <button className="setting-action-btn">Thêm</button>
@@ -88,24 +116,24 @@ function SettingsModal({ isOpen, onClose }) {
       <h4 className="mt-4">Bảo mật</h4>
       <div className="setting-option action-option">
         <div className="option-label-description">
-          <span className="setting-label-main"><FaUserLock className="option-icon"/> Xác thực 2 yếu tố</span>
+          <span className="setting-label-main"><FaUserLock className="option-icon" /> Xác thực 2 yếu tố</span>
           <span className="setting-description-small">Tăng cường bảo mật cho tài khoản của bạn.</span>
         </div>
-         <label className="switch"><input type="checkbox" /><span className="slider round"></span></label>
+        <label className="switch"><input type="checkbox" /><span className="slider round"></span></label>
       </div>
       <div className="setting-option action-option">
         <div className="option-label-description">
-          <span className="setting-label-main"><FaMobileAlt className="option-icon"/> Thiết bị đã đăng nhập</span>
+          <span className="setting-label-main"><FaMobileAlt className="option-icon" /> Thiết bị đã đăng nhập</span>
           <span className="setting-description-small">Quản lý các thiết bị đang sử dụng tài khoản Zalo của bạn.</span>
         </div>
         <button className="setting-action-btn">Quản lý</button>
       </div>
-       <div className="setting-option toggle-option">
+      <div className="setting-option toggle-option">
         <div className="option-label-description">
-            <span className="setting-label-main">Nhận cảnh báo đăng nhập</span>
-            <span className="setting-description-small">Thông báo khi có đăng nhập từ thiết bị lạ.</span>
+          <span className="setting-label-main">Nhận cảnh báo đăng nhập</span>
+          <span className="setting-description-small">Thông báo khi có đăng nhập từ thiết bị lạ.</span>
         </div>
-        <label className="switch"><input type="checkbox" defaultChecked/><span className="slider round"></span></label>
+        <label className="switch"><input type="checkbox" defaultChecked /><span className="slider round"></span></label>
       </div>
     </div>
   );
@@ -137,7 +165,7 @@ function SettingsModal({ isOpen, onClose }) {
         </div>
         <div className="form-field-group">
           <label htmlFor="newPassword">Mật khẩu mới</label>
-           <div className="input-group password-input-change">
+          <div className="input-group password-input-change">
             <input
               id="newPassword"
               type={showNewPassword ? 'text' : 'password'}
@@ -153,7 +181,7 @@ function SettingsModal({ isOpen, onClose }) {
         </div>
         <div className="form-field-group">
           <label htmlFor="confirmNewPassword">Nhập lại mật khẩu mới</label>
-           <div className="input-group password-input-change">
+          <div className="input-group password-input-change">
             <input
               id="confirmNewPassword"
               type={showConfirmNewPassword ? 'text' : 'password'}
@@ -172,8 +200,8 @@ function SettingsModal({ isOpen, onClose }) {
         <div className="password-notes">
           <p className="notes-title"><FaInfoCircle /> Lưu ý:</p>
           <ul>
-            <li>Mật khẩu nên có ít nhất 8 ký tự.</li>
-            <li>Nên bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt (ví dụ: !@#$%^&*).</li>
+            <li>Mật khẩu nên có ít nhất 6 ký tự.</li>
+            <li>Nên bao gồm chữ hoa, chữ thường, số.</li>
             <li>Không sử dụng mật khẩu dễ đoán như ngày sinh, tên riêng hoặc các chuỗi ký tự đơn giản.</li>
             <li>Sau khi thay đổi mật khẩu, bạn có thể cần đăng nhập lại trên các thiết bị khác.</li>
           </ul>
@@ -204,30 +232,30 @@ function SettingsModal({ isOpen, onClose }) {
     <div className={`modal-overlay settings-modal-overlay ${isOpen ? 'active' : ''}`} onClick={onClose}>
       {isOpen && (
         <div className="modal-content settings-modal-content" onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close-btn settings-modal-close-btn" onClick={onClose}>
-              <FaTimes />
-            </button>
-            <div className="settings-modal-layout">
-              <nav className="settings-modal-nav">
-                <h3>Cài đặt</h3>
-                <ul>
-                  {settingsNav.map(item => (
-                    <li
-                      key={item.id}
-                      className={activeSetting === item.id || (activeSetting === 'account_change_password' && item.id === 'account_main') ? 'active' : ''}
-                      onClick={() => setActiveSetting(item.id)}
-                    >
-                      <span className="settings-nav-icon">{item.icon}</span>
-                      {item.label}
-                      {item.beta && <span className="beta-tag">Beta</span>}
-                    </li>
-                  ))}
-                </ul>
-              </nav>
-              <main className="settings-modal-main-content">
-                {renderSettingContent()}
-              </main>
-            </div>
+          <button className="modal-close-btn settings-modal-close-btn" onClick={onClose}>
+            <FaTimes />
+          </button>
+          <div className="settings-modal-layout">
+            <nav className="settings-modal-nav">
+              <h3>Cài đặt</h3>
+              <ul>
+                {settingsNav.map(item => (
+                  <li
+                    key={item.id}
+                    className={activeSetting === item.id || (activeSetting === 'account_change_password' && item.id === 'account_main') ? 'active' : ''}
+                    onClick={() => setActiveSetting(item.id)}
+                  >
+                    <span className="settings-nav-icon">{item.icon}</span>
+                    {item.label}
+                    {item.beta && <span className="beta-tag">Beta</span>}
+                  </li>
+                ))}
+              </ul>
+            </nav>
+            <main className="settings-modal-main-content">
+              {renderSettingContent()}
+            </main>
+          </div>
         </div>
       )}
     </div>

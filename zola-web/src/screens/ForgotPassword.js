@@ -12,32 +12,48 @@ function ForgotPassword() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
     if (!phoneNumber.trim()) {
       setError('Vui lòng nhập số điện thoại của bạn.');
       return;
     }
-    // Giả sử số điện thoại hợp lệ cần có 9 hoặc 10 chữ số sau mã vùng +84
-    // và không tính số 0 ở đầu nếu người dùng nhập.
+
     const phoneDigits = phoneNumber.replace(/\D/g, '');
     if (phoneDigits.length < 9 || phoneDigits.length > 10) {
-        setError('Số điện thoại không hợp lệ. Vui lòng kiểm tra lại.');
-        return;
+      setError('Số điện thoại không hợp lệ. Vui lòng kiểm tra lại.');
+      return;
     }
 
+    const formattedPhone = phoneDigits.startsWith('0')
+      ? `+84${phoneDigits.slice(1)}`
+      : `+84${phoneDigits}`;
+
     setIsLoading(true);
-    console.log('Yêu cầu đặt lại mật khẩu cho SĐT (sau +84):', phoneDigits);
 
-   
-    await new Promise(resolve => setTimeout(resolve, 1500)); 
-    // ------------------------
+    try {
+      const response = await fetch('http://localhost:3001/account/forgot-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phoneNumber: formattedPhone,
+          passwordnew: '123456', // mật khẩu mới mặc định hoặc sẽ cập nhật ở bước tiếp theo
+        }),
+      });
 
-    setIsLoading(false);
-    alert(`Nếu số điện thoại +84 ${phoneDigits} đã được đăng ký, một hướng dẫn đặt lại mật khẩu (hoặc mã OTP) sẽ được gửi đến bạn.`);
-    
-    
-    navigate('/otp-reset-password', { state: { phoneNumber: `+84 ${phoneDigits}` } });
-   
-   
+      const data = await response.json();
+      setIsLoading(false);
+
+      if (data.message === 'Mật khẩu đã được thay đổi thành công!!! ') {
+        alert('Đổi mật khẩu thành công. Vui lòng đăng nhập lại với mật khẩu mới! Mật khẩu mới là: 123456');
+        navigate('/login');
+      } else {
+        alert(data.message || 'Có lỗi xảy ra khi đặt lại mật khẩu.');
+      }
+    } catch (err) {
+      console.error('Lỗi khi gửi yêu cầu đặt lại mật khẩu:', err);
+      alert('Lỗi kết nối đến máy chủ!');
+      setIsLoading(false);
+    }
   };
 
   return (

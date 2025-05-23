@@ -162,51 +162,6 @@ class UserController {
             })
         }
     }
-    // post /addFriend Web
-    // async addFriendWeb(req, res) {
-    //     const user_id = req.body.user_id
-    //     // friend_id chính là user_id của user mà mình muốn thêm vào friend list
-    //     const friend_id = req.body.friend_id
-    //     const friendName = req.body.friendName
-    //     const avatar = req.body.avatar
-
-    //     const user = await User.findOne({ _id: user_id })
-    //     if (user) {
-    //         user.friend.push({
-    //             friend_id,
-    //             friendName,
-    //             avatar,
-    //         })
-    //         await user.save()
-    //         console.log('user người A kết bạn là : ', user)
-
-    //         // sau khi người dùng thêm bạn bè thì người đó cũng sẽ là bạn bè của người mà người đó thêm vào
-    //         const friend = await User.findOne({ _id: friend_id })
-    //         if (friend) {
-    //             friend.friend.push({
-    //                 friend_id: user_id,
-    //                 friendName: user.userName,
-    //                 avatar: user.avatar,
-    //             })
-    //             await friend.save()
-    //             console.log('friend: ', friend)
-    //             return res.status(200).json({
-    //                 message: 'Thêm bạn bè thành công!!!',
-    //                 user: user,
-    //                 friend: friend,
-    //             })
-    //         }
-    //         console.log('user người B được kết bạn là : ', friend)
-    //         return res.status(200).json({
-    //             message: 'Thêm bạn bè thành công!!!',
-    //             user: user,
-    //             friend: friend,
-    //         })
-    //     } else {
-    //         // in ra lỗi
-    //         res.json('Không thể thêm bạn bè !!!')
-    //     }
-    // }
 
     async addFriendWeb(req, res) {
         const user_id = req.body.user_id

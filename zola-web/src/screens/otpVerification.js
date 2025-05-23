@@ -7,7 +7,7 @@ const OTP_LENGTH = 6; // Số lượng chữ số OTP
 function OtpVerification() {
   const [otp, setOtp] = useState(new Array(OTP_LENGTH).fill(""));
   const [error, setError] = useState('');
-  const [resendTimer, setResendTimer] = useState(30); // Thời gian đếm ngược để gửi lại OTP
+  const [resendTimer, setResendTimer] = useState(30);
   const [canResend, setCanResend] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -59,46 +59,61 @@ function OtpVerification() {
   const handlePaste = (e) => {
     const pasteData = e.clipboardData.getData('text').slice(0, OTP_LENGTH);
     if (/^\d+$/.test(pasteData)) {
-        const newOtp = [...otp];
-        for (let i = 0; i < pasteData.length; i++) {
-            if (i < OTP_LENGTH) {
-                newOtp[i] = pasteData[i];
-            }
+      const newOtp = [...otp];
+      for (let i = 0; i < pasteData.length; i++) {
+        if (i < OTP_LENGTH) {
+          newOtp[i] = pasteData[i];
         }
-        setOtp(newOtp);
-        const lastFilledIndex = Math.min(pasteData.length -1, OTP_LENGTH -1);
-        if(inputRefs.current[lastFilledIndex]){
-            inputRefs.current[lastFilledIndex].focus();
-        }
+      }
+      setOtp(newOtp);
+      const lastFilledIndex = Math.min(pasteData.length - 1, OTP_LENGTH - 1);
+      if (inputRefs.current[lastFilledIndex]) {
+        inputRefs.current[lastFilledIndex].focus();
+      }
     }
     e.preventDefault();
   };
 
 
-  const handleVerifyOtp = (e) => {
+  const handleVerifyOtp = async (e) => {
     e.preventDefault();
     const enteredOtp = otp.join("");
+
     if (enteredOtp.length !== OTP_LENGTH) {
       setError(`Vui lòng nhập đủ ${OTP_LENGTH} chữ số OTP.`);
       return;
     }
-    console.log('Đang xác thực OTP:', enteredOtp, 'cho SĐT:', phoneNumber);
-    // --- Logic xác thực OTP giả lập ---
-    // Trong thực tế, bạn sẽ gọi API để xác thực OTP
-    if (enteredOtp === "123456") { // Mã OTP giả lập để test
-      alert('Xác thực OTP thành công!');
-      // Chuyển hướng đến trang đăng nhập hoặc trang chính của ứng dụng
-      // Giả sử onOtpSuccess được truyền từ App.js để cập nhật trạng thái đăng nhập
-      // onOtpSuccess(); // Nếu bạn muốn tự động đăng nhập
-      navigate('/login'); // Hoặc navigate('/app') nếu tự động đăng nhập
-    } else {
-      setError('Mã OTP không chính xác. Vui lòng thử lại.');
-      setOtp(new Array(OTP_LENGTH).fill("")); // Xóa OTP đã nhập
-      if (inputRefs.current[0]) {
-        inputRefs.current[0].focus();
+
+    try {
+      const confirmationResult = window.confirmationResult;
+      if (!confirmationResult) throw new Error("Không tìm thấy xác thực OTP");
+
+      await confirmationResult.confirm(enteredOtp); // Xác thực OTP Firebase
+
+      const formData = JSON.parse(localStorage.getItem('registerForm'));
+      const res = await fetch('http://localhost:3001/account/addAccountWeb', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await res.json();
+      if (res.status === 200) {
+        alert('Đăng ký thành công!');
+        localStorage.removeItem('registerForm');
+        navigate('/login');
+      } else {
+        setError(data.message || 'Đăng ký thất bại!');
       }
+
+    } catch (err) {
+      console.error('Xác thực OTP hoặc đăng ký thất bại:', err);
+      setError('Mã OTP không chính xác hoặc đã hết hạn. Vui lòng thử lại.');
+      setOtp(new Array(OTP_LENGTH).fill(""));
+      inputRefs.current[0]?.focus();
     }
   };
+
 
   const handleResendOtp = () => {
     if (!canResend) return;
@@ -111,8 +126,8 @@ function OtpVerification() {
     setOtp(new Array(OTP_LENGTH).fill("")); // Xóa OTP đã nhập
     setError('');
     if (inputRefs.current[0]) {
-        inputRefs.current[0].focus();
-      }
+      inputRefs.current[0].focus();
+    }
   };
 
   return (
@@ -124,8 +139,8 @@ function OtpVerification() {
       <main className="otp-verification-form-wrapper">
         <h2>Xác thực tài khoản</h2>
         <p className="otp-instruction">
-          Một mã OTP gồm {OTP_LENGTH} chữ số đã được gửi đến <br/> số điện thoại <strong>{phoneNumber}</strong>.
-          {fullName && <> <br/>Xin chào <strong>{fullName}</strong>, vui lòng nhập mã để tiếp tục.</>}
+          Một mã OTP gồm {OTP_LENGTH} chữ số đã được gửi đến <br /> số điện thoại <strong>{phoneNumber}</strong>.
+          {fullName && <> <br />Xin chào <strong>{fullName}</strong>, vui lòng nhập mã để tiếp tục.</>}
         </p>
 
         <form onSubmit={handleVerifyOtp}>
@@ -153,11 +168,11 @@ function OtpVerification() {
 
           <div className="resend-otp-section">
             Không nhận được mã?{' '}
-            <button 
-                type="button" 
-                className="resend-otp-button" 
-                onClick={handleResendOtp}
-                disabled={!canResend}
+            <button
+              type="button"
+              className="resend-otp-button"
+              onClick={handleResendOtp}
+              disabled={!canResend}
             >
               Gửi lại OTP
             </button>
@@ -168,8 +183,8 @@ function OtpVerification() {
             Xác nhận
           </button>
         </form>
-        <div className="login-link-section" style={{marginTop: '20px'}}>
-            <Link to="/login" className="back-to-login-link">Quay lại Đăng nhập</Link>
+        <div className="login-link-section" style={{ marginTop: '20px' }}>
+          <Link to="/login" className="back-to-login-link">Quay lại Đăng nhập</Link>
         </div>
       </main>
     </div>

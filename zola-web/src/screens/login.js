@@ -9,25 +9,41 @@ function ZaloLogin({ onLoginSuccess }) {
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = (e) => {
-    e.preventDefault(); // Thêm e.preventDefault() nếu đây là form submit
-    console.log('Đăng nhập với:', { phoneNumber, password });
-    
-    // Logic đăng nhập giả lập
-    // Trong thực tế, bạn sẽ gọi API ở đây
-    // Ví dụ: if (phoneNumber === "0123456789" && password === "password123")
-    const loginWasSuccessful = true; 
+  const handleLogin = async (e) => {
+    e.preventDefault();
 
-    if (loginWasSuccessful) {
-      if (onLoginSuccess) {
-        onLoginSuccess();
+    // Chuyển đổi 097... => +8497...
+    let formattedPhone = phoneNumber;
+    if (phoneNumber.startsWith('0')) {
+      formattedPhone = '+84' + phoneNumber.slice(1);
+    }
+
+    try {
+      const response = await fetch('http://localhost:3001/account/loginWeb', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ phoneNumber: formattedPhone, password }),
+      });
+
+      const data = await response.json();
+      console.log(data);
+
+      if (data.message === 'Login successfully!!!') {
+        localStorage.setItem('account_id', data.account_id);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        if (onLoginSuccess) onLoginSuccess();
+        navigate('/app');
+      } else {
+        alert(data.message || 'Đăng nhập thất bại!');
       }
-      navigate('/app');
-    } else {
-      console.log('Đăng nhập thất bại!');
-      alert('Số điện thoại hoặc mật khẩu không đúng!');
+    } catch (error) {
+      console.error('Lỗi khi đăng nhập:', error);
+      alert('Đã xảy ra lỗi kết nối server!');
     }
   };
+
 
   const toggleShowPassword = () => {
     setShowPassword(!showPassword);
@@ -41,7 +57,7 @@ function ZaloLogin({ onLoginSuccess }) {
       </header>
 
       <main className="login-form-wrapper">
-        <form className="login-form" onSubmit={handleLogin}> 
+        <form className="login-form" onSubmit={handleLogin}>
           <h2>Đăng nhập với mật khẩu</h2>
           <div className="input-group">
             <div className="country-code-selector">
@@ -55,7 +71,11 @@ function ZaloLogin({ onLoginSuccess }) {
               placeholder="Số điện thoại"
               className="input-field"
               value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))} 
+              onChange={(e) => {
+                const input = e.target.value.replace(/\D/g, '');
+                if (input.length <= 10) setPhoneNumber(input); // Giới hạn 10 số
+              }}
+
               required
             />
           </div>
@@ -81,10 +101,10 @@ function ZaloLogin({ onLoginSuccess }) {
             </button>
           </div>
           {/* Đổi type của button này thành "submit" */}
-          <button type="submit" className="login-button"> 
+          <button type="submit" className="login-button">
             Đăng nhập
           </button>
-          <Link to="/forgot-password" /* Hoặc path thực tế của bạn */ className="forgot-password-link"> 
+          <Link to="/forgot-password" /* Hoặc path thực tế của bạn */ className="forgot-password-link">
             Quên mật khẩu
           </Link>
         </form>
@@ -101,6 +121,7 @@ function ZaloLogin({ onLoginSuccess }) {
         {/* Bạn có thể thêm link đăng nhập bằng QR code ở đây nếu muốn */}
         {/* <Link to="/qr-login" className="qr-login-link">Đăng nhập với mã QR</Link> */}
       </footer>
+
     </div>
   );
 }
