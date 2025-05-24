@@ -217,6 +217,41 @@ class UserController {
         }
     }
 
+     async getUsersByIds(req, res) {
+        const { userIds } = req.body; // Nhận mảng userIds từ body của request
+
+        // Kiểm tra đầu vào
+        if (!userIds || !Array.isArray(userIds)) {
+            return res.status(400).json({ message: 'Đầu vào không hợp lệ, userIds phải là một mảng.' });
+        }
+
+        // Nếu mảng rỗng thì không cần truy vấn DB
+        if (userIds.length === 0) {
+            return res.status(200).json({
+                message: 'Mảng ID rỗng.',
+                users: []
+            });
+        }
+
+        try {
+            // Sử dụng toán tử $in của MongoDB để tìm tất cả user có _id nằm trong mảng userIds.
+            // Đây là cách truy vấn rất hiệu quả.
+            const users = await User.find({ '_id': { $in: userIds } })
+                .select('-password -friend -friendRequests -sentFriendRequests -deleteFriend') // Loại bỏ các trường không cần thiết/nhạy cảm
+                .lean(); // .lean() giúp truy vấn nhanh hơn và trả về object thuần túy
+
+            // Trả về danh sách người dùng tìm được
+            res.status(200).json({
+                message: `Lấy thông tin của ${users.length} người dùng thành công!`,
+                users: users,
+            });
+
+        } catch (error) {
+            console.error('Lỗi khi lấy thông tin người dùng theo mảng ID:', error);
+            res.status(500).json({ message: 'Lỗi máy chủ nội bộ', error: error.message });
+        }
+    }
+
     async deleteFriendWeb(req, res) {
         const { user_id, friend_id } = req.body;
         try {

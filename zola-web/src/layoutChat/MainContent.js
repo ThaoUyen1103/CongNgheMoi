@@ -5,7 +5,7 @@ import ConversationInfoModal from '../modals/ConversationInfoModal';
 import MessageContextMenu from '../modals/MessageContextMenu';
 import EmojiPicker, { EmojiStyle } from 'emoji-picker-react';
 
-function MainContent({ selectedChat, currentLoggedInUserId }) {
+function MainContent({ selectedChat, currentLoggedInUserId,onConversationDeleted }) {
   const messagesEndRef = useRef(null);
   const menuRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -354,7 +354,8 @@ function MainContent({ selectedChat, currentLoggedInUserId }) {
         isOpen={isConvInfoModalOpen}
         onClose={closeConvInfoModal}
         chatData={selectedChat}
-        currentLoggedInUserId={currentLoggedInUserId}
+        onConversationDeleted={onConversationDeleted}
+        currentUserId={currentLoggedInUserId}
       />
       {activeMenu.messageId && currentActiveMessage && (
         <MessageContextMenu

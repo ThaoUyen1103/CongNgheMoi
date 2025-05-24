@@ -75,7 +75,7 @@ router.post('/cancelFriendRequestWeb', userController.cancelFriendRequestWeb)
 router.post('/deleteFriendRequestWeb', userController.deleteFriendRequestWeb)
 
 
-
+router.post('/get-users-by-ids', userController.getUsersByIds)
 
 // old
 // router.post('/addFriendWeb', userController.addFriendWeb)

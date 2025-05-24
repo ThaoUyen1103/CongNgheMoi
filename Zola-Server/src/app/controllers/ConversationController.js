@@ -3,6 +3,48 @@ import User from '../models/User.js'
 import Message from '../models/Message.js';
 import { io } from '../../index.js'
 import { emitGroupEvent } from '../../util/socketClient.js';
+import { v4 as uuidv4 } from 'uuid'
+import AWS from 'aws-sdk'
+import path from 'path'
+import multer from 'multer'
+import dotenv from 'dotenv'
+dotenv.config()
+
+AWS.config.update({
+    accessKeyId: process.env.Acces_Key,
+    secretAccessKey: process.env.Secret_Acces_Key,
+    region: process.env.Region,
+})
+
+const S3 = new AWS.S3()
+const bucketname = process.env.s3_bucket
+
+const storage = multer.memoryStorage({
+    destination: function (req, file, callback) {
+        callback(null, '')
+    },
+})
+
+export const upload = multer({
+    storage: storage,
+    limits: { fileSize: 2000000 },
+    fileFilter: function (req, file, cb) {
+        checkFileType(file, cb)
+    },
+})
+
+function checkFileType(file, callback) {
+    const filetypes = /jpeg|jpg|png|gif/
+    const extname = filetypes.test(
+        path.extname(file.originalname).toLowerCase()
+    )
+    const mimetype = filetypes.test(file.mimetype)
+    if (mimetype && extname) {
+        return callback(null, true)
+    } else {
+        callback('Error: Images Only!')
+    }
+}
 
 class ConversationController {
     // post createConversationsWeb http://localhost:3001/conversation/createConversationsWeb
@@ -1058,7 +1100,86 @@ class ConversationController {
             res.status(500).json({ message: 'Lỗi server', error: err.message });
         }
     }
+async updateConversationAvatarWeb(req, res) {
+        const { conversation_id, user_id } = req.body;
 
+        if (!req.file) {
+            return res.status(400).json({ message: 'Không có tệp ảnh nào được tải lên.' });
+        }
+
+        if (!conversation_id || !user_id) {
+            return res.status(400).json({ message: 'Thiếu thông tin ID cuộc trò chuyện hoặc ID người dùng.' });
+        }
+
+        try {
+            const conversation = await Conversation.findById(conversation_id);
+            if (!conversation) {
+                return res.status(404).json({ message: 'Không tìm thấy nhóm trò chuyện.' });
+            }
+
+            const user = await User.findById(user_id);
+            if (!user) {
+                return res.status(404).json({ message: 'Không tìm thấy người dùng thực hiện hành động.' });
+            }
+
+            // Kiểm tra quyền: Chỉ trưởng nhóm hoặc phó nhóm mới được đổi avatar
+            const isGroupLeader = conversation.groupLeader && conversation.groupLeader.toString() === user_id;
+            const isDeputyLeader = conversation.deputyLeader && conversation.deputyLeader.map(id => id.toString()).includes(user_id);
+
+            if (!isGroupLeader && !isDeputyLeader) {
+                return res.status(403).json({ message: 'Bạn không có quyền cập nhật ảnh đại diện cho nhóm này.' });
+            }
+
+            // Xử lý tải file lên S3
+            const imageOriginalNameParts = req.file.originalname.split('.');
+            const fileType = imageOriginalNameParts[imageOriginalNameParts.length - 1];
+            const uniqueFileName = `${uuidv4()}_${Date.now().toString()}.${fileType}`;
+
+            const s3Params = {
+                Bucket: process.env.s3_bucket, // Đảm bảo biến môi trường này được load đúng
+                Key: uniqueFileName,
+                Body: req.file.buffer,
+                ContentType: req.file.mimetype,
+                // ACL: 'public-read' // Tùy chọn: nếu bạn muốn file có thể truy cập công khai
+            };
+
+            const s3UploadData = await S3.upload(s3Params).promise();
+            const newAvatarUrl = s3UploadData.Location;
+
+            // Cập nhật avatar cho conversation
+            conversation.avatar = newAvatarUrl;
+            await conversation.save();
+
+            // Tạo tin nhắn thông báo trong nhóm
+            const notificationMessage = new Message({
+                conversation_id: conversation._id,
+                senderId: user_id, // Người thực hiện hành động
+                contentType: 'notify',
+                content: `${user.userName} đã cập nhật ảnh đại diện nhóm.`,
+            });
+            await notificationMessage.save();
+
+            // Emit sự kiện qua socket
+            emitGroupEvent(conversation_id.toString(), 'avatar-updated', {
+                conversationId: conversation_id.toString(),
+                avatar: newAvatarUrl,
+                message: notificationMessage // Gửi kèm tin nhắn thông báo
+            });
+
+            return res.status(200).json({
+                message: 'Cập nhật ảnh đại diện nhóm thành công!',
+                conversation: conversation, // Trả về conversation đã cập nhật
+                newAvatarUrl: newAvatarUrl
+            });
+
+        } catch (err) {
+            console.error('Lỗi cập nhật ảnh đại diện nhóm (Mobile):', err);
+            if (err.name === 'NoSuchBucket') { // Ví dụ một loại lỗi S3 cụ thể
+                 return res.status(500).json({ message: 'Lỗi cấu hình S3: Không tìm thấy bucket.' });
+            }
+            return res.status(500).json({ message: 'Lỗi máy chủ khi cập nhật ảnh đại diện nhóm.', error: err.message });
+        }
+    }
     async changeGroupNameMobile(req, res) {
         try {
             const { conversation_id, conversationName, user_id } = req.body;
@@ -1100,46 +1221,7 @@ class ConversationController {
         }
     }
 
-    async updateConversationAvatarMobile(req, res) {
-        try {
-            const { conversation_id, avatar, user_id } = req.body;
-            const conversation = await Conversation.findById(conversation_id);
-            if (!conversation) {
-                return res.status(404).json({ message: 'Không tìm thấy nhóm' });
-            }
-
-            const user = await User.findById(user_id);
-            if (!user) {
-                return res.status(404).json({ message: 'Không tìm thấy người dùng' });
-            }
-
-            if (
-                conversation.groupLeader.toString() !== user_id &&
-                !conversation.deputyLeader.includes(user_id)
-            ) {
-                return res.status(403).json({ message: 'Bạn không có quyền cập nhật avatar nhóm' });
-            }
-
-            conversation.avatar = avatar;
-            await conversation.save();
-
-            const message = new Message({
-                conversation_id,
-                senderId: user_id,
-                contentType: 'notify',
-                content: `${user.userName} đã cập nhật avatar nhóm`,
-            });
-            await message.save();
-
-            emitGroupEvent(conversation_id, 'avatar-updated', { userName: user.userName, avatar });
-
-
-            res.status(200).json({ message: 'Cập nhật avatar nhóm thành công', conversation });
-        } catch (err) {
-            console.error('Lỗi cập nhật avatar nhóm (Mobile):', err);
-            res.status(500).json({ message: 'Lỗi server', error: err.message });
-        }
-    }
+   
     async getConversationsByUserIDMobile(req, res) {
         try {
             const user_id = req.body.user_id;

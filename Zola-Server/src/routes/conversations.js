@@ -42,6 +42,12 @@ router.post(
     '/authorizeGroupLeaderWeb',
     conversationController.authorizeGroupLeaderWeb
 )
+
+router.put(
+    '/updateConversationAvatarWeb', // Đây chính là đường dẫn
+    upload.single('file'),             // Middleware để xử lý file upload có tên field là 'file'
+    conversationController.updateConversationAvatarWeb // Hàm controller xử lý request
+);
 // rời nhóm
 router.post('/leaveGroupWeb', conversationController.leaveGroupWeb)
 // giản tán nhóm
@@ -90,31 +96,22 @@ router.post(
 // add mobile
 // Mobile Routes
 router.post('/', conversationController.createConversation);
-router.post('/create-group', conversationController.createConversationsGroupMobile);
 router.get('/:userId', conversationController.userConversations);
 router.get('/findConversationById/:conversationId', conversationController.findConversationById);
 router.get('/find/:firstId/:secondId', conversationController.findConversations);
 router.put('/authorizeDeputyLeader', conversationController.authorizeDeputyLeader);
 router.put('/unauthorizeDeputyLeader', conversationController.unauthorizeDeputyLeader);
 router.put('/removeMemberFromConversationGroup', conversationController.removeMemberFromConversationGroupMobile);
-router.put('/updateConversationAvatar', conversationController.updateConversationAvatarMobile);
+
 router.put('/leaveGroup', conversationController.leaveGroupMobile);
-router.post('/add-member', conversationController.addMemberToConversationGroupMobile);
-router.put('/change-groupname', conversationController.changeGroupNameMobile);
+
 router.put('/authorizeGroupLeader', conversationController.authorizeGroupLeader);
-router.put('/disbandGroup', conversationController.disbandGroupMobile);
+
 router.get('/getConversationById/:conversation_id', conversationController.getConversationById);
-router.post('/getConversationsByUserIDMobile', conversationController.getConversationsByUserIDMobile);
 
-// Route mới cho Mobile
-router.put('/leaveGroupMobile', conversationController.leaveGroupMobile);
-router.put('/changeGroupNameMobile', conversationController.changeGroupNameMobile);
-router.put(
-    '/updateConversationAvatarMobile',
-    upload.single('file'),
-    conversationController.updateConversationAvatarMobile
-);
 
-//--
+
+
+
 
 export default router

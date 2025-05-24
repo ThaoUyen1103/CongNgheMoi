@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import '../styles/GroupDetailsModal.css';
-import { FaTimes, FaPen, FaCommentDots, FaUserFriends, FaCamera, FaLink, FaCopy, FaShareSquare, FaCog, FaSignOutAlt, FaPhotoVideo, FaTrashAlt } from 'react-icons/fa';
+import { FaTimes, FaPen, FaCommentDots, FaUserFriends, FaCamera, FaLink, FaCopy, FaShareSquare, FaCog, FaSignOutAlt, FaPhotoVideo, FaTrashAlt, FaSpinner } from 'react-icons/fa'; // Thêm FaSpinner
 import RenameGroupModal from './RenameGroupModal';
 
 function GroupDetailsModal({
@@ -13,16 +13,20 @@ function GroupDetailsModal({
     onRenameGroup,
     onDisbandGroup,
     currentUserIsAdmin,
-    onUpdateGroupAvatar
+    onUpdateGroupAvatar, // Callback này sẽ nhận đối tượng group đã được cập nhật từ API
+    // --- THÊM PROP MỚI ---
+    currentUserId 
 }) {
     const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
-    const [avatarLoadError, setAvatarLoadError] = useState(false); // Thêm state quản lý lỗi tải ảnh
+    const [avatarLoadError, setAvatarLoadError] = useState(false);
     const groupAvatarInputRef = useRef(null);
+    // --- THÊM STATE CHO UPLOAD ---
+    const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
-    // Reset lỗi avatar mỗi khi modal mở với dữ liệu mới
     useEffect(() => {
         if (isOpen) {
             setAvatarLoadError(false);
+            setIsUploadingAvatar(false); // Reset trạng thái upload khi modal mở
         }
     }, [isOpen]);
 
@@ -30,15 +34,13 @@ function GroupDetailsModal({
         return null;
     }
 
-    // === BẮT ĐẦU SỬA LỖI: Chuẩn hóa lại cách lấy dữ liệu và tạo SafeAvatar ===
     const groupName = groupData.name || "Tên nhóm";
     const members = groupData.members || [];
     const memberCount = groupData.memberCount || members.length || 0;
     const groupLink = groupData.groupLink || `https://zalo.me/g/${groupData.id?.slice(0,10) || 'testgroup123'}`;
 
-    // Component con để render avatar một cách an toàn
     const SafeAvatar = () => {
-        const avatarUrl = groupData?.avatar; // Luôn lấy từ groupData.avatar
+        const avatarUrl = groupData?.avatar;
         const name = groupData?.name || '?';
         const isValidUrl = typeof avatarUrl === 'string' && (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:image'));
 
@@ -46,37 +48,71 @@ function GroupDetailsModal({
             const initials = name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || name.charAt(0).toUpperCase();
             return <span>{initials}</span>;
         }
-
         return <img src={avatarUrl} alt={name} onError={() => setAvatarLoadError(true)} />;
     };
-    // === KẾT THÚC SỬA LỖI ===
 
-    const handleOpenRenameModal = () => {
-        setIsRenameModalOpen(true);
-    };
+    const handleOpenRenameModal = () => setIsRenameModalOpen(true);
 
     const handleConfirmRename = (newName) => {
         if (onRenameGroup) {
-            onRenameGroup(newName);
+            onRenameGroup(newName, groupData._id || groupData.id); // Truyền cả ID nhóm để cha xử lý
         }
         setIsRenameModalOpen(false);
     };
 
     const handleGroupAvatarUploadClick = () => {
-        if (groupAvatarInputRef.current) {
+        if (groupAvatarInputRef.current && !isUploadingAvatar) { // Không cho click nếu đang upload
             groupAvatarInputRef.current.click();
         }
     };
 
-    const handleGroupAvatarFileChange = (event) => {
+    // --- BẮT ĐẦU: CẬP NHẬT HÀM XỬ LÝ UPLOAD AVATAR ---
+    const handleGroupAvatarFileChange = async (event) => {
         const file = event.target.files[0];
-        if (file && file.type.startsWith('image/')) {
-            if (onUpdateGroupAvatar) {
-                onUpdateGroupAvatar(file);
-            }
+        if (!file || !file.type.startsWith('image/')) {
+            alert("Vui lòng chọn một tệp hình ảnh hợp lệ.");
+            event.target.value = null;
+            return;
         }
-        event.target.value = null;
+
+        if (!groupData?._id || !currentUserId) {
+            alert("Lỗi: Thiếu thông tin để cập nhật avatar (ID nhóm hoặc ID người dùng).");
+            event.target.value = null;
+            return;
+        }
+
+        setIsUploadingAvatar(true);
+        const formData = new FormData();
+        formData.append('file', file); // Backend dùng 'file' làm tên field cho Multer
+        formData.append('conversation_id', groupData._id);
+        formData.append('user_id', currentUserId);
+
+        try {
+            const response = await fetch('http://localhost:3001/conversation/updateConversationAvatarWeb', {
+                method: 'PUT',
+                body: formData, // Khi gửi FormData, không cần đặt header 'Content-Type'
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                alert(data.message || 'Cập nhật ảnh đại diện nhóm thành công!');
+                if (onUpdateGroupAvatar && data.conversation) {
+                    // Gọi callback của cha với toàn bộ đối tượng conversation đã được cập nhật
+                    onUpdateGroupAvatar(data.conversation); 
+                }
+            } else {
+                alert(data.message || 'Cập nhật ảnh đại diện nhóm thất bại.');
+            }
+        } catch (error) {
+            console.error("Lỗi khi cập nhật avatar nhóm:", error);
+            alert("Lỗi kết nối hoặc xử lý phía máy chủ, không thể cập nhật avatar.");
+        } finally {
+            setIsUploadingAvatar(false);
+            event.target.value = null; 
+        }
     };
+    // --- KẾT THÚC: CẬP NHẬT HÀM XỬ LÝ UPLOAD AVATAR ---
 
     return (
         <>
@@ -85,33 +121,44 @@ function GroupDetailsModal({
                     <div className="group-details-modal-header">
                         <span style={{width: '32px'}}></span>
                         <h3>Thông tin nhóm</h3>
-                        <button className="group-details-modal-close-btn" onClick={onClose}>
+                        <button className="group-details-modal-close-btn" onClick={onClose} disabled={isUploadingAvatar}>
                             <FaTimes />
                         </button>
                     </div>
 
                     <div className="group-details-modal-body">
                         <div className="group-main-info-section">
-                            {/* === SỬA LỖI: Dùng SafeAvatar thay cho logic cũ === */}
-                            <div className="group-main-avatar" style={{cursor: 'pointer'}} onClick={handleGroupAvatarUploadClick} title="Đổi ảnh đại diện nhóm">
-                                <SafeAvatar />
-                                <span className="camera-icon-overlay"><FaCamera /></span>
+                            <div 
+                                className="group-main-avatar" 
+                                style={{cursor: isUploadingAvatar ? 'default' : 'pointer'}} 
+                                onClick={handleGroupAvatarUploadClick} 
+                                title="Đổi ảnh đại diện nhóm"
+                            >
+                                {isUploadingAvatar ? (
+                                    <FaSpinner className="avatar-spinner" />
+                                ) : (
+                                    <SafeAvatar />
+                                )}
+                                {!isUploadingAvatar && <span className="camera-icon-overlay"><FaCamera /></span>}
                             </div>
-                            {/* === KẾT THÚC SỬA LỖI === */}
                             <input
                                 type="file"
                                 ref={groupAvatarInputRef}
                                 style={{ display: 'none' }}
-                                accept="image/*"
+                                accept="image/*" // Chỉ cho phép chọn file ảnh
                                 onChange={handleGroupAvatarFileChange}
+                                disabled={isUploadingAvatar}
                             />
                             <div className="group-name-container">
                                 <h2>{groupName}</h2>
-                                {currentUserIsAdmin && <FaPen className="edit-icon" onClick={handleOpenRenameModal} title="Đổi tên nhóm"/>}
+                                {(currentUserIsAdmin || groupData?.currentUserIsDeputy) && ( // Cho cả phó nhóm đổi tên
+                                    <FaPen className="edit-icon" onClick={handleOpenRenameModal} title="Đổi tên nhóm"/>
+                                )}
                             </div>
-                            <button className="group-action-button" onClick={() => console.log("Message group clicked")}>
+                            {/* Nút nhắn tin có thể không cần thiết ở đây nếu modal này là con của ConversationInfoModal */}
+                            {/* <button className="group-action-button" onClick={() => console.log("Message group clicked")}>
                                 <FaCommentDots style={{ marginRight: '5px' }} /> Nhắn tin
-                            </button>
+                            </button> */}
                         </div>
 
                         <div className="group-info-section">
@@ -121,8 +168,8 @@ function GroupDetailsModal({
                             </div>
                             <div className="members-preview-container">
                                 {members.slice(0, 3).map(member => (
-                                    <div key={member.id} className="member-avatar-preview" title={member.name}>
-                                        {member.avatarUrl ? <img src={member.avatarUrl} alt={member.name} /> : (member.name ? member.name.charAt(0).toUpperCase() : '?')}
+                                    <div key={member._id || member.id} className="member-avatar-preview" title={member.name || member.userName}>
+                                        {member.avatar ? <img src={member.avatar} alt={member.name || member.userName} /> : (member.name || member.userName || '?').charAt(0).toUpperCase()}
                                     </div>
                                 ))}
                                 {members.length > 3 && <div className="more-members-indicator">...</div>}
@@ -134,7 +181,7 @@ function GroupDetailsModal({
                                 <FaPhotoVideo className="item-icon" />
                                 <span className="item-label">Ảnh/Video</span>
                             </div>
-                            <p className="group-placeholder-text">Chưa có ảnh nào được chia sẻ trong nhóm này</p>
+                            <p className="group-placeholder-text">Chưa có ảnh nào được chia sẻ</p>
                         </div>
 
                         <div className="group-info-section">
@@ -156,7 +203,7 @@ function GroupDetailsModal({
                         </div>
 
                         <div className="group-info-section">
-                            <div className="group-info-list-item" onClick={() => console.log("Manage group clicked")}>
+                            <div className="group-info-list-item" onClick={() => onManageMembers ? onManageMembers() : console.log("Manage group clicked")}>
                                 <FaCog className="item-icon" />
                                 <span className="item-label">Quản lý nhóm</span>
                             </div>
@@ -181,6 +228,8 @@ function GroupDetailsModal({
                 onConfirmRename={handleConfirmRename}
                 currentGroupName={groupName}
                 groupMembers={members}
+                conversationId={groupData?._id || groupData?.id} // Truyền ID nhóm
+                currentUserId={currentUserId} // Truyền ID người dùng
             />
         </>
     );

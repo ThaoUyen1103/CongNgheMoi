@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom';
 import '../styles/CreateGroupModal.css';
 import { FaCamera, FaSearch, FaSpinner } from 'react-icons/fa';
 
-const CreateGroupModal = ({ isOpen, onClose, currentLoggedInUserId }) => {
+const CreateGroupModal = ({ isOpen, onClose, currentLoggedInUserId, onGroupCreated }) => {
   const [groupName, setGroupName] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMemberIds, setSelectedMemberIds] = useState([]);
@@ -91,7 +91,7 @@ const CreateGroupModal = ({ isOpen, onClose, currentLoggedInUserId }) => {
 
   const handleCreateGroup = async () => {
     if (!groupName.trim() || selectedMemberIds.length < 2 || !currentLoggedInUserId) {
-      setCreateGroupError("Tên nhóm là bắt buộc và phải chọn ít nhất 2 thành viên để tạo nhóm.");
+      setCreateGroupError("Tên nhóm là bắt buộc và phải chọn ít nhất 2 thành viên để tạo nhóm (ngoài bạn).");
       return;
     }
 
@@ -118,10 +118,11 @@ const CreateGroupModal = ({ isOpen, onClose, currentLoggedInUserId }) => {
 
       if (response.ok && data.conversation) {
         setCreateGroupSuccess('Tạo nhóm thành công!');
-        console.log('Nhóm đã tạo:', data.conversation);
-        setTimeout(() => {
-          onClose(); 
-        }, 1500);
+        console.log('Nhóm đã tạo (CreateGroupModal):', data.conversation);
+        if (onGroupCreated) { // Gọi callback về ZaloPCLayout
+          onGroupCreated(data.conversation);
+        }
+        // onClose(); // ZaloPCLayout sẽ đóng modal sau khi xử lý onGroupCreated
       } else {
         setCreateGroupError(data.message || 'Không thể tạo nhóm. Vui lòng thử lại.');
       }
@@ -236,7 +237,7 @@ const CreateGroupModal = ({ isOpen, onClose, currentLoggedInUserId }) => {
           </div>
         </div>
         <div className="create-group-modal-footer">
-          <button className="cancel-btn-modal" onClick={onClose}>Hủy</button>
+          <button className="cancel-btn-modal" onClick={onClose} disabled={isCreatingGroup}>Hủy</button>
           <button 
             className="create-group-btn-modal" 
             onClick={handleCreateGroup}

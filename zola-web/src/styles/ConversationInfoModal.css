@@ -80,6 +80,7 @@
   background-color: #007bff;
   color: white;
   font-weight: 600;
+  position: relative;
 }
 .conv-info-header .modal-avatar.user-avatar {
   border-radius: 50%;
@@ -88,9 +89,9 @@
   border-radius: 20px;
 }
 .conv-info-header .modal-avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 .conv-info-header .modal-avatar .online-indicator {
   width: 14px;
@@ -223,9 +224,8 @@
   border-bottom: 1px solid #f0f2f5;
 }
 .conv-info-section.storage-section h3 {
-    margin-top: 12px; /* Thêm margin top cho storage section title nếu cần */
+  margin-top: 12px;
 }
-
 
 .conv-info-item {
   display: flex;
@@ -247,7 +247,7 @@
   width: 20px;
   text-align: center;
 }
-.conv-info-item span:not(.item-label) { /* Tránh ảnh hưởng item-label nếu bạn dùng nó */
+.conv-info-item span:not(.item-label) {
   margin-left: auto;
   font-size: 12px;
   color: #65676b;
@@ -258,7 +258,7 @@
 }
 
 .conv-info-danger-zone h3 {
-    color: #d93025;
+  color: #d93025;
 }
 .conv-info-danger-zone .conv-info-item {
   color: #d93025;
@@ -290,7 +290,7 @@
 }
 
 .storage-section {
-    padding: 0;
+  padding: 0;
 }
 .storage-tabs-nav {
   display: flex;
@@ -319,8 +319,8 @@
   gap: 6px;
 }
 .storage-tab-btn svg {
-    font-size: 16px;
-    margin-bottom: -1px;
+  font-size: 16px;
+  margin-bottom: -1px;
 }
 
 .storage-tab-btn:hover {
@@ -468,22 +468,22 @@
 }
 
 .view-all-storage-btn {
-    display: block;
-    width: calc(100% - 0px); 
-    margin: 15px 0px 5px 0px;
-    padding: 9px 12px;
-    font-size: 13.5px;
-    font-weight: 500;
-    color: #007bff;
-    background-color: #f0f2f5;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    text-align: center;
+  display: block;
+  width: calc(100% - 0px); 
+  margin: 15px 0px 5px 0px;
+  padding: 9px 12px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #007bff;
+  background-color: #f0f2f5;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: center;
 }
 .view-all-storage-btn:hover {
-    background-color: #e2e6ea;
-    color: #0056b3;
+  background-color: #e2e6ea;
+  color: #0056b3;
 }
 
 
@@ -596,17 +596,20 @@
 .member-list-scrollable::-webkit-scrollbar-thumb { background-color: #c1c1c1; border-radius: 3px; }
 .member-list-scrollable::-webkit-scrollbar-track { background-color: #f0f2f5; }
 
-
+/* Đây là định nghĩa .member-item đã được hợp nhất và có position: relative */
 .member-item {
   display: flex;
   align-items: center;
   padding: 10px 15px;
   border-bottom: 1px solid #f0f2f5;
   transition: background-color 0.15s ease;
+  position: relative; /* Quan trọng cho menu dropdown */
 }
 .member-item:last-child {
   border-bottom: none;
 }
+/* Không cần định nghĩa .member-item:hover ở đây nếu bạn không muốn thay đổi hành vi mặc định */
+
 
 .avatar.member-avatar-item {
   width: 40px;
@@ -681,4 +684,79 @@
   color: #65676b;
   font-size: 13.5px;
   padding: 30px 15px;
+}
+
+/* Styles for the new three-dot menu */
+.member-actions-menu-container {
+  position: relative; 
+  margin-left: auto; 
+}
+
+.member-menu-dots-btn {
+  background: none;
+  border: none;
+  color: #606770; 
+  font-size: 16px; 
+  padding: 8px;
+  border-radius: 50%;
+  cursor: pointer;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.member-menu-dots-btn:hover {
+  background-color: #f0f2f5;
+  color: #050505;
+}
+
+.member-actions-dropdown {
+  position: absolute;
+  top: 100%; 
+  right: 0;  
+  background-color: #ffffff;
+  border: 1px solid #ccd0d5; 
+  border-radius: 6px;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+  z-index: 100; 
+  min-width: 220px; 
+  padding: 6px 0; 
+}
+
+.member-actions-dropdown button {
+  display: block;
+  width: 100%;
+  padding: 10px 15px; 
+  text-align: left;
+  background: none;
+  border: none;
+  color: #050505;
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap; 
+}
+.member-actions-dropdown button:hover {
+  background-color: #f0f2f5;
+}
+.member-actions-dropdown button:disabled { /* Style cho nút bị vô hiệu hóa */
+  color: #a0a0a0; /* Màu xám hơn */
+  cursor: not-allowed;
+  background-color: transparent; /* Đảm bảo không có background hover khi disabled */
+}
+.member-actions-dropdown button:disabled:hover {
+  background-color: transparent; /* Không thay đổi background khi hover nút disabled */
+}
+
+.member-actions-dropdown button.action-remove {
+  color: #d93025; 
+}
+.member-actions-dropdown button.action-remove:hover {
+  background-color: rgba(217, 48, 37, 0.05); 
+}
+.member-actions-dropdown button.action-remove:disabled {
+  color: #e0857e; /* Màu đỏ nhạt hơn khi disabled */
+  background-color: transparent;
+}
+.member-actions-dropdown button.action-remove:disabled:hover {
+  background-color: transparent;
 }
