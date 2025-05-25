@@ -9,8 +9,8 @@ import UpdateInfoModal from '../modals/UpdateInfoModal';
 import AddFriendModal from '../modals/AddFriendModal';
 import CreateGroupModal from '../modals/CreateGroupModal';
 
-function ZaloPCLayout({onLogout}) {
-  
+function ZaloPCLayout({ onLogout }) {
+
   const [selectedChat, setSelectedChat] = useState(null);
   const [isAccountInfoModalOpen, setIsAccountInfoModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
@@ -45,7 +45,7 @@ function ZaloPCLayout({onLogout}) {
 
       setIsLoadingConversations(true);
       setConversationsError('');
-      
+
       let fetchedGroups = [];
       let fetchedFriendsAsConversations = [];
 
@@ -76,7 +76,7 @@ function ZaloPCLayout({onLogout}) {
           const friendsData = await friendsResponse.json();
           if (friendsData) {
             fetchedFriendsAsConversations = friendsData.map(friend => ({
-              _id: friend._id, 
+              _id: friend._id,
               name: friend.userName,
               avatar: friend.avatar,
               type: 'user',
@@ -89,10 +89,10 @@ function ZaloPCLayout({onLogout}) {
         } else {
           console.error('Lỗi tải danh sách bạn bè:', await friendsResponse.text());
         }
-        
+
         const combinedList = [...fetchedGroups, ...fetchedFriendsAsConversations];
         combinedList.sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
-        
+
         setAllConversations(combinedList);
 
         if (!groupResponse.ok && !friendsResponse.ok) {
@@ -134,7 +134,7 @@ function ZaloPCLayout({onLogout}) {
   const openUpdateInfoModal = () => { closeAllModals(); setIsUpdateInfoModalOpen(true); };
   const handleCloseUpdateModalAndReturnToAccountInfo = () => { closeAllModals(); setIsAccountInfoModalOpen(true); };
   const justCloseUpdateInfoModal = () => setIsUpdateInfoModalOpen(false);
-  
+
   const openAddFriendModal = () => { closeAllModals(); setIsAddFriendModalOpen(true); };
   const closeAddFriendModal = () => setIsAddFriendModalOpen(false);
 
@@ -172,7 +172,7 @@ function ZaloPCLayout({onLogout}) {
 
   const handleConversationDeleted = (deletedConversationId) => {
     console.log("ZaloPCLayout: Yêu cầu xóa conversation ID:", deletedConversationId);
-    setAllConversations(prevConversations => 
+    setAllConversations(prevConversations =>
       prevConversations.filter(conv => (conv._id || conv.id) !== deletedConversationId)
     );
     // Nếu cuộc trò chuyện đang được chọn bị xóa, hãy bỏ chọn nó
@@ -181,7 +181,7 @@ function ZaloPCLayout({onLogout}) {
     }
     // Có thể bạn muốn chuyển về view mặc định hoặc chọn một conversation khác
   };
-  
+
   return (
     <div className="zalo-pc-layout">
       <Sidebar
@@ -200,48 +200,50 @@ function ZaloPCLayout({onLogout}) {
         setActiveContactsNavItem={setActiveContactsNavItem}
         onLogoutFromLayout={onLogout}
         currentLoggedInUserId={loggedInUser?._id}
-        
+
       />
 
-      {activeView === 'chats' && 
-        <MainContent 
-            selectedChat={selectedChat} 
-            currentLoggedInUserId={loggedInUser?._id} 
-            onConversationDeleted={handleConversationDeleted}
+      {activeView === 'chats' &&
+        <MainContent
+          selectedChat={selectedChat}
+          currentLoggedInUserId={loggedInUser?._id}
+          onConversationDeleted={handleConversationDeleted}
         />
       }
-      {activeView === 'contacts' && 
-        <ContactsMainView 
-            subViewType={activeContactsNavItem} 
-            currentLoggedInUserId={loggedInUser?._id} 
+      {activeView === 'contacts' &&
+        <ContactsMainView
+          subViewType={activeContactsNavItem}
+          currentLoggedInUserId={loggedInUser?._id}
         />
       }
 
-      <AccountInfoModal 
-        isOpen={isAccountInfoModalOpen} 
-        onClose={closeAccountInfoModal} 
-        onOpenUpdateModal={openUpdateInfoModal} 
+      <AccountInfoModal
+        isOpen={isAccountInfoModalOpen}
+        onClose={closeAccountInfoModal}
+        onOpenUpdateModal={openUpdateInfoModal}
         userData={loggedInUser}
       />
       <SettingsModal isOpen={isSettingsModalOpen} onClose={closeSettingsModal} />
-      <UpdateInfoModal 
-        isOpen={isUpdateInfoModalOpen} 
+      <UpdateInfoModal
+        isOpen={isUpdateInfoModalOpen}
         onClose={justCloseUpdateInfoModal}
         onReturnToAccountInfo={handleCloseUpdateModalAndReturnToAccountInfo}
         userData={loggedInUser}
-        onUpdate={handleProfileUpdate} 
+        onUpdate={handleProfileUpdate}
       />
-      <AddFriendModal 
-        isOpen={isAddFriendModalOpen} 
-        onClose={closeAddFriendModal} 
+      <AddFriendModal
+        isOpen={isAddFriendModalOpen}
+        onClose={closeAddFriendModal}
         currentLoggedInUserId={loggedInUser?._id}
       />
-      <CreateGroupModal 
-        isOpen={isCreateGroupModalOpen} 
-        onClose={closeCreateGroupModal} 
+      <CreateGroupModal
+        isOpen={isCreateGroupModalOpen}
+        onClose={closeCreateGroupModal}
         currentLoggedInUserId={loggedInUser?._id}
         onGroupCreated={handleGroupCreated}
       />
+
+
     </div>
   );
 }

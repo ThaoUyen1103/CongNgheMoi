@@ -119,7 +119,7 @@ class MessageController {
                     console.log('Tạo tin nhắn TH1 thành công!!!')
                     return res.status(200).json({
                         thongbao: 'Tạo tin nhắn thành công!!!',
-                        messages: message,
+                        message: message,
                     })
                 })
                 .catch((err) => {
@@ -149,9 +149,8 @@ class MessageController {
             const uploadPromises = imagesToUpload.map((singleImageFile) => {
                 const imageParts = singleImageFile.originalname.split('.')
                 const fileType = imageParts[imageParts.length - 1]
-                const filePath = `${
-                    uuidv4() + Date.now().toString()
-                }.${fileType}`
+                const filePath = `${uuidv4() + Date.now().toString()
+                    }.${fileType}`
                 const params = {
                     Bucket: bucketname,
                     Key: filePath,
@@ -520,7 +519,7 @@ class MessageController {
             console.log('Tìm thấy tin nhắn!!!')
             return res.status(200).json({
                 thongbao: 'Tìm thấy tin nhắn!!!',
-                messages: messages,
+                message: messages,
             })
         } else {
             console.log('Không tìm thấy tin nhắn!!!')
@@ -571,7 +570,7 @@ class MessageController {
             console.log('Tìm thấy tin nhắn đã thu hồi!!!')
             return res.status(200).json({
                 thongbao: 'Tìm thấy tin nhắn đã thu hồi!!!',
-                messages: messages,
+                message: messages,
             })
         } else {
             console.log('Không tìm thấy tin nhắn đã thu hồi!!!')
@@ -625,7 +624,7 @@ class MessageController {
             console.log('Tìm thấy tin nhắn đã bị xoá ở phía tôi!!!')
             return res.status(200).json({
                 thongbao: 'Tìm thấy tin nhắn đã bị xoá ở phía tôi!!!',
-                messages: messages,
+                message: messages,
             })
         } else {
             console.log('Không tìm thấy tin nhắn đã bị xoá ở phía tôi!!!')
@@ -848,18 +847,32 @@ class MessageController {
         }
     }
 
+    // async getMessagesByConversationID(req, res) {
+    //     try {
+    //         const messages = await Message.find({
+    //             conversation_id: req.params.conversation_id,
+    //         })
+    //             .populate('senderId', 'userName avatar phoneNumber lastName')
+    //             .populate('conversation_id')
+    //         res.status(200).json(messages)
+    //     } catch (err) {
+    //         res.status(500).json(err)
+    //     }
+    // }
     async getMessagesByConversationID(req, res) {
         try {
             const messages = await Message.find({
                 conversation_id: req.params.conversation_id,
             })
-                .populate('senderId', 'userName avatar phoneNumber lastName')
-                .populate('conversation_id')
-            res.status(200).json(messages)
-        } catch (err) {
-            res.status(500).json(err)
+                .populate('senderId', 'userName avatar') // nếu cần
+                .sort({ createdAt: 1 });
+
+            res.status(200).json(messages); // ✅ TRẢ VỀ MẢNG
+        } catch (error) {
+            res.status(500).json({ message: 'Lỗi khi lấy tin nhắn', error: error.message });
         }
     }
+
 
     async recallMessage(req, res) {
         try {
@@ -1003,7 +1016,7 @@ class MessageController {
 
                 return res.status(200).json({
                     thongbao: 'Upload ảnh thành công',
-                    messages: { content: uploadResult.Location },
+                    message: { content: uploadResult.Location },
                 })
             }
 
@@ -1025,24 +1038,24 @@ class MessageController {
                 let message =
                     replyTo && mongoose.Types.ObjectId.isValid(replyTo)
                         ? new Message({
-                              conversation_id,
-                              senderId,
-                              content,
-                              contentType,
-                              replyTo,
-                          })
+                            conversation_id,
+                            senderId,
+                            content,
+                            contentType,
+                            replyTo,
+                        })
                         : new Message({
-                              conversation_id,
-                              senderId,
-                              content,
-                              contentType,
-                          })
+                            conversation_id,
+                            senderId,
+                            content,
+                            contentType,
+                        })
 
                 await message.save()
                 io.to(conversation_id).emit('receive-message', message)
                 return res.status(200).json({
                     thongbao: 'Tạo tin nhắn văn bản thành công',
-                    messages: message,
+                    message: message,
                 })
             }
 
@@ -1070,24 +1083,24 @@ class MessageController {
                 let message =
                     replyTo && mongoose.Types.ObjectId.isValid(replyTo)
                         ? new Message({
-                              conversation_id,
-                              senderId,
-                              content: fileURL,
-                              contentType,
-                              replyTo,
-                          })
+                            conversation_id,
+                            senderId,
+                            content: fileURL,
+                            contentType,
+                            replyTo,
+                        })
                         : new Message({
-                              conversation_id,
-                              senderId,
-                              content: fileURL,
-                              contentType,
-                          })
+                            conversation_id,
+                            senderId,
+                            content: fileURL,
+                            contentType,
+                        })
 
                 await message.save()
                 io.to(conversation_id).emit('receive-message', message)
                 return res.status(200).json({
                     thongbao: 'Tạo tin nhắn media thành công',
-                    messages: message,
+                    message: message,
                 })
             }
 

@@ -57,7 +57,7 @@ io.on('connection', (socket) => {
 
         if (Array.isArray(messageData)) {
             conversation_id = messageData[0]?.conversation_id;
-            messageData = messageData[0]; 
+            messageData = messageData[0];
         } else {
             conversation_id = messageData?.conversation_id;
         }
@@ -71,7 +71,7 @@ io.on('connection', (socket) => {
             console.error('🔴 Invalid message data for send-message:', messageData);
             return;
         }
-        
+
         console.log(`➡️ Emitting 'receive-message' to room ${conversation_id} with data:`, messageData);
         io.to(conversation_id).emit('receive-message', messageData);
 
@@ -80,36 +80,36 @@ io.on('connection', (socket) => {
     });
 
     // THU HỒI TIN NHẮN (CHO MỌI NGƯỜI)
-    socket.on('message-recalled', (recalledMessageFromClient) => { 
-    console.log('📢 Received client-side message-recalled event with data:', recalledMessageFromClient);
+    socket.on('message-recalled', (recalledMessageFromClient) => {
+        console.log('📢 Received client-side message-recalled event with data:', recalledMessageFromClient);
 
- 
-    const message_id = recalledMessageFromClient._id;
-    const conversation_id = recalledMessageFromClient.conversation_id;
-    const user_id_recalled = recalledMessageFromClient.senderId; 
-    const updated_content = recalledMessageFromClient.content;
-    const is_recalled_flag = recalledMessageFromClient.recalled; 
 
-    if (!message_id || !conversation_id || typeof is_recalled_flag === 'undefined') {
-        console.error('🔴 Invalid data for message-recalled. Expected full message object from client. Received:', recalledMessageFromClient);
-        return;
-    }
+        const message_id = recalledMessageFromClient._id;
+        const conversation_id = recalledMessageFromClient.conversation_id;
+        const user_id_recalled = recalledMessageFromClient.senderId;
+        const updated_content = recalledMessageFromClient.content;
+        const is_recalled_flag = recalledMessageFromClient.recalled;
 
-  
-    const dataToEmitToRoom = {
-        _id: message_id, 
-        conversation_id: conversation_id,
-        user_id_recalled: user_id_recalled, 
-        recalled: is_recalled_flag,        
-        content: updated_content,          
-        senderId: recalledMessageFromClient.senderId, 
-  
-    };
+        if (!message_id || !conversation_id || typeof is_recalled_flag === 'undefined') {
+            console.error('🔴 Invalid data for message-recalled. Expected full message object from client. Received:', recalledMessageFromClient);
+            return;
+        }
 
-   
-    io.to(conversation_id).emit('server-message-recalled', dataToEmitToRoom);
-    console.log(`📢 Emitted 'server-message-recalled' for message ${message_id} in conversation ${conversation_id} by user ${user_id_recalled || 'unknown'}. Data:`, dataToEmitToRoom);
-});
+
+        const dataToEmitToRoom = {
+            _id: message_id,
+            conversation_id: conversation_id,
+            user_id_recalled: user_id_recalled,
+            recalled: is_recalled_flag,
+            content: updated_content,
+            senderId: recalledMessageFromClient.senderId,
+
+        };
+
+
+        io.to(conversation_id).emit('server-message-recalled', dataToEmitToRoom);
+        console.log(`📢 Emitted 'server-message-recalled' for message ${message_id} in conversation ${conversation_id} by user ${user_id_recalled || 'unknown'}. Data:`, dataToEmitToRoom);
+    });
 
     // XÓA TIN NHẮN (CHO MỌI NGƯỜI)
     socket.on('client-delete-message-for-everyone', (data) => {
@@ -121,18 +121,18 @@ io.on('connection', (socket) => {
             return;
         }
 
-        io.to(conversation_id).emit('server-message-deleted-for-everyone', { 
-            message_id, 
+        io.to(conversation_id).emit('server-message-deleted-for-everyone', {
+            message_id,
             conversation_id,
-            user_id_deleted 
+            user_id_deleted
         });
         console.log(`🗑️ Message ${message_id} deleted for everyone in conversation ${conversation_id} by user ${user_id_deleted || 'unknown'}`);
     });
-    
+
     // XÓA TIN NHẮN (CHỈ CHO NGƯỜI GỬI - ĐỒNG BỘ TRÊN CÁC THIẾT BỊ CỦA HỌ)
     socket.on('delete-my-message', (data) => {
         console.log('➖ Received delete-my-message (for sender only):', data);
-        if (!data.message_id || !data.user_id_room) { 
+        if (!data.message_id || !data.user_id_room) {
             console.error('🔴 Invalid data for delete-my-message. Need message_id and user_id_room.', data);
             return;
         }
@@ -140,6 +140,50 @@ io.on('connection', (socket) => {
         console.log(`➖ Sent message-deleted-for-me for message ${data.message_id} to user room ${data.user_id_room}`);
     });
 
+    // GỬI YÊU CẦU KẾT BẠN
+    socket.on('send-friend-request', (data) => {
+        const { fromUserId, toUserId } = data;
+        if (!fromUserId || !toUserId) {
+            console.error('🔴 Invalid data for send-friend-request:', data);
+            return;
+        }
+
+        io.to(toUserId).emit('receive-friend-request', {
+            fromUserId,
+            toUserId,
+        });
+        console.log(`📨 Friend request sent from ${fromUserId} to ${toUserId}`);
+    });
+
+    // THU HỒI LỜI MỜI KẾT BẠN
+    socket.on('cancel-friend-request', (data) => {
+        const { fromUserId, toUserId } = data;
+        if (!fromUserId || !toUserId) {
+            console.error('🔴 Invalid data for cancel-friend-request:', data);
+            return;
+        }
+
+        io.to(toUserId).emit('friend-request-cancelled', {
+            fromUserId,
+            toUserId,
+        });
+        console.log(`↩️ Friend request cancelled from ${fromUserId} to ${toUserId}`);
+    });
+
+    // CHẤP NHẬN LỜI MỜI KẾT BẠN
+    socket.on('accept-friend-request', (data) => {
+        const { fromUserId, toUserId } = data;
+        if (!fromUserId || !toUserId) {
+            console.error('🔴 Invalid data for accept-friend-request:', data);
+            return;
+        }
+
+        io.to(fromUserId).emit('friend-request-accepted', {
+            fromUserId,
+            toUserId,
+        });
+        console.log(`✅ Friend request accepted by ${toUserId} from ${fromUserId}`);
+    });
 
     socket.on('group-event-from-backend', ({ conversation_id, event, data }) => {
         io.to(conversation_id).emit('group-event', {
@@ -149,6 +193,8 @@ io.on('connection', (socket) => {
         });
     });
 });
+
+
 
 io.on('error', (err) => {
     console.error('🔴 Socket.IO server error:', err);
