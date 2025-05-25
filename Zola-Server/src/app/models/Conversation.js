@@ -29,6 +29,11 @@ const Conversation = new Schema(
         deputyLeader: {
             type: Array,
         },
+        lastMessage: {
+    type: Schema.Types.ObjectId,
+    ref: 'Message',
+    default: null
+},
     },
     { timestamps: true }
 )

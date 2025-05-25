@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import '../styles/ContactsMainView.css';
 import { FaSearch, FaFilter, FaEllipsisH, FaSortAmountDown, FaAddressBook, FaUsers, FaUserPlus, FaCommentDots, FaSpinner, FaPaperPlane, FaTrashAlt } from 'react-icons/fa'; // Thêm icon mới
 
-function ContactsMainView({ subViewType, currentLoggedInUserId }) {
+function ContactsMainView({ subViewType, currentLoggedInUserId,onInitiateChatWithFriend  }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [sortOrder, setSortOrder] = useState('name_asc');
 
@@ -355,15 +355,32 @@ function ContactsMainView({ subViewType, currentLoggedInUserId }) {
         }
     };
 
-    const renderFriendItem = (contact) => (
-        <div key={contact._id} className="contact-list-item">
+     const renderFriendItem = (contact) => (
+        // Bọc contact-list-item trong một div có thể click hoặc thêm một nút "Nhắn tin"
+        <div 
+            key={contact._id} 
+            className="contact-list-item" 
+            onClick={() => onInitiateChatWithFriend && onInitiateChatWithFriend(contact)} // Gọi khi click vào item
+            title={`Nhắn tin với ${contact.userName}`}
+            style={{ cursor: 'pointer' }} // Thêm con trỏ để người dùng biết có thể click
+        >
             <div className="contact-item-main-info">
                 <img src={contact.avatar || 'https://via.placeholder.com/40/000000/FFFFFF?Text=??'} alt={contact.userName} className="contact-item-avatar" />
                 <div className="contact-item-info">
                     <span className="contact-item-name">{contact.userName}</span>
                 </div>
             </div>
-            <button className="contact-item-options-btn"> <FaEllipsisH /> </button>
+            {/* Bạn có thể thêm một nút nhắn tin rõ ràng hơn nếu muốn */}
+            <button 
+                className="contact-item-action-btn chat-btn" 
+                onClick={(e) => {
+                    e.stopPropagation(); // Ngăn sự kiện click của div cha nếu bạn bọc nút này
+                    if (onInitiateChatWithFriend) onInitiateChatWithFriend(contact);
+                }}
+            >
+                <FaCommentDots />
+            </button>
+            {/* <button className="contact-item-options-btn"> <FaEllipsisH /> </button> */}
         </div>
     );
 

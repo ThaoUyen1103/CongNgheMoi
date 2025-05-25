@@ -7,8 +7,7 @@ const upload = multer({ storage: storage });
 import conversationController from '../app/controllers/ConversationController.js'
 //  Web--------------------------
 
-// router.post('/create', conversationController.create)
-// http://localhost:3000/conversation/createConversationsGroupWeb
+
 router.post(
     '/createConversationsWeb',
     conversationController.createConversationsWeb
@@ -45,7 +44,7 @@ router.post(
 
 router.put(
     '/updateConversationAvatarWeb', // Đây chính là đường dẫn
-    upload.single('file'),             // Middleware để xử lý file upload có tên field là 'file'
+    upload.single('file'),            
     conversationController.updateConversationAvatarWeb // Hàm controller xử lý request
 );
 // rời nhóm
@@ -108,9 +107,6 @@ router.put('/leaveGroup', conversationController.leaveGroupMobile);
 router.put('/authorizeGroupLeader', conversationController.authorizeGroupLeader);
 
 router.get('/getConversationById/:conversation_id', conversationController.getConversationById);
-
-
-
 
 
 
