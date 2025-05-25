@@ -26,6 +26,20 @@ const io = new Server(server, {
     pingInterval: 25000,
 });
 
+app.post('/api/emit-to-room', (req, res) => {
+    const { room, event, payload } = req.body;
+
+    if (!room || !event || !payload) {
+        console.error('🔴 /api/emit-to-room: Thiếu tham số room, event, hoặc payload');
+        return res.status(400).json({ success: false, message: 'Thiếu tham số bắt buộc.' });
+    }
+
+    console.log(`✅ Nhận lệnh emit: Event '${event}' tới Room '${room}'`);
+    io.to(room).emit(event, payload);
+
+    res.status(200).json({ success: true, message: 'Sự kiện đã được phát đi.' });
+});
+
 io.on('connection', (socket) => {
     console.log('✅ User connected to 3005:', socket.id);
 
@@ -79,37 +93,37 @@ io.on('connection', (socket) => {
         console.log('👥 Clients in room', conversation_id, ':', roomClients ? roomClients.size : 0);
     });
 
-    // THU HỒI TIN NHẮN (CHO MỌI NGƯỜI)
-    socket.on('message-recalled', (recalledMessageFromClient) => {
-        console.log('📢 Received client-side message-recalled event with data:', recalledMessageFromClient);
+   
+    // socket.on('message-recalled', (recalledMessageFromClient) => {
+    //     console.log('📢 Received client-side message-recalled event with data:', recalledMessageFromClient);
 
 
-        const message_id = recalledMessageFromClient._id;
-        const conversation_id = recalledMessageFromClient.conversation_id;
-        const user_id_recalled = recalledMessageFromClient.senderId;
-        const updated_content = recalledMessageFromClient.content;
-        const is_recalled_flag = recalledMessageFromClient.recalled;
+    //     const message_id = recalledMessageFromClient._id;
+    //     const conversation_id = recalledMessageFromClient.conversation_id;
+    //     const user_id_recalled = recalledMessageFromClient.senderId;
+    //     const updated_content = recalledMessageFromClient.content;
+    //     const is_recalled_flag = recalledMessageFromClient.recalled;
 
-        if (!message_id || !conversation_id || typeof is_recalled_flag === 'undefined') {
-            console.error('🔴 Invalid data for message-recalled. Expected full message object from client. Received:', recalledMessageFromClient);
-            return;
-        }
-
-
-        const dataToEmitToRoom = {
-            _id: message_id,
-            conversation_id: conversation_id,
-            user_id_recalled: user_id_recalled,
-            recalled: is_recalled_flag,
-            content: updated_content,
-            senderId: recalledMessageFromClient.senderId,
-
-        };
+    //     if (!message_id || !conversation_id || typeof is_recalled_flag === 'undefined') {
+    //         console.error('🔴 Invalid data for message-recalled. Expected full message object from client. Received:', recalledMessageFromClient);
+    //         return;
+    //     }
 
 
-        io.to(conversation_id).emit('server-message-recalled', dataToEmitToRoom);
-        console.log(`📢 Emitted 'server-message-recalled' for message ${message_id} in conversation ${conversation_id} by user ${user_id_recalled || 'unknown'}. Data:`, dataToEmitToRoom);
-    });
+    //     const dataToEmitToRoom = {
+    //         _id: message_id,
+    //         conversation_id: conversation_id,
+    //         user_id_recalled: user_id_recalled,
+    //         recalled: is_recalled_flag,
+    //         content: updated_content,
+    //         senderId: recalledMessageFromClient.senderId,
+
+    //     };
+
+
+    //     io.to(conversation_id).emit('server-message-recalled', dataToEmitToRoom);
+    //     console.log(`📢 Emitted 'server-message-recalled' for message ${message_id} in conversation ${conversation_id} by user ${user_id_recalled || 'unknown'}. Data:`, dataToEmitToRoom);
+    // });
 
     // XÓA TIN NHẮN (CHO MỌI NGƯỜI)
     socket.on('client-delete-message-for-everyone', (data) => {

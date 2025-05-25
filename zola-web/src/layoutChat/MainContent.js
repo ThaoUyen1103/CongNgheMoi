@@ -1,22 +1,22 @@
 import React, { useState, useRef, useEffect } from 'react';
 import '../styles/MainContent.css';
-import { 
+import {
     FaPhoneAlt, FaVideo, FaInfoCircle, FaPaperclip, FaImage, FaEllipsisH, FaSmile, FaSpinner, FaDownload,
-    FaFileWord, FaFileExcel, FaFilePowerpoint, FaFilePdf, FaFileAlt, FaFileArchive 
+    FaFileWord, FaFileExcel, FaFilePowerpoint, FaFilePdf, FaFileAlt, FaFileArchive
 } from 'react-icons/fa';
 import ConversationInfoModal from '../modals/ConversationInfoModal';
 import MessageContextMenu from '../modals/MessageContextMenu';
 import EmojiPicker, { EmojiStyle } from 'emoji-picker-react';
-import ForwardMessageModal from '../modals/ForwardMessageModal'; // Đảm bảo import này đúng
+import ForwardMessageModal from '../modals/ForwardMessageModal';
 
-// Thêm prop allConversations
-function MainContent({ selectedChat, currentLoggedInUserId, onConversationDeleted, allConversations }) { 
+function MainContent({ selectedChat, currentLoggedInUserId, onConversationDeleted, allConversations, socket }) {
     const messagesEndRef = useRef(null);
     const menuRef = useRef(null);
     const fileInputRef = useRef(null);
     const imageInputRef = useRef(null);
     const emojiPickerRef = useRef(null);
-    const replyInputPreviewRef = useRef(null); 
+    const replyInputPreviewRef = useRef(null);
+    const prevSelectedChatIdRef = useRef(null);
 
     const [replyingToMessage, setReplyingToMessage] = useState(null);
     const [isConvInfoModalOpen, setIsConvInfoModalOpen] = useState(false);
@@ -29,9 +29,14 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
     const [forwardingMessageId, setForwardingMessageId] = useState(null);
     const [isForwardModalOpen, setIsForwardModalOpen] = useState(false);
     const [selectedMedia, setSelectedMedia] = useState([]);
+    const [localSelectedChat, setLocalSelectedChat] = useState(selectedChat);
+
+    useEffect(() => {
+        setLocalSelectedChat(selectedChat);
+    }, [selectedChat]);
 
     const openConvInfoModal = () => {
-        if (selectedChat) setIsConvInfoModalOpen(true);
+        if (localSelectedChat) setIsConvInfoModalOpen(true);
     };
     const closeConvInfoModal = () => setIsConvInfoModalOpen(false);
 
@@ -40,7 +45,7 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
     };
 
     useEffect(() => {
-        const conversationId = selectedChat?._id || selectedChat?.id;
+        const conversationId = localSelectedChat?._id;
         if (!conversationId) {
             setMessages([]);
             return;
@@ -49,15 +54,19 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
             setIsLoadingMessages(true);
             setMessagesError('');
             try {
-                const res = await fetch(`http://localhost:3001/message/${conversationId}`);
+                const res = await fetch(`http://localhost:3001/message/findAllMessagesWeb`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('user_token')}` },
+                    body: JSON.stringify({ conversation_id: conversationId })
+                });
                 const data = await res.json();
                 if (res.ok) {
-                    if (Array.isArray(data)) {
-                        const filtered = data.filter(m => !(m.deletedBy?.includes(currentLoggedInUserId)));
+                    if (data.message && Array.isArray(data.message)) {
+                        const filtered = data.message.filter(m => !(m.deletedBy?.includes(currentLoggedInUserId)));
                         setMessages(filtered);
                     } else { setMessages([]); }
                 } else {
-                    setMessagesError(data.message || data.error || "Lỗi tải tin nhắn");
+                    setMessagesError(data.thongbao || data.message || data.error || "Lỗi tải tin nhắn");
                     setMessages([]);
                 }
             } catch (err) {
@@ -68,7 +77,7 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
             }
         };
         fetchMessages();
-    }, [selectedChat?._id, currentLoggedInUserId]);
+    }, [localSelectedChat?._id, currentLoggedInUserId]);
 
     useEffect(() => {
         if (messages && messages.length > 0) {
@@ -97,16 +106,102 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
         if (activeMenu.messageId) document.addEventListener('mousedown', handleClickOutsideMenu);
         return () => document.removeEventListener('mousedown', handleClickOutsideMenu);
     }, [activeMenu.messageId]);
-    
+
+    useEffect(() => {
+        if (socket && localSelectedChat?._id) {
+            const newRoomId = localSelectedChat._id;
+            const userId = currentLoggedInUserId;
+
+            if (prevSelectedChatIdRef.current && prevSelectedChatIdRef.current !== newRoomId) {
+                 socket.emit('leave-conversation', { conversation_id: prevSelectedChatIdRef.current, user_id: userId });
+            }
+            
+            if (prevSelectedChatIdRef.current !== newRoomId) {
+                socket.emit('join-conversation', { conversation_id: newRoomId, user_id: userId });
+                prevSelectedChatIdRef.current = newRoomId;
+            }
+
+        } else if (socket && !localSelectedChat?._id && prevSelectedChatIdRef.current) {
+             socket.emit('leave-conversation', { conversation_id: prevSelectedChatIdRef.current, user_id: currentLoggedInUserId });
+            prevSelectedChatIdRef.current = null;
+        }
+    }, [socket, localSelectedChat?._id, currentLoggedInUserId]);
+
+    useEffect(() => {
+        if (socket) {
+            const handleReceiveMessage = (newMessageData) => {
+                if (newMessageData.conversation_id === localSelectedChat?._id) {
+                    setMessages(prevMessages => {
+                        if (!prevMessages.find(msg => msg._id === newMessageData._id)) {
+                            return [...prevMessages, newMessageData];
+                        }
+                        return prevMessages;
+                    });
+                }
+            };
+
+            const handleMessageRecalledFromServer = (recalledMessageData) => {
+                if (recalledMessageData.conversation_id === localSelectedChat?._id) {
+                    setMessages(prevMessages => 
+                        prevMessages.map(msg => 
+                            msg._id === recalledMessageData._id 
+                            ? { ...recalledMessageData } 
+                            : msg
+                        )
+                    );
+                }
+            };
+
+            const handleServerMessageDeleted = (data) => {
+                if (data.conversation_id === localSelectedChat?._id) {
+                    setMessages(prev => prev.filter(msg => msg._id !== data.message_id));
+                }
+            };
+            
+            const handleMessageDeletedForMe = (data) => {
+                if(data.conversation_id === localSelectedChat?._id) {
+                    setMessages(prev => prev.filter(msg => msg._id !== data.message_id));
+                }
+            };
+            
+            const handleGroupMetadataUpdateForMain = (data) => {
+                if (localSelectedChat && data.conversationId === localSelectedChat._id) {
+                    setLocalSelectedChat(prev => ({...prev, ...data.updatedData}));
+                }
+            };
+
+            socket.on('receive-message', handleReceiveMessage);
+            socket.on('message-recalled', handleMessageRecalledFromServer);
+            socket.on('server-message-deleted-for-everyone', handleServerMessageDeleted);
+            socket.on('message-deleted-for-me', handleMessageDeletedForMe);
+            socket.on('group-metadata-updated', handleGroupMetadataUpdateForMain);
+
+            return () => {
+                socket.off('receive-message', handleReceiveMessage);
+                socket.off('message-recalled', handleMessageRecalledFromServer);
+                socket.off('server-message-deleted-for-everyone', handleServerMessageDeleted);
+                socket.off('message-deleted-for-me', handleMessageDeletedForMe);
+                socket.off('group-metadata-updated', handleGroupMetadataUpdateForMain);
+            };
+        }
+    }, [socket, localSelectedChat?._id]);
+
     const onMediaSelected = (event) => {
         const files = Array.from(event.target.files);
         const newFiles = files.filter(file => !selectedMedia.some(existingFile => existingFile.name === file.name && existingFile.size === file.size));
-        setSelectedMedia(prev => [...prev, ...newFiles]);
+        
+        const oversizedFiles = newFiles.filter(file => file.size > 100 * 1024 * 1024);
+        if (oversizedFiles.length > 0) {
+            alert(`Các tệp sau vượt quá giới hạn 100MB và sẽ không được thêm: \n${oversizedFiles.map(f => f.name).join('\n')}`);
+        }
+        const validFiles = newFiles.filter(file => file.size <= 100 * 1024 * 1024);
+
+        setSelectedMedia(prev => [...prev, ...validFiles]);
         event.target.value = null;
     };
 
     const sendMessage = async () => {
-        const conversationId = selectedChat._id || selectedChat.id;
+        const conversationId = localSelectedChat._id || localSelectedChat.id;
         if (!conversationId || !currentLoggedInUserId) return;
 
         const textContentTrimmed = inputText.trim();
@@ -120,6 +215,7 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
         const otherFilesToSend = selectedMedia.filter(f => !f.type.startsWith('image/'));
         
         const uploadPromises = [];
+        const token = localStorage.getItem('user_token');
 
         if (hasText || imagesToSend.length > 0) {
             const formData = new FormData();
@@ -127,21 +223,22 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
             formData.append('user_id', currentLoggedInUserId);
             if (hasText) formData.append('content', textContentTrimmed);
             if (currentReplyToId) formData.append('replyTo', currentReplyToId);
-
+            
             if (imagesToSend.length > 0) {
-                formData.append('contentType', hasText ? 'text' : 'image');
-                imagesToSend.forEach(img => formData.append('image', img));
+                 formData.append('contentType', hasText ? 'text' : (imagesToSend.length > 1 ? 'image_gallery' : 'image'));
+                 imagesToSend.forEach(img => formData.append('image', img));
             } else {
-                formData.append('contentType', 'text');
+                 formData.append('contentType', 'text');
             }
             
-            const textAndImagePromise = fetch('http://localhost:3001/message/createMessagesWeb', { method: 'POST', body: formData })
+            const textAndImagePromise = fetch('http://localhost:3001/message/createMessagesWeb', { 
+                method: 'POST', 
+                body: formData,
+                headers: { 'Authorization': `Bearer ${token}` } 
+            })
             .then(async response => {
                 const data = await response.json();
-                if (!response.ok) {
-                    console.error("Lỗi từ server (createMessagesWeb):", data);
-                    throw new Error(data.thongbao || data.message || data.error || 'Lỗi gửi ảnh/text');
-                }
+                if (!response.ok) { throw new Error(data.thongbao || data.message || 'Lỗi gửi ảnh/text'); }
                 return data;
             })
             .then(data => {
@@ -149,10 +246,11 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
                 if (data.textMessage) newMsgs.push(data.textMessage);
                 if (data.imageMessage && Array.isArray(data.imageMessage)) newMsgs = newMsgs.concat(data.imageMessage);
                 else if (data.imageMessage) newMsgs.push(data.imageMessage);
-                if (data.message) newMsgs.push(data.message);
-                if (newMsgs.length === 0) {
-        console.warn("Không có tin nhắn hợp lệ từ /createMessagesWeb (response.ok=true), response data:", data);
-    }
+                else if (data.message && data.message.contentType === 'image_gallery' && Array.isArray(data.message.content)) {
+                     newMsgs.push(data.message);
+                } else if (data.message) {
+                    newMsgs.push(data.message);
+                }
                 return newMsgs.filter(Boolean);
             });
             uploadPromises.push(textAndImagePromise);
@@ -163,25 +261,22 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
                 const fileFormData = new FormData();
                 fileFormData.append('conversation_id', conversationId);
                 fileFormData.append('user_id', currentLoggedInUserId);
-                const fileContentType = file.type.startsWith('video/') ? 'video' : 'file';
-                fileFormData.append('contentType', fileContentType);
+                fileFormData.append('contentType', file.type.startsWith('video/') ? 'video' : 'file');
                 fileFormData.append('media', file);
                 if (currentReplyToId) fileFormData.append('replyTo', currentReplyToId);
 
-                const filePromise = fetch('http://localhost:3001/message/uploadMediaWeb', { method: 'POST', body: fileFormData })
+                const filePromise = fetch('http://localhost:3001/message/uploadMediaWeb', { 
+                    method: 'POST', 
+                    body: fileFormData,
+                    headers: { 'Authorization': `Bearer ${token}` }
+                })
                 .then(async response => {
                     const data = await response.json();
-                    if (!response.ok) {
-                        console.error("Lỗi từ server (uploadMediaWeb):", data);
-                        throw new Error(data.thongbao || data.message || data.error || `Lỗi gửi file ${file.name}`);
-                    }
+                    if (!response.ok) { throw new Error(data.thongbao || data.message || `Lỗi gửi file ${file.name}`);}
                     return data;
                 })
                 .then(data => {
-                    if (!data.MediaMessage || data.MediaMessage.length === 0) {
-        console.warn(`Không có MediaMessage từ /uploadMediaWeb cho file ${file.name} (response.ok=true), response data:`, data);
-        return [];
-    }
+                    if (!data.MediaMessage || data.MediaMessage.length === 0) return [];
                     return data.MediaMessage.filter(Boolean);
                 });
                 uploadPromises.push(filePromise);
@@ -190,19 +285,22 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
 
         try {
             const results = await Promise.all(uploadPromises);
-            const newMessagesToAdd = results.flat().filter(Boolean); 
-            if (newMessagesToAdd.length > 0) {
-                setMessages(prev => [...prev, ...newMessagesToAdd]);
-            } else {
-                 console.log("sendMessage: Không có tin nhắn mới nào được thêm vào UI sau khi xử lý promises.");
+            const newMessagesFromAPI = results.flat().filter(Boolean); 
+            
+            if (socket && newMessagesFromAPI.length > 0) {
+                newMessagesFromAPI.forEach(msg => {
+                    socket.emit('send-message', msg); 
+                });
             }
         } catch (error) {
-            console.error("Đã xảy ra lỗi trong quá trình gửi một hoặc nhiều tin nhắn:", error.message);
+            console.error("Lỗi khi gửi tin nhắn hoặc media:", error.message);
+            alert(`Lỗi gửi tin nhắn: ${error.message}`);
         } finally {
             setInputText('');
             setSelectedMedia([]);
             setReplyingToMessage(null);
-            scrollToBottom();
+            const textarea = document.querySelector('.message-input');
+            if (textarea) textarea.style.height = 'auto';
         }
     };
 
@@ -211,8 +309,8 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
         event.stopPropagation();
         let xPosition = event.clientX;
         let yPosition = event.clientY;
-        const menuWidth = 180;
-        const menuHeight = 160; 
+        const menuWidth = 180; 
+        const menuHeight = message.senderId?._id === currentLoggedInUserId || message.senderId === currentLoggedInUserId ? 200 : 130; 
         if (xPosition + menuWidth > window.innerWidth) xPosition = window.innerWidth - menuWidth - 10;
         if (yPosition + menuHeight > window.innerHeight) yPosition = window.innerHeight - menuHeight - 10;
         if (xPosition < 0) xPosition = 10;
@@ -223,24 +321,43 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
     const handleCloseMenu = () => setActiveMenu({ messageId: null, x: 0, y: 0 });
 
     const handleRecallMessage = async (messageId) => {
+        const token = localStorage.getItem('user_token');
         try {
-            const response = await fetch('http://localhost:3001/message/recallMessageWeb', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message_id: messageId }) });
+            const response = await fetch('http://localhost:3001/message/recallMessageWeb', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, 
+                body: JSON.stringify({ message_id: messageId }) 
+            });
             const data = await response.json();
-            if (response.ok && data.message) {
-                setMessages(prev => prev.map(msg => msg._id === messageId ? { ...msg, recalled: true, content: 'Tin nhắn đã được thu hồi' } : msg));
-            } else { console.error('Thu hồi tin nhắn thất bại:', data.thongbao || data.message || data.error); }
-        } catch (err) { console.error('Lỗi khi thu hồi tin nhắn:', err); }
+            if (!response.ok) { 
+                console.error('Thu hồi tin nhắn thất bại API:', data.thongbao || data.message || data.error); 
+            }
+        } catch (err) { 
+            console.error('Lỗi khi gọi API thu hồi tin nhắn:', err); 
+        }
         handleCloseMenu();
     };
 
     const handleDeleteForMe = async (messageId) => {
+        const token = localStorage.getItem('user_token');
         try {
-            const response = await fetch('http://localhost:3001/message/deleteMyMessageWeb', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message_id: messageId, user_id: currentLoggedInUserId }) });
+            const response = await fetch('http://localhost:3001/message/deleteMyMessageWeb', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, 
+                body: JSON.stringify({ message_id: messageId, user_id: currentLoggedInUserId }) 
+            });
             const data = await response.json();
             if (response.ok && data.message) {
-                setMessages(prev => prev.filter(msg => msg._id !== messageId));
-            } else { console.error('Xóa tin nhắn thất bại:', data.thongbao || data.message || data.error); }
-        } catch (err) { console.error('Lỗi khi xóa tin nhắn:', err); }
+                setMessages(prev => prev.filter(msg => msg._id !== messageId)); 
+                if (socket) {
+                    socket.emit('delete-my-message', { message_id: messageId, conversation_id: localSelectedChat?._id, user_id_room: currentLoggedInUserId });
+                }
+            } else { 
+                console.error('Xóa tin nhắn thất bại API:', data.thongbao || data.message || data.error); 
+            }
+        } catch (err) { 
+            console.error('Lỗi khi gọi API xóa tin nhắn:', err); 
+        }
         handleCloseMenu();
     };
 
@@ -260,40 +377,66 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
         handleCloseMenu();
     };
 
-    const confirmForward = async (targetConversationId) => {
+    const confirmForward = async (targetConversationIds, additionalMessage) => {
         const messageToForward = messages.find(m => m._id === forwardingMessageId);
-        if (!messageToForward || !targetConversationId) {
-            console.error("Không tìm thấy tin nhắn để chuyển tiếp hoặc không có cuộc trò chuyện đích.");
-            setIsForwardModalOpen(false);
-            setForwardingMessageId(null);
-            return;
-        }
-        try {
-            const response = await fetch('http://localhost:3001/message/forwardMessageWeb', { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'application/json' }, 
-                body: JSON.stringify({ 
-                    message_id: forwardingMessageId, 
-                    conversation_id: targetConversationId, 
-                    forwarded_by: currentLoggedInUserId, 
-                    // original_sender đã có trong messageToForward.senderId
-                    original_sender: messageToForward.senderId?._id || messageToForward.senderId 
-                }) 
-            });
-            const data = await response.json();
-            if (response.ok && data.message) {
-                alert("Chuyển tiếp tin nhắn thành công!");
-                if ((selectedChat._id || selectedChat.id) === targetConversationId) {
-                    setMessages(prev => [...prev, data.message]);
-                    scrollToBottom();
-                }
-            } else { 
-                console.error('Chuyển tiếp thất bại:', data.thongbao || data.message || data.error); 
-                alert(`Chuyển tiếp thất bại: ${data.thongbao || data.message || 'Lỗi không xác định'}`);
+        if (!messageToForward || targetConversationIds.length === 0) return;
+        const hasAdditionalMessage = additionalMessage && additionalMessage.trim() !== '';
+        const token = localStorage.getItem('user_token');
+        
+        const originalSender = messageToForward.senderId; 
+
+        const forwardPromises = targetConversationIds.map(targetConvId => {
+            const body = {
+                message_id: forwardingMessageId,
+                conversation_id: targetConvId,
+                forwarded_by: currentLoggedInUserId,
+                original_sender: typeof originalSender === 'object' ? originalSender._id : originalSender
+            };
+            const forwardMessagePromise = fetch('http://localhost:3001/message/forwardMessageWeb', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify(body)
+            }).then(res => res.json());
+
+            if (hasAdditionalMessage) {
+                const formData = new FormData();
+                formData.append('conversation_id', targetConvId);
+                formData.append('user_id', currentLoggedInUserId);
+                formData.append('content', additionalMessage.trim());
+                formData.append('contentType', 'text');
+                const sendAdditionalMessagePromise = fetch('http://localhost:3001/message/createMessagesWeb', {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'Authorization': `Bearer ${token}` }
+                }).then(res => res.json());
+                return Promise.all([forwardMessagePromise, sendAdditionalMessagePromise]);
             }
-        } catch (err) { 
-            console.error('Lỗi chuyển tiếp:', err); 
-            alert("Lỗi kết nối khi chuyển tiếp tin nhắn.");
+            return forwardMessagePromise;
+        });
+        try {
+            const results = await Promise.all(forwardPromises);
+            const newMessagesNested = results.flat().map(result => {
+                let newMsgs = [];
+                if (result.textMessage) newMsgs.push(result.textMessage);
+                if (result.imageMessage && Array.isArray(result.imageMessage)) newMsgs = newMsgs.concat(result.imageMessage);
+                else if (result.imageMessage) newMsgs.push(result.imageMessage);
+                if (result.message && result.message.content) newMsgs.push(result.message); 
+                if (result.MediaMessage) newMsgs = newMsgs.concat(result.MediaMessage); 
+                return newMsgs;
+            });
+            const newMessagesToAdd = newMessagesNested.flat().filter(Boolean);
+        
+            if (socket && newMessagesToAdd.length > 0) {
+                newMessagesToAdd.forEach(msg => {
+                    if (msg.conversation_id) { 
+                         socket.emit('send-message', msg);
+                    } else {
+                        console.warn("Forwarded/Additional message missing conversation_id:", msg);
+                    }
+                });
+            }
+        } catch (err) {
+            console.error('Lỗi khi chuyển tiếp hoặc gửi tin nhắn kèm theo:', err);
         } finally {
             setIsForwardModalOpen(false);
             setForwardingMessageId(null);
@@ -303,7 +446,7 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
     const handleInputChange = (e) => {
         setInputText(e.target.value);
         e.target.style.height = 'inherit';
-        e.target.style.height = `${Math.min(e.target.scrollHeight, 100)}px`;
+        e.target.style.height = `${Math.min(e.target.scrollHeight, 100)}px`; 
     };
 
     const onEmojiClick = (emojiObject) => setInputText(prevInput => prevInput + emojiObject.emoji);
@@ -317,24 +460,20 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
     
     const ReplyPreviewBubble = ({ messageId, currentUserId }) => {
         const originalMessage = messages.find(m => m._id === messageId);
-        if (!originalMessage) {
-            return <div className="reply-preview-bubble missing" onClick={(e) => e.stopPropagation()}><em>Tin nhắn không còn tồn tại</em></div>;
-        }
-        if (originalMessage.recalled) {
-             return <div className="reply-preview-bubble recalled" onClick={(e) => e.stopPropagation()}><em>Trả lời một tin nhắn đã thu hồi</em></div>;
-        }
+        if (!originalMessage) { return <div className="reply-preview-bubble missing" onClick={(e) => e.stopPropagation()}><em>Tin nhắn không còn tồn tại</em></div>; }
+        if (originalMessage.recalled) { return <div className="reply-preview-bubble recalled" onClick={(e) => e.stopPropagation()}><em>Trả lời một tin nhắn đã thu hồi</em></div>; }
+        
         let previewContent = originalMessage.content;
         let senderName = "Một ai đó";
-
         if (originalMessage.senderId) {
             const sender = originalMessage.senderId;
-            if (String(sender._id || sender) === String(currentUserId)) {
+            if ( (typeof sender === 'object' && sender._id === currentUserId) || sender === currentUserId) {
                 senderName = "Bạn";
             } else {
-                senderName = sender.userName || "Người gửi";
+                senderName = typeof sender === 'object' ? sender.userName : "Người gửi";
             }
         }
-       
+
         if (originalMessage.contentType === 'text') {
             previewContent = String(originalMessage.content).substring(0, 70) + (String(originalMessage.content).length > 70 ? '...' : '');
         } else if (originalMessage.contentType?.includes('image')) {
@@ -347,7 +486,6 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
         } else {
             previewContent = `[${originalMessage.contentType || 'Tin nhắn'}]`;
         }
-    
         return (
             <div className="reply-preview-bubble" onClick={(e) => e.stopPropagation()}>
                 <div className="reply-preview-sender">{senderName}</div>
@@ -359,32 +497,21 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
     const renderMessageContent = (msg) => {
         const contentType = msg.contentType || msg.type;
         let content = msg.content || msg.text;
-            
-        if (msg.recalled) {
-            return <p className="message-text-content recalled-message"><i>Tin nhắn đã được thu hồi</i></p>;
-        }
+        if (msg.recalled) { return <p className="message-text-content recalled-message"><i>Tin nhắn đã được thu hồi</i></p>; }
         
         const commonMenuButton = !msg.recalled && msg.contentType !== 'system' && msg.contentType !== 'notify' && (
-            <button 
-                className={contentType === 'text' ? "message-menu-trigger-btn" : "media-item-menu-trigger"} 
-                onClick={(e) => handleOpenMenu(msg, e)} 
-                title="Tùy chọn"
-            >
-                <FaEllipsisH />
-            </button>
+            <button className={contentType === 'text' ? "message-menu-trigger-btn" : "media-item-menu-trigger"} onClick={(e) => handleOpenMenu(msg, e)} title="Tùy chọn"><FaEllipsisH /></button>
         );
-    
         switch (contentType) {
-            case 'text':
-                return ( <div className="text-message-wrapper"> {msg.replyTo && <ReplyPreviewBubble messageId={msg.replyTo} currentUserId={currentLoggedInUserId} />} <p className="message-text-content">{content}</p> {commonMenuButton} </div> );
+            case 'text': return ( <div className="text-message-wrapper"> {msg.replyTo && <ReplyPreviewBubble messageId={msg.replyTo} currentUserId={currentLoggedInUserId} />} {msg.isForwarded && <p className="forwarded-label">Đã chuyển tiếp</p>} <p className="message-text-content">{content}</p> {commonMenuButton} </div> );
             case 'image': {
                 const imageUrl = msg.imageUrl || content;
                 const fileName = typeof imageUrl === 'string' ? imageUrl.substring(imageUrl.lastIndexOf('/') + 1) : 'image.jpg';
-                return ( <div className="message-media-container"> {msg.replyTo && <ReplyPreviewBubble messageId={msg.replyTo} currentUserId={currentLoggedInUserId} />} <div className="message-image-wrapper"> <img src={imageUrl} alt="Hình ảnh" className="message-image-content" onError={(e) => { e.target.style.display='none';}}/> <a href={imageUrl} download={fileName} className="message-image-download-btn" title="Tải ảnh xuống" onClick={(e) => e.stopPropagation()}><FaDownload /></a> {commonMenuButton} </div> </div> );
+                return ( <div className="message-media-container"> {msg.replyTo && <ReplyPreviewBubble messageId={msg.replyTo} currentUserId={currentLoggedInUserId} />} {msg.isForwarded && <p className="forwarded-label">Đã chuyển tiếp</p>} <div className="message-image-wrapper"> <img src={imageUrl} alt="Hình ảnh" className="message-image-content" onError={(e) => { e.target.onerror = null; e.target.src='fallback-image.png';}}/> <a href={imageUrl} download={fileName} className="message-image-download-btn" title="Tải ảnh xuống" onClick={(e) => e.stopPropagation()}><FaDownload /></a> {commonMenuButton} </div> </div> );
             }
             case 'image_gallery': {
                 const galleryItems = Array.isArray(content) ? content : (typeof content === 'string' ? [content] : []);
-                return ( <div className="message-media-container"> {msg.replyTo && <ReplyPreviewBubble messageId={msg.replyTo} currentUserId={currentLoggedInUserId} />} <div className="message-image-gallery-container"> {galleryItems.map((url, index) => { const galleryFileName = typeof url === 'string' ? url.substring(url.lastIndexOf('/') + 1) : `gallery_image_${index + 1}.jpg`; return ( <div key={index} className="message-image-wrapper gallery-image-item"> <img src={url} alt={`Hình ảnh ${index + 1}`} className="message-image-content" onError={(e) => { e.target.style.display='none';}}/> <a href={url} download={galleryFileName} className="message-image-download-btn" title="Tải ảnh xuống" onClick={(e) => e.stopPropagation()}><FaDownload /></a> </div> ); })} </div> {commonMenuButton} </div> );
+                return ( <div className="message-media-container"> {msg.replyTo && <ReplyPreviewBubble messageId={msg.replyTo} currentUserId={currentLoggedInUserId} />} {msg.isForwarded && <p className="forwarded-label">Đã chuyển tiếp</p>} <div className="message-image-gallery-container"> {galleryItems.map((url, index) => { const galleryFileName = typeof url === 'string' ? url.substring(url.lastIndexOf('/') + 1) : `gallery_image_${index + 1}.jpg`; return ( <div key={index} className="message-image-wrapper gallery-image-item"> <img src={url} alt={`Hình ảnh ${index + 1}`} className="message-image-content" onError={(e) => { e.target.onerror = null; e.target.src='fallback-image.png';}}/> <a href={url} download={galleryFileName} className="message-image-download-btn" title="Tải ảnh xuống" onClick={(e) => e.stopPropagation()}><FaDownload /></a> </div> ); })} </div> {commonMenuButton} </div> );
             }
             case 'file':
             case 'video': {
@@ -392,51 +519,31 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
                 const extension = typeof fullFileName === 'string' ? fullFileName.substring(fullFileName.lastIndexOf('.') + 1).toLowerCase() : '';
                 let fileIconElement; let iconClassName = "file-type-icon generic";
                 switch (extension) {
-                    case 'doc': case 'docx': 
-                        fileIconElement = <FaFileWord style={{ color: '#2b579a' }} />; 
-                        iconClassName = "file-type-icon word"; 
-                        break;
-                    case 'xls': case 'xlsx': 
-                        fileIconElement = <FaFileExcel style={{ color: '#1d6f42' }} />; 
-                        iconClassName = "file-type-icon excel"; 
-                        break;
-                    case 'ppt': case 'pptx': 
-                        fileIconElement = <FaFilePowerpoint style={{ color: '#d04423' }} />; 
-                        iconClassName = "file-type-icon ppt"; 
-                        break;
-                    case 'pdf': 
-                        fileIconElement = <FaFilePdf style={{ color: '#B30B00' }} />; 
-                        iconClassName = "file-type-icon pdf"; 
-                        break;
-                    case 'zip': case 'rar': case '7z': 
-                        fileIconElement = <FaFileArchive style={{ color: '#fab005' }} />; 
-                        iconClassName = "file-type-icon archive"; 
-                        break;
-                    default: 
-                        if (contentType === 'video') { 
-                            fileIconElement = '🎬'; 
-                        } else { 
-                            fileIconElement = <FaFileAlt style={{ color: '#868e96' }} />; 
-                        }
-                        break;
+                    case 'doc': case 'docx': fileIconElement = <FaFileWord style={{ color: '#2b579a' }} />; iconClassName = "file-type-icon word"; break;
+                    case 'xls': case 'xlsx': fileIconElement = <FaFileExcel style={{ color: '#1d6f42' }} />; iconClassName = "file-type-icon excel"; break;
+                    case 'ppt': case 'pptx': fileIconElement = <FaFilePowerpoint style={{ color: '#d04423' }} />; iconClassName = "file-type-icon ppt"; break;
+                    case 'pdf': fileIconElement = <FaFilePdf style={{ color: '#B30B00' }} />; iconClassName = "file-type-icon pdf"; break;
+                    case 'zip': case 'rar': case '7z': fileIconElement = <FaFileArchive style={{ color: '#fab005' }} />; iconClassName = "file-type-icon archive"; break;
+                    default: if (contentType === 'video') { fileIconElement = '🎬'; } else { fileIconElement = <FaFileAlt style={{ color: '#868e96' }} />; } break;
                 }
-                return ( <div className="message-media-container"> {msg.replyTo && <ReplyPreviewBubble messageId={msg.replyTo} currentUserId={currentLoggedInUserId} />} <div className={`message-file ${contentType === 'video' ? 'message-video' : ''}`}> <span className={`file-icon ${iconClassName}`}>{fileIconElement}</span> <div className="file-info"><span className="file-name">{fullFileName}</span></div> <div className="file-actions-group"> <a href={content} target="_blank" rel="noopener noreferrer" download={fullFileName} className="file-action-btn" title="Tải xuống"><FaDownload /></a> {commonMenuButton} </div> </div> </div> );
+                return ( <div className="message-media-container"> {msg.replyTo && <ReplyPreviewBubble messageId={msg.replyTo} currentUserId={currentLoggedInUserId} />} {msg.isForwarded && <p className="forwarded-label">Đã chuyển tiếp</p>} <div className={`message-file ${contentType === 'video' ? 'message-video' : ''}`}> <span className={`file-icon ${iconClassName}`}>{fileIconElement}</span> <div className="file-info"><span className="file-name">{fullFileName}</span></div> <div className="file-actions-group"> <a href={content} target="_blank" rel="noopener noreferrer" download={fullFileName} className="file-action-btn" title="Tải xuống"><FaDownload /></a> {commonMenuButton} </div> </div> </div> );
             }
             case 'notify': case 'system': return <div className="system-message-text">{content}</div>;
             default: return <p className="message-text-content">{String(content) || 'Tin nhắn không xác định'}</p>;
         }
     };
 
-    if (!selectedChat) {
+    if (!localSelectedChat) {
         const features = [ { name: 'Tin nhắn tự động', icon: '💬' }, { name: 'Nhãn dán Business', icon: '🏷️' }, { name: 'Mời cộng danh bạ', icon: '👥' }, { name: 'Mở rộng nhóm', icon: '➕' }, ];
         return ( <div className="main-content no-chat-selected"><div className="welcome-section"><h2>Chào mừng đến với Zalo PC!</h2><p className="welcome-subtitle">Khám phá những tiện ích hỗ trợ làm việc và trò chuyện cùng<br />người thân, bạn bè được tối ưu cho máy tính của bạn.</p><div className="welcome-visual"><div className="visual-left placeholder-image">Ảnh minh họa Zalo PC<button className="upgrade-button">NÂNG CẤP NGAY</button></div><div className="visual-right">{features.map((feature) => (<div key={feature.name} className="feature-item"><span className="feature-icon">{feature.icon}</span><span className="feature-name">{feature.name}</span></div>))}</div></div></div></div>);
     }
 
     const getGroupMembersCount = (chat) => {
-        if (chat.type === 'group') {
+        if (!chat) return 0;
+        if (chat.type === 'group' || chat.isGroup) {
             if (chat.membersCount) return chat.membersCount;
             if (chat.members && chat.members.length > 0) return chat.members.length;
-            return chat.name.toLowerCase().includes("nhóm") || chat.name.toLowerCase().includes("group") || chat.name.toLowerCase().includes("clb") ? 2 : 1;
+            return 0;
         }
         return null;
     };
@@ -449,13 +556,13 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
                 <div className="main-content chat-view">
                     <div className="chat-header">
                         <div className="chat-header-info">
-                            <div className={`avatar header-avatar ${selectedChat.type === 'group' ? 'group-avatar' : 'user-avatar'}`}>
-                                {selectedChat.avatar && (typeof selectedChat.avatar === 'string' && (selectedChat.avatar.startsWith('http') || selectedChat.avatar.startsWith('data:image'))) ? <img src={selectedChat.avatar} alt="avatar" /> : selectedChat.name?.substring(0, 2).toUpperCase() || '?'}
+                            <div className={`avatar header-avatar ${(localSelectedChat.type === 'group' || localSelectedChat.isGroup) ? 'group-avatar' : 'user-avatar'}`}>
+                                {localSelectedChat.avatar && (typeof localSelectedChat.avatar === 'string' && (localSelectedChat.avatar.startsWith('http') || localSelectedChat.avatar.startsWith('data:image'))) ? <img src={localSelectedChat.avatar} alt="avatar" onError={(e) => {e.target.onerror = null; e.target.src = 'default-avatar.png'}} /> : localSelectedChat.name?.substring(0, 2).toUpperCase() || '?'}
                             </div>
                             <div className="chat-header-name-status">
-                                <span className="chat-header-name">{selectedChat.name}</span>
-                                {selectedChat.type === 'user' && (<span className="chat-header-status">{'Đang hoạt động'}</span>)}
-                                {selectedChat.type === 'group' && (<span className="chat-header-status">{getGroupMembersCount(selectedChat)} thành viên</span>)}
+                                <span className="chat-header-name">{localSelectedChat.name}</span>
+                                {(localSelectedChat.type === 'user' && !localSelectedChat.isGroup) && (<span className="chat-header-status">{'Đang hoạt động'}</span>)}
+                                {(localSelectedChat.type === 'group' || localSelectedChat.isGroup) && (<span className="chat-header-status">{getGroupMembersCount(localSelectedChat)} thành viên</span>)}
                             </div>
                         </div>
                         <div className="chat-header-actions">
@@ -469,14 +576,14 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
                         {messagesError && <div className="error-messages-container">{messagesError}</div>}
                         {!isLoadingMessages && !messagesError && messages.length > 0 ? (
                             messages.map((msg) => (
-                                <div key={msg._id || msg.id || Math.random().toString()} className={`message-item ${msg.senderId?._id === currentLoggedInUserId || msg.senderId === currentLoggedInUserId ? 'sent' : (msg.contentType === 'system' || msg.contentType === 'notify') ? 'system' : 'received'}`}>
+                                <div key={msg._id || msg.id || Math.random().toString()} className={`message-item ${(msg.contentType === 'system' || msg.contentType === 'notify')? 'system' : (msg.senderId?._id === currentLoggedInUserId || msg.senderId === currentLoggedInUserId? 'sent': 'received')}`}>
                                     {(msg.contentType !== 'system' && msg.contentType !== 'notify' && (msg.senderId?._id !== currentLoggedInUserId && msg.senderId !== currentLoggedInUserId)) && (
-                                        <div className={`avatar message-avatar ${selectedChat.type === 'group' ? 'group-message-avatar' : 'user-message-avatar'}`}>
-                                            {selectedChat.type === 'group' ? (msg.senderId?.avatar ? <img src={msg.senderId.avatar} alt="avatar" /> : msg.senderId?.userName?.substring(0, 1).toUpperCase() || '?') : (selectedChat.avatar && (typeof selectedChat.avatar === 'string' && (selectedChat.avatar.startsWith('http') || selectedChat.avatar.startsWith('data:image'))) ? <img src={selectedChat.avatar} alt="avatar" /> : selectedChat.name?.substring(0, 1).toUpperCase())}
+                                        <div className={`avatar message-avatar ${(localSelectedChat.type === 'group' || localSelectedChat.isGroup) ? 'group-message-avatar' : 'user-message-avatar'}`}>
+                                            {(localSelectedChat.type === 'group' || localSelectedChat.isGroup) ? (msg.senderId?.avatar ? <img src={msg.senderId.avatar} alt="avatar" onError={(e) => {e.target.onerror = null; e.target.src = 'default-avatar.png'}}/> : msg.senderId?.userName?.substring(0, 1).toUpperCase() || '?') : (localSelectedChat.avatar && (typeof localSelectedChat.avatar === 'string' && (localSelectedChat.avatar.startsWith('http') || localSelectedChat.avatar.startsWith('data:image'))) ? <img src={localSelectedChat.avatar} alt="avatar" onError={(e) => {e.target.onerror = null; e.target.src = 'default-avatar.png'}}/> : localSelectedChat.name?.substring(0, 1).toUpperCase())}
                                         </div>
                                     )}
                                     <div className="message-content-wrapper">
-                                        {selectedChat.type === 'group' && (msg.senderId?._id !== currentLoggedInUserId && msg.senderId !== currentLoggedInUserId) && msg.contentType !== 'system' && msg.contentType !== 'notify' && (<span className="message-sender-name">{msg.senderId?.userName || 'Không rõ'}</span>)}
+                                        {(localSelectedChat.type === 'group' || localSelectedChat.isGroup) && (msg.senderId?._id !== currentLoggedInUserId && msg.senderId !== currentLoggedInUserId) && msg.contentType !== 'system' && msg.contentType !== 'notify' && (<span className="message-sender-name">{msg.senderId?.userName || 'Không rõ'}</span>)}
                                         <div className={`message-bubble ${(msg.contentType || msg.type)?.includes('image') ? 'image-bubble' : ''} ${(msg.contentType || msg.type) === 'file' || (msg.contentType || msg.type) === 'video' ? 'file-bubble' : ''}`}>
                                             {renderMessageContent(msg)}
                                         </div>
@@ -484,7 +591,7 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
                                     </div>
                                 </div>
                             ))
-                        ) : ( !isLoadingMessages && !messagesError && <div className="no-messages-info"><div className="no-messages-icon">💬</div><p>Chưa có tin nhắn nào.</p>{selectedChat && <p>Hãy bắt đầu cuộc trò chuyện với {selectedChat.name}!</p>}</div>)}
+                        ) : ( !isLoadingMessages && !messagesError && <div className="no-messages-info"><div className="no-messages-icon">💬</div><p>Chưa có tin nhắn nào.</p>{localSelectedChat && <p>Hãy bắt đầu cuộc trò chuyện với {localSelectedChat.name}!</p>}</div>)}
                         <div ref={messagesEndRef} />
                     </div>
                     <div className="message-input-area">
@@ -492,7 +599,7 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
                             <div className="reply-preview-bar" ref={replyInputPreviewRef}>
                                 <div className="reply-preview-bar-content">
                                     <span className="reply-bar-header">Đang trả lời <strong>{
-                                        replyingToMessage.senderId?._id === currentLoggedInUserId ? "chính bạn" :
+                                        replyingToMessage.senderId?._id === currentLoggedInUserId || replyingToMessage.senderId === currentLoggedInUserId ? "chính bạn" :
                                         (replyingToMessage.senderId?.userName || "một tin nhắn")
                                     }</strong></span>
                                     <span className="reply-bar-text-snippet">
@@ -514,16 +621,16 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
                             {selectedMedia.length > 0 && (
                                 <div className="preview-container">
                                     {selectedMedia.map((media, index) => (
-                                        <div key={`${media.name}-${index}`} className="preview-item">
+                                        <div key={`${media.name}-${index}-${media.size}`} className="preview-item">
                                             {media.type.startsWith('image/') ? ( <img src={URL.createObjectURL(media)} className="preview-image" alt="preview"/>
                                             ) : ( <div className="file-preview-item"><span className="file-preview-icon">
-                                                        { media.name.endsWith('.doc') || media.name.endsWith('.docx') ? <FaFileWord className="file-type-icon word"/> :
-                                                          media.name.endsWith('.xls') || media.name.endsWith('.xlsx') ? <FaFileExcel className="file-type-icon excel"/> :
-                                                          media.name.endsWith('.ppt') || media.name.endsWith('.pptx') ? <FaFilePowerpoint className="file-type-icon ppt"/> :
-                                                          media.name.endsWith('.pdf') ? <FaFilePdf className="file-type-icon pdf"/> :
-                                                          media.name.endsWith('.zip') || media.name.endsWith('.rar') || media.name.endsWith('.7z') ? <FaFileArchive className="file-type-icon archive"/> :
-                                                          <FaFileAlt className="file-type-icon generic"/>}
-                                                    </span> <span className="file-preview-name">{media.name}</span></div>)}
+                                                    { media.name.endsWith('.doc') || media.name.endsWith('.docx') ? <FaFileWord className="file-type-icon word"/> :
+                                                      media.name.endsWith('.xls') || media.name.endsWith('.xlsx') ? <FaFileExcel className="file-type-icon excel"/> :
+                                                      media.name.endsWith('.ppt') || media.name.endsWith('.pptx') ? <FaFilePowerpoint className="file-type-icon ppt"/> :
+                                                      media.name.endsWith('.pdf') ? <FaFilePdf className="file-type-icon pdf"/> :
+                                                      media.name.endsWith('.zip') || media.name.endsWith('.rar') || media.name.endsWith('.7z') ? <FaFileArchive className="file-type-icon archive"/> :
+                                                      <FaFileAlt className="file-type-icon generic"/>}
+                                                </span> <span className="file-preview-name">{media.name}</span></div>)}
                                             <button className="remove-media-btn" onClick={() => setSelectedMedia(prev => prev.filter((_, i) => i !== index))}>&times;</button>
                                         </div>
                                     ))}
@@ -544,12 +651,19 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
             <ForwardMessageModal
                 isOpen={isForwardModalOpen}
                 onClose={() => setIsForwardModalOpen(false)}
-                onConfirm={confirmForward} // Truyền hàm confirmForward vào modal
+                onConfirm={confirmForward}
                 currentUserId={currentLoggedInUserId}
-                messageToForward={messages.find(m => m._id === forwardingMessageId)} // Tin nhắn cần chuyển tiếp
-                allConversations={allConversations || []} // Truyền danh sách các cuộc trò chuyện
+                messageToForward={messages.find(m => m._id === forwardingMessageId)}
+                allConversations={allConversations || []} 
             />
-            <ConversationInfoModal isOpen={isConvInfoModalOpen} onClose={closeConvInfoModal} chatData={selectedChat} onConversationDeleted={onConversationDeleted} currentUserId={currentLoggedInUserId}/>
+            <ConversationInfoModal 
+                isOpen={isConvInfoModalOpen} 
+                onClose={closeConvInfoModal} 
+                chatData={localSelectedChat} 
+                onConversationDeleted={onConversationDeleted} 
+                currentUserId={currentLoggedInUserId}
+                onConversationUpdated={(updatedData) => setLocalSelectedChat(prev => ({...prev, ...updatedData}))}
+            />
             {activeMenu.messageId && currentActiveMessage && (<MessageContextMenu ref={menuRef} message={currentActiveMessage} position={activeMenu} onClose={handleCloseMenu} onRecall={() => handleRecallMessage(activeMenu.messageId)} onDeleteForMe={() => handleDeleteForMe(activeMenu.messageId)} onReply={() => handleReplyMessage(activeMenu.messageId)} onForward={() => handleForwardMessage(activeMenu.messageId)} currentLoggedInUserId={currentLoggedInUserId}/>)}
             <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={onMediaSelected} multiple />
             <input type="file" ref={imageInputRef} style={{ display: 'none' }} accept="image/*" onChange={onMediaSelected} multiple />

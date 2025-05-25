@@ -12,6 +12,7 @@ import uploadDefaultAvatar from '../../util/uploadDefaultAvatar.js'
 import { error } from 'console'
 // require('dotenv').config()
 import { io } from '../../index.js'
+import axios from 'axios';
 AWS.config.update({
     accessKeyId: process.env.Acces_Key,
     secretAccessKey: process.env.Secret_Acces_Key,
@@ -523,34 +524,39 @@ class MessageController {
     }
     // post thu hồi tin nhắn cả 2 bên recallMessageWeb http://localhost:3001/message/recallMessageWeb
     async recallMessageWeb(req, res) {
-        const message_id = req.body.message_id
+    const message_id = req.body.message_id;
 
-        const message = await Message.findOne({
-            _id: message_id,
-        })
-        // Kiểm tra xem message có tồn tại không
-        if (!message) {
-            return res.status(404).json({
-                thongbao: 'Không tìm thấy tin nhắn!!!',
-            })
-        }
-        // Đánh dấu tin nhắn đã được thu hồi
-        message.recalled = true
-        await message.save()
-
-        // Emit socket event to notify clients in the conversation room
-        if (io) {
-            io.to(message.conversation_id.toString()).emit(
-                'message-recalled',
-                message
-            )
-        }
-
-        return res.status(200).json({
-            thongbao: 'Thu hồi tin nhắn thành công!!!',
-            message: message,
-        })
+    const message = await Message.findOne({ _id: message_id });
+    if (!message) {
+        return res.status(404).json({ thongbao: 'Không tìm thấy tin nhắn!!!' });
     }
+    
+    // Cập nhật tin nhắn
+    message.recalled = true;
+    message.content = 'Tin nhắn đã được thu hồi';
+    const recalledMessage = await message.save(); // Lưu và lấy object tin nhắn đã cập nhật
+    await recalledMessage.populate('senderId', 'userName avatar'); 
+
+    const conversationIdStr = recalledMessage.conversation_id.toString();
+    
+    // ✅ BỎ CHÚ THÍCH (UNCOMMENT) KHỐI NÀY
+     try {
+            // Gọi đến Socket Server (đang chạy ở port 3005)
+            await axios.post('http://localhost:3005/api/emit-to-room', {
+                room: conversationIdStr,
+                event: 'message-recalled',
+                payload: recalledMessage // Gửi object tin nhắn đã cập nhật
+            });
+            console.log(`[RECALL_MSG_CTRL] Đã gửi yêu cầu emit tới Socket Server thành công.`);
+        } catch (error) {
+            console.error('[RECALL_MSG_CTRL] Lỗi khi gọi Socket Server:', error.message);
+            // Có thể không cần trả về lỗi cho client ở đây, chỉ cần log lại ở server
+        }
+    return res.status(200).json({
+        thongbao: 'Thu hồi tin nhắn thành công!!!',
+        message: recalledMessage, // Trả về tin nhắn đã được cập nhật
+    });
+}
     // post tìm tất cả tin nhắn đã bị thu hồi findAllRecallMessagesWeb http://localhost:3001/message/findAllRecallMessagesWeb
     async findAllRecallMessagesWeb(req, res) {
         const conversation_id = req.body.conversation_id

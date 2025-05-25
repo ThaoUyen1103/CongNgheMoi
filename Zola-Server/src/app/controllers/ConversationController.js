@@ -1,7 +1,7 @@
 import Conversation from '../models/Conversation.js'
 import User from '../models/User.js'
 import Message from '../models/Message.js';
-import { io } from '../../index.js'
+import axios from 'axios';
 import { emitGroupEvent } from '../../util/socketClient.js';
 import { v4 as uuidv4 } from 'uuid'
 import AWS from 'aws-sdk'
@@ -43,6 +43,36 @@ function checkFileType(file, callback) {
         return callback(null, true)
     } else {
         callback('Error: Images Only!')
+    }
+}
+
+const emitSocketEvent = async (room, event, payload) => {
+    try {
+        await axios.post('http://localhost:3005/api/emit-to-room', {
+            room,
+            event,
+            payload
+        });
+    } catch (error) {
+        console.error(`Lỗi khi emit sự kiện '${event}' tới phòng '${room}':`, error.message);
+    }
+};
+async function createSystemNotification(conversationId, actorUserId, contentText) {
+    try {
+        const actor = await User.findById(actorUserId).lean(); // lean() để lấy object thuần túy
+        const fullContent = actor ? `${actor.userName} ${contentText}` : contentText;
+
+        const notificationMessage = new Message({
+            conversation_id: conversationId,
+            senderId: actorUserId, // Hoặc một ID hệ thống nếu muốn
+            contentType: 'notify',
+            content: fullContent,
+        });
+        await notificationMessage.save();
+        // Gửi tin nhắn notify này đến các client trong phòng chat
+        emitSocketEvent(conversationId, 'receive-message', notificationMessage.toObject());
+    } catch (error) {
+        console.error("Lỗi tạo tin nhắn thông báo hệ thống:", error);
     }
 }
 
@@ -223,289 +253,406 @@ class ConversationController {
 
     // xây dựng 1 api thêm thành viên nhóm addMemberToConversationGroupWeb
     async addMemberToConversationGroupWeb(req, res) {
-        const conversation_id = req.body.conversation_id
-        const friend_ids = req.body.friend_ids
+        const conversation_id = req.body.conversation_id;
+        const friend_ids = req.body.friend_ids; // Mảng các ID người dùng cần thêm
+        const actor_user_id = req.body.user_id; // ID của người thực hiện hành động (nên là req.user.id từ JWT)
 
-        // tìm Conversation theo conversation_id
-        const conversation = await Conversation.findOne({
-            _id: conversation_id,
-        })
-        // kiểm tra friend_ids đã có trong members chưa nếu có thì trả về thông báo
-        const checkMembers = conversation.members.filter((member) =>
-            friend_ids.includes(member.toString())
-        )
-        if (checkMembers.length > 0) {
-            return res.status(200).json({
-                message: 'Thành viên đã có trong nhóm!!!',
-            })
-        } else {
-            // thêm danh sách friend_ids vào conversation_id
-            try {
-                const conversation = await Conversation.findOneAndUpdate(
-                    { _id: conversation_id },
-                    { $push: { members: { $each: friend_ids } } },
-                    { new: true }
-                )
-                if (!conversation) {
-                    return res
-                        .status(404)
-                        .json({ message: 'Conversation not found' })
-                }
-                // Emit socket event for added members
-                emitGroupEvent(conversation_id, 'member-added', { friend_ids });
-
-
-                return res.status(200).json({
-                    message: 'Thêm thành viên vào nhóm thành công!!!',
-                    conversation: conversation,
-                })
-            } catch (error) {
-                res.status(500).json({ message: error.message })
+        try {
+            let conversation = await Conversation.findOne({ _id: conversation_id });
+            if (!conversation) {
+                return res.status(404).json({ message: 'Conversation not found' });
             }
+
+            // Logic kiểm tra quyền thêm thành viên của bạn (ví dụ: chỉ trưởng/phó nhóm)
+            // Ví dụ: if (conversation.groupLeader.toString() !== actor_user_id && !conversation.deputyLeader.includes(actor_user_id)) {
+            //     return res.status(403).json({ message: 'Bạn không có quyền thêm thành viên' });
+            // }
+
+            const checkMembers = conversation.members.filter((member) =>
+                friend_ids.includes(member.toString())
+            );
+            if (checkMembers.length > 0) {
+                const alreadyInGroupNames = (await User.find({ _id: { $in: checkMembers } }).select('userName').lean()).map(u => u.userName).join(', ');
+                return res.status(200).json({
+                    message: `Thành viên: ${alreadyInGroupNames} đã có trong nhóm!!!`,
+                });
+            }
+
+            const updatedConversation = await Conversation.findOneAndUpdate(
+                { _id: conversation_id },
+                { $addToSet: { members: { $each: friend_ids } } }, // $addToSet để tránh trùng lặp
+                { new: true }
+            ).populate('members', 'userName _id avatar');
+
+            if (!updatedConversation) { // Kiểm tra lại sau khi update
+                return res.status(404).json({ message: 'Conversation not found after update' });
+            }
+
+            // 💬 Tạo thông báo hệ thống
+            const addedUsers = await User.find({ _id: { $in: friend_ids } }).select('userName').lean();
+            const addedUserNames = addedUsers.map(u => u.userName).join(', ');
+            await createSystemNotification(conversation_id, actor_user_id, `đã thêm ${addedUserNames} vào nhóm.`);
+
+            // 📢 SOCKET: Thông báo cập nhật metadata nhóm và thành viên mới được thêm
+            emitSocketEvent(conversation_id, 'group-metadata-updated', {
+                conversationId: conversation_id,
+                updatedData: { members: updatedConversation.members },
+                actionTaker: {id: actor_user_id, name: (await User.findById(actor_user_id).lean())?.userName },
+                addedMembersInfo: addedUsers.map(u => ({_id: u._id, userName: u.userName}))
+            });
+
+            return res.status(200).json({
+                message: 'Thêm thành viên vào nhóm thành công!!!',
+                conversation: updatedConversation,
+            });
+        } catch (error) {
+            console.error("Lỗi thêm thành viên:", error);
+            res.status(500).json({ message: error.message });
         }
     }
 
     // api xoá thành viên nhóm trong member , nếu
-    async removeMemberFromConversationGroupWeb(req, res) {
-        const conversation_id = req.body.conversation_id
-        const user_id = req.body.user_id
-        // lấy ra friend_id cần xóa
-        const friend_id = req.body.friend_id
-        // tìm Conversation theo conversation_id
-        const conversation = await Conversation.findOne({
-            _id: conversation_id,
-        })
-        console.log('conversation là', conversation)
-        if (
-            conversation.groupLeader.toString() !== user_id &&
-            (conversation.deputyLeader
-                ? conversation.deputyLeader.toString() !== user_id
-                : true)
-        ) {
-            return res.status(200).json({
-                message: 'Bạn không có quyền xóa thành viên khỏi nhóm!!!',
-            })
-        } else if (conversation.groupLeader.toString() === friend_id) {
-            console.log('Trưởng nhóm không thể bị xóa khỏi nhóm!!!')
-            return res.status(200).json({
-                message: 'Trưởng nhóm không thể bị xóa khỏi nhóm!!!',
-            })
-        }
+     async removeMemberFromConversationGroupWeb(req, res) {
+        const conversation_id = req.body.conversation_id;
+        const user_id_performing_action = req.body.user_id; // Người thực hiện (nên là req.user.id)
+        const friend_id_to_remove = req.body.friend_id; // Người bị xóa
 
-        // xóa friend_id khỏi members
         try {
-            const conversation = await Conversation.findOneAndUpdate(
-                { _id: conversation_id },
-                { $pull: { members: friend_id } },
-                { new: true }
-            )
+            const conversation = await Conversation.findOne({ _id: conversation_id });
             if (!conversation) {
-                return res
-                    .status(404)
-                    .json({ message: 'Conversation not found' })
+                return res.status(404).json({ message: 'Conversation not found' });
             }
-            // Emit socket event for removed member
-            emitGroupEvent(conversation_id, 'member-removed', { friend_id });
+
+            // Logic kiểm tra quyền xóa của bạn
+            if ( conversation.groupLeader.toString() !== user_id_performing_action &&
+                 !(conversation.deputyLeader && conversation.deputyLeader.map(id=>id.toString()).includes(user_id_performing_action))
+            ) {
+                return res.status(200).json({ // Nên là 403 Forbidden
+                    message: 'Bạn không có quyền xóa thành viên khỏi nhóm!!!',
+                });
+            }
+            if (conversation.groupLeader.toString() === friend_id_to_remove) {
+                return res.status(200).json({ // Nên là 400 Bad Request
+                    message: 'Trưởng nhóm không thể bị xóa khỏi nhóm!!!',
+                });
+            }
+             // Phó nhóm không thể xóa phó nhóm khác hoặc trưởng nhóm (bạn có thể thêm logic này)
+            if (conversation.deputyLeader && conversation.deputyLeader.map(id=>id.toString()).includes(user_id_performing_action) &&
+                conversation.deputyLeader.map(id=>id.toString()).includes(friend_id_to_remove)
+            ){
+                 return res.status(200).json({ message: 'Phó nhóm không có quyền xóa phó nhóm khác.'});
+            }
+
+
+            const updatedConversation = await Conversation.findOneAndUpdate(
+                { _id: conversation_id },
+                { 
+                    $pull: { 
+                        members: friend_id_to_remove,
+                        deputyLeader: friend_id_to_remove // Cũng xóa khỏi phó nhóm nếu là phó nhóm
+                    } 
+                },
+                { new: true }
+            ).populate('members', 'userName _id avatar').populate('deputyLeaders', 'userName _id avatar'); //Sửa: deputyLeaders
+
+            if (!updatedConversation) {
+                 return res.status(404).json({ message: 'Conversation not found after update' });
+            }
+
+            // 💬 Tạo thông báo hệ thống
+            const removedUser = await User.findById(friend_id_to_remove).lean();
+            await createSystemNotification(conversation_id, user_id_performing_action, `đã xóa ${removedUser ? removedUser.userName : 'một thành viên'} khỏi nhóm.`);
+            
+            // 📢 SOCKET: Thông báo cập nhật metadata và thành viên bị xóa
+             emitGroupEvent(conversation_id, 'group-metadata-updated', {
+                conversationId: conversation_id,
+                updatedData: { 
+                    members: updatedConversation.members,
+                    deputyLeaders: updatedConversation.deputyLeader //Sửa: deputyLeaders
+                },
+                actionTaker: {id: user_id_performing_action, name: (await User.findById(user_id_performing_action).lean())?.userName },
+                removedMemberInfo: {_id: friend_id_to_remove, userName: removedUser?.userName}
+            });
 
             return res.status(200).json({
                 message: 'Xóa thành viên khỏi nhóm thành công!!!',
-                conversation: conversation,
-            })
+                conversation: updatedConversation,
+            });
         } catch (error) {
-            res.status(500).json({ message: error.message })
+            console.error("Lỗi xóa thành viên:", error);
+            res.status(500).json({ message: error.message });
         }
     }
     // api gán quyền phó nhóm cho các thành viên khác
     async authorizeDeputyLeaderWeb(req, res) {
-        const conversation_id = req.body.conversation_id
-        const user_id = req.body.user_id
-        const friend_id = req.body.friend_id
-        // tìm Conversation theo conversation_id
-        const conversation = await Conversation.findOne({
-            _id: conversation_id,
-        })
-        if (conversation.groupLeader.toString() !== user_id) {
-            return res.status(200).json({
-                message: 'Bạn không có quyền gán phó nhóm!!!',
-            })
-        }
-        // kiểm tra friend_id đã có trong deputyLeader chưa nếu có thì trả về thông báo
-        if (conversation.deputyLeader.includes(friend_id)) {
-            return res.status(200).json({
-                message: 'Thành viên đã là phó nhóm rồi!!!',
-            })
-        }
-        // kiểm tra firend_id có phải là groupLeader không nếu có thì trả về thông báo
-        if (conversation.groupLeader.toString() === friend_id) {
-            return res.status(200).json({
-                message: 'Thành viên đã là trưởng nhóm rồi!!!',
-            })
-        }
+        const conversation_id = req.body.conversation_id;
+        const user_id_promoter = req.body.user_id; // Người gán quyền (nên là req.user.id)
+        const friend_id_promoted = req.body.friend_id; // Người được gán
 
-        // gán quyền phó nhóm cho friend_id
         try {
-            const conversation = await Conversation.findOneAndUpdate(
-                { _id: conversation_id },
-                { $push: { deputyLeader: friend_id } },
-                { new: true }
-            )
+            const conversation = await Conversation.findOne({ _id: conversation_id });
             if (!conversation) {
-                return res
-                    .status(404)
-                    .json({ message: 'Conversation not found' })
+                return res.status(404).json({ message: 'Conversation not found' });
             }
-            emitGroupEvent(conversation_id, 'deputy-assigned', { friend_id });
+
+            if (conversation.groupLeader.toString() !== user_id_promoter) {
+                return res.status(200).json({ message: 'Bạn không có quyền gán phó nhóm!!!' }); // Nên là 403
+            }
+            if (conversation.deputyLeader && conversation.deputyLeader.map(id=>id.toString()).includes(friend_id_promoted)) {
+                return res.status(200).json({ message: 'Thành viên đã là phó nhóm rồi!!!' }); // Nên là 400
+            }
+            if (conversation.groupLeader.toString() === friend_id_promoted) {
+                return res.status(200).json({ message: 'Thành viên đã là trưởng nhóm rồi!!!' }); // Nên là 400
+            }
+             if (!conversation.members.map(id => id.toString()).includes(friend_id_promoted)) {
+                return res.status(400).json({ message: 'Người được bổ nhiệm phải là thành viên của nhóm.' });
+            }
+
+            const updatedConversation = await Conversation.findOneAndUpdate(
+                { _id: conversation_id },
+                { $addToSet: { deputyLeader: friend_id_promoted } }, // $addToSet để tránh trùng lặp
+                { new: true }
+            ).populate('deputyLeaders', 'userName _id avatar'); //Sửa: deputyLeaders
+
+            if(!updatedConversation) return res.status(404).json({message: "Không tìm thấy conversation sau khi cập nhật"});
+
+            // 💬 Tạo thông báo hệ thống
+            const promotedUser = await User.findById(friend_id_promoted).lean();
+            await createSystemNotification(conversation_id, user_id_promoter, `đã bổ nhiệm ${promotedUser ? promotedUser.userName : 'một thành viên'} làm phó nhóm.`);
+
+            // 📢 SOCKET
+            emitGroupEvent(conversation_id, 'group-metadata-updated', { 
+                conversationId: conversation_id,
+                updatedData: { deputyLeaders: updatedConversation.deputyLeader }, //Sửa: deputyLeaders
+                actionTaker: {id: user_id_promoter, name: (await User.findById(user_id_promoter).lean())?.userName },
+                promotedDeputy: {_id: friend_id_promoted, userName: promotedUser?.userName}
+            });
 
             return res.status(200).json({
                 message: 'Gán quyền phó nhóm thành công!!!',
-                conversation: conversation,
-            })
+                conversation: updatedConversation,
+            });
         } catch (error) {
-            res.status(500).json({ message: error.message })
+            console.error("Lỗi gán phó nhóm:", error);
+            res.status(500).json({ message: error.message });
         }
     }
     // api gán quyền trưởng nhóm cho 1 thành viên khác
     async authorizeGroupLeaderWeb(req, res) {
-        const conversation_id = req.body.conversation_id
-        const user_id = req.body.user_id
-        const friend_id = req.body.friend_id
-        // tìm Conversation theo conversation_id
-        const conversation = await Conversation.findOne({
-            _id: conversation_id,
-        })
-        if (conversation.groupLeader.toString() !== user_id) {
-            return res.status(200).json({
-                message: 'Bạn không có quyền gán trưởng nhóm!!!',
-            })
-        }
-        conversation.groupLeader = friend_id
+        const conversation_id = req.body.conversation_id;
+        const current_leader_id = req.body.user_id; // Trưởng nhóm hiện tại (nên là req.user.id)
+        const new_leader_id = req.body.friend_id; // Người được gán làm trưởng nhóm mới
 
-        // nếu friend_id đã có trong deputyLeader thì xóa friend_id khỏi deputyLeader
-        if (conversation.deputyLeader.includes(friend_id)) {
-            conversation.deputyLeader = conversation.deputyLeader.filter(
-                (deputyLeader) => deputyLeader !== friend_id
-            )
-        }
         try {
-            await conversation.save()
-            emitGroupEvent(conversation_id, 'leader-assigned', { friend_id });
+            let conversation = await Conversation.findOne({ _id: conversation_id });
+            if (!conversation) {
+                return res.status(404).json({ message: 'Conversation not found' });
+            }
+
+            if (conversation.groupLeader.toString() !== current_leader_id) {
+                return res.status(200).json({ message: 'Bạn không có quyền gán trưởng nhóm!!!' }); // Nên là 403
+            }
+            if (current_leader_id === new_leader_id) {
+                return res.status(400).json({message: "Người này đã là trưởng nhóm."})
+            }
+            if (!conversation.members.map(id => id.toString()).includes(new_leader_id)) {
+                return res.status(400).json({ message: 'Người được chuyển quyền phải là thành viên của nhóm.' });
+            }
+
+
+            const oldLeaderId = conversation.groupLeader;
+            conversation.groupLeader = new_leader_id;
+            // Nếu người mới là phó nhóm, xóa khỏi danh sách phó nhóm
+            if (conversation.deputyLeader && conversation.deputyLeader.map(id=>id.toString()).includes(new_leader_id)) {
+                conversation.deputyLeader = conversation.deputyLeader.filter(
+                    (id) => id.toString() !== new_leader_id
+                );
+            }
+            // (Tùy chọn) Thêm trưởng nhóm cũ vào danh sách thành viên nếu họ không có, hoặc vào phó nhóm
+            // if (!conversation.members.map(id=>id.toString()).includes(oldLeaderId.toString())) {
+            //     conversation.members.push(oldLeaderId);
+            // }
+
+            await conversation.save();
+            const updatedConversationPopulated = await Conversation.findById(conversation_id).populate('groupLeader', 'userName _id avatar').populate('deputyLeaders', 'userName _id avatar');
+
+
+            // 💬 Tạo thông báo hệ thống
+            const oldLeaderUser = await User.findById(oldLeaderId).lean();
+            const newLeaderUser = await User.findById(new_leader_id).lean();
+            await createSystemNotification(conversation_id, current_leader_id, `đã chuyển quyền trưởng nhóm cho ${newLeaderUser ? newLeaderUser.userName : 'thành viên mới'}.`);
+            
+            // 📢 SOCKET
+            emitSocketEvent(conversation_id, 'group-metadata-updated', { 
+                conversationId: conversation_id,
+                updatedData: { 
+                    groupLeader: updatedConversationPopulated.groupLeader,
+                    deputyLeaders: updatedConversationPopulated.deputyLeader // Sửa: deputyLeaders
+                },
+                actionTaker: {id: current_leader_id, name: oldLeaderUser?.userName },
+                newLeader: { _id: new_leader_id, userName: newLeaderUser?.userName }
+            });
 
             return res.status(200).json({
                 message: 'Gán quyền trưởng nhóm thành công!!!',
-                conversation: conversation,
-            })
+                conversation: updatedConversationPopulated,
+            });
         } catch (error) {
-            res.status(500).json({ message: error.message })
+            console.error("Lỗi gán trưởng nhóm:", error);
+            res.status(500).json({ message: error.message });
         }
     }
     // api gỡ quyền phó nhóm deleteDeputyLeaderWeb chỉ dành cho groupLeader
     async deleteDeputyLeaderWeb(req, res) {
-        const conversation_id = req.body.conversation_id
-        const user_id = req.body.user_id
-        const friend_id = req.body.friend_id
-        // tìm Conversation theo conversation_id
-        const conversation = await Conversation.findOne({
-            _id: conversation_id,
-        })
-        if (conversation.groupLeader.toString() !== user_id) {
-            return res.status(200).json({
-                message: 'Bạn không có quyền gỡ quyền phó nhóm!!!',
-            })
-        }
+        const conversation_id = req.body.conversation_id;
+        const user_id_demoter = req.body.user_id; // Người gỡ quyền (nên là req.user.id)
+        const friend_id_demoted = req.body.friend_id; // Người bị gỡ quyền
 
-        // xóa friend_id khỏi deputyLeader
         try {
-            const conversation = await Conversation.findOneAndUpdate(
-                { _id: conversation_id },
-                { $pull: { deputyLeader: friend_id } },
-                { new: true }
-            )
+            const conversation = await Conversation.findOne({ _id: conversation_id });
             if (!conversation) {
-                return res
-                    .status(404)
-                    .json({ message: 'Conversation not found' })
+                return res.status(404).json({ message: 'Conversation not found' });
             }
-            emitGroupEvent(conversation_id, 'deputy-assigned', { friend_id });
+
+            if (conversation.groupLeader.toString() !== user_id_demoter) {
+                return res.status(200).json({ message: 'Bạn không có quyền gỡ quyền phó nhóm!!!' }); // Nên là 403
+            }
+             if (!(conversation.deputyLeader && conversation.deputyLeader.map(id=>id.toString()).includes(friend_id_demoted))) {
+                return res.status(400).json({ message: 'Người này không phải là phó nhóm.' });
+            }
+
+            const updatedConversation = await Conversation.findOneAndUpdate(
+                { _id: conversation_id },
+                { $pull: { deputyLeader: friend_id_demoted } },
+                { new: true }
+            ).populate('deputyLeaders', 'userName _id avatar'); //Sửa: deputyLeaders
+            
+            if(!updatedConversation) return res.status(404).json({message: "Không tìm thấy conversation sau khi cập nhật"});
+
+            // 💬 Tạo thông báo hệ thống
+            const demotedUser = await User.findById(friend_id_demoted).lean();
+            await createSystemNotification(conversation_id, user_id_demoter, `đã gỡ quyền phó nhóm của ${demotedUser ? demotedUser.userName : 'một thành viên'}.`);
+
+            // 📢 SOCKET
+            // Tên sự kiện 'deputy-assigned' bạn dùng có vẻ không đúng, nên là 'deputy-removed' hoặc 'metadata-updated'
+            emitSocketEvent(conversation_id, 'group-metadata-updated', { // Sửa tên sự kiện cho nhất quán
+                conversationId: conversation_id,
+                updatedData: { deputyLeaders: updatedConversation.deputyLeader }, //Sửa: deputyLeaders
+                actionTaker: {id: user_id_demoter, name: (await User.findById(user_id_demoter).lean())?.userName },
+                demotedDeputy: {_id: friend_id_demoted, userName: demotedUser?.userName}
+            });
 
             return res.status(200).json({
                 message: 'Gỡ quyền phó nhóm thành công!!!',
-                conversation: conversation,
-            })
+                conversation: updatedConversation,
+            });
         } catch (error) {
-            res.status(500).json({ message: error.message })
+            console.error("Lỗi gỡ quyền phó nhóm:", error);
+            res.status(500).json({ message: error.message });
         }
     }
 
     // api rời khỏi nhóm cho tât cả thành viên
     async leaveGroupWeb(req, res) {
-        const conversation_id = req.body.conversation_id
-        const user_id = req.body.user_id
-        // tìm Conversation theo conversation_id
-        const conversation = await Conversation.findOne({
-            _id: conversation_id,
-        })
-        if (conversation.groupLeader.toString() === user_id) {
-            return res.status(200).json({
-                message: 'Trưởng nhóm không thể rời khỏi nhóm!!!',
-            })
-        }
+        const conversation_id = req.body.conversation_id;
+        const user_id_leaving = req.body.user_id; // Người rời nhóm (nên là req.user.id)
 
-        // xóa user_id khỏi members
         try {
-            const conversation = await Conversation.findOneAndUpdate(
-                { _id: conversation_id },
-                { $pull: { members: user_id } },
-                { new: true }
-            )
-            // nếu user_id là phó nhóm thì xóa user_id khỏi deputyLeader
-            if (conversation.deputyLeader.includes(user_id)) {
-                conversation.deputyLeader = conversation.deputyLeader.filter(
-                    (deputyLeader) => deputyLeader !== user_id
-                )
-            }
-            await conversation.save() // Lưu lại thay đổi
-
+            let conversation = await Conversation.findOne({ _id: conversation_id });
             if (!conversation) {
-                return res
-                    .status(404)
-                    .json({ message: 'Conversation not found' })
+                return res.status(404).json({ message: 'Conversation not found' });
             }
-            emitGroupEvent(conversation_id, 'member-left', { user_id });
+
+            if (conversation.groupLeader.toString() === user_id_leaving) {
+                return res.status(200).json({ message: 'Trưởng nhóm không thể rời khỏi nhóm!!! Phải chuyển quyền hoặc giải tán.' }); // Nên là 403
+            }
+            if (!conversation.members.map(id => id.toString()).includes(user_id_leaving)) {
+                return res.status(400).json({ message: 'Bạn không phải là thành viên của nhóm này.' });
+            }
+
+
+            let updatedConversation = await Conversation.findOneAndUpdate(
+                { _id: conversation_id },
+                { 
+                    $pull: { 
+                        members: user_id_leaving,
+                        deputyLeader: user_id_leaving // Cũng xóa khỏi phó nhóm nếu là phó nhóm
+                    } 
+                },
+                { new: true }
+            ).populate('members', 'userName _id avatar').populate('deputyLeaders', 'userName _id avatar'); //Sửa: deputyLeaders
+
+            if (!updatedConversation) {
+                return res.status(404).json({ message: 'Conversation not found after update' });
+            }
+            
+            // 💬 Tạo thông báo hệ thống
+            const leavingUser = await User.findById(user_id_leaving).lean();
+            await createSystemNotification(conversation_id, user_id_leaving, `đã rời khỏi nhóm.`);
+            
+            // 📢 SOCKET
+            emitSocketEvent(conversation_id, 'member-left', { // Sự kiện này bạn đã có
+                conversationId: conversation_id,
+                userId: user_id_leaving,
+                userName: leavingUser?.userName,
+                // Gửi kèm metadata để client có thể cập nhật danh sách
+                updatedMembers: updatedConversation.members,
+                updatedDeputyLeaders: updatedConversation.deputyLeader //Sửa: deputyLeaders
+            });
+             // Cũng có thể emit 'group-metadata-updated' nếu frontend chỉ nghe 1 sự kiện
+            emitGroupEvent(conversation_id, 'group-metadata-updated', {
+                 conversationId: conversation_id,
+                 updatedData: {
+                     members: updatedConversation.members,
+                     deputyLeaders: updatedConversation.deputyLeader //Sửa: deputyLeaders
+                 }
+            });
 
 
             return res.status(200).json({
                 message: 'Rời khỏi nhóm thành công!!!',
-                conversation: conversation,
-            })
+                conversation: updatedConversation,
+            });
         } catch (error) {
-            res.status(500).json({ message: error.message })
+            console.error("Lỗi rời nhóm:", error);
+            res.status(500).json({ message: error.message });
         }
     }
     // api giản tán nhóm chỉ dành cho groupLeader
     async disbandGroupWeb(req, res) {
-        const conversation_id = req.body.conversation_id
-        const user_id = req.body.user_id
-        // tìm Conversation theo conversation_id
-        const conversation = await Conversation.findOne({
-            _id: conversation_id,
-        })
-        if (conversation.groupLeader.toString() !== user_id) {
-            return res.status(200).json({
-                message: 'Bạn không có quyền giải tán nhóm!!!',
-            })
-        }
+        const conversation_id = req.body.conversation_id;
+        const user_id_disbanding = req.body.user_id; // Người giải tán (nên là req.user.id)
 
-        // sử dụng mongoose-delete để thêm thuộc tính deleted vào conversation
         try {
-            await Conversation.delete({ _id: conversation_id })
-            emitGroupEvent(conversation_id, 'group-disbanded', {});
+            const conversation = await Conversation.findOne({ _id: conversation_id });
+            if (!conversation) {
+                return res.status(404).json({ message: 'Conversation not found' });
+            }
 
+            if (conversation.groupLeader.toString() !== user_id_disbanding) {
+                return res.status(200).json({ message: 'Bạn không có quyền giải tán nhóm!!!' }); // Nên là 403
+            }
+
+            await Conversation.deleteOne({ _id: conversation_id });
+            await Message.deleteMany({ conversation_id: conversation_id }); // Xóa các tin nhắn của nhóm
+            
+            // 💬 Tạo thông báo hệ thống (Gửi TRƯỚC KHI xóa, hoặc không cần thiết nếu nhóm biến mất hoàn toàn)
+            // const disbandingUser = await User.findById(user_id_disbanding).lean();
+            // await createSystemNotification(conversation_id, user_id_disbanding, `đã giải tán nhóm.`);
+            // Tuy nhiên, vì nhóm bị xóa, tin nhắn này có thể không có chỗ để hiển thị.
+
+            // 📢 SOCKET: Thông báo nhóm đã bị giải tán
+            emitSocketEvent(conversation_id, 'group-disbanded', { 
+                conversationId: conversation_id,
+                disbandedBy: {id: user_id_disbanding, name: (await User.findById(user_id_disbanding).lean())?.userName }
+            });
 
             return res.status(200).json({
                 message: 'Giải tán nhóm thành công!!!',
-            })
+            });
         } catch (error) {
-            res.status(500).json({ message: error.message })
+            console.error("Lỗi giải tán nhóm:", error);
+            res.status(500).json({ message: error.message });
         }
     }
     // api lấy tất cả conversation mảng members chứa user_id và members có từ 3 phần tử trở lên
@@ -601,37 +748,54 @@ class ConversationController {
         }
     }
     async changeConversationNameWeb(req, res) {
-        // console.log('đã vào')
-        // res.status(200).json({ message: 'Đổi tên nhóm thành công!!!' })
-        const conversation_id = req.body.conversation_id
-        const user_id = req.body.user_id
-        const conversationName = req.body.conversationName
-        // tìm Conversation theo conversation_id
-        // từ user_id tìm ra tên của user đổi tên nhóm không cần kiểm tra quyền
-        const user = await User.findOne({
-            _id: user_id,
-        })
-        if (!user) {
-            return res.status(404).json({ message: 'User not found' })
-        }
-        // tìm ra tên user
-        const userName = user.userName
+        const conversation_id = req.body.conversation_id;
+        const user_id_changing_name = req.body.user_id; // Người đổi tên (nên là req.user.id)
+        const new_conversation_name = req.body.conversationName;
 
-        const conversation = await Conversation.findOne({
-            _id: conversation_id,
-        })
-        conversation.conversationName = conversationName
+        if (!new_conversation_name || new_conversation_name.trim() === "") {
+            return res.status(400).json({ message: "Tên nhóm không được để trống." });
+        }
+
         try {
-            await conversation.save()
-            emitGroupEvent(conversation_id, 'group-renamed', { conversationName, userName });
+            let conversation = await Conversation.findOne({ _id: conversation_id });
+            if (!conversation) {
+                return res.status(404).json({ message: 'Conversation not found' });
+            }
+
+            // Logic kiểm tra quyền đổi tên của bạn (ví dụ: trưởng/phó nhóm)
+            if ( conversation.groupLeader.toString() !== user_id_changing_name &&
+                 !(conversation.deputyLeader && conversation.deputyLeader.map(id=>id.toString()).includes(user_id_changing_name))
+            ) {
+                return res.status(200).json({ message: 'Bạn không có quyền đổi tên nhóm!!!' }); // Nên là 403
+            }
+
+            const oldName = conversation.conversationName;
+            conversation.conversationName = new_conversation_name.trim();
+            await conversation.save();
+
+            // 💬 Tạo thông báo hệ thống
+            const changingUser = await User.findById(user_id_changing_name).lean();
+            await createSystemNotification(conversation_id, user_id_changing_name, `đã đổi tên nhóm thành "${new_conversation_name.trim()}".`);
+
+            // 📢 SOCKET
+            // Bạn đã có 'group-renamed', có thể dùng nó hoặc 'group-metadata-updated'
+            emitSocketEvent(conversation_id, 'group-metadata-updated', { 
+                conversationId: conversation_id,
+                updatedData: { conversationName: conversation.conversationName },
+                actionTaker: {id: user_id_changing_name, name: changingUser?.userName}
+            });
+            // Hoặc giữ lại event cũ của bạn:
+            // emitGroupEvent(conversation_id, 'group-renamed', { conversationName: conversation.conversationName, userName: changingUser?.userName });
 
 
             return res.status(200).json({
                 message: 'Đổi tên nhóm thành công!!!',
-                userChangeName: userName,
-            })
+                userChangeName: changingUser?.userName, // Giữ lại nếu client cần
+                conversation: conversation
+            });
         } catch (error) {
-            res.status(500).json({ message: error.message })
+            console.error("Lỗi đổi tên nhóm:", error);
+            res.status(500).json({ message: error.message });
         }
     }
 
@@ -656,220 +820,6 @@ class ConversationController {
             res.status(200).json(conversation)
         } catch (err) {
             res.status(500).json(err)
-        }
-    }
-    async findConversations(req, res) {
-        try {
-            const conversation = await Conversation.findOne({
-                members: { $all: [req.params.firstId, req.params.secondId] },
-            })
-            res.status(200).json(conversation)
-        } catch (err) {
-            res.status(500).json(err)
-        }
-    }
-    //find conversation by conversation_id mobile
-    async findConversationById(req, res) {
-        try {
-            const conversation = await Conversation.findOne({
-                _id: req.params.conversationId,
-            })
-            res.status(200).json(conversation)
-        } catch (err) {
-            res.status(500).json(err)
-        }
-    }
-    //api tạo nhóm trò chuyện
-    async createConversationsGroupMobile(req, res) {
-        try {
-            const { members, conversationName, avatar, groupLeader } = req.body;
-            if (!members || members.length < 3) {
-                return res.status(400).json({ message: 'Nhóm phải có ít nhất 3 thành viên' });
-            }
-            if (!conversationName) {
-                return res.status(400).json({ message: 'Tên nhóm là bắt buộc' });
-            }
-            if (!groupLeader || !members.includes(groupLeader)) {
-                return res.status(400).json({ message: 'Trưởng nhóm phải là một thành viên' });
-            }
-
-            // Kiểm tra tất cả members tồn tại
-            const users = await User.find({ _id: { $in: members } });
-            if (users.length !== members.length) {
-                return res.status(400).json({ message: 'Một hoặc nhiều thành viên không tồn tại' });
-            }
-
-            const conversation = new Conversation({
-                members,
-                conversationName,
-                avatar: avatar || 'https://via.placeholder.com/50',
-                groupLeader,
-                deputyLeader: [],
-            });
-
-            await conversation.save();
-
-            // Cập nhật conversation_id cho tất cả thành viên
-            await User.updateMany(
-                { _id: { $in: members } },
-                { $push: { conversation_id: { conversation_id: conversation._id } } }
-            );
-
-            const leader = await User.findById(groupLeader);
-            if (!leader) {
-                throw new Error('Không tìm thấy trưởng nhóm');
-            }
-
-            const message = new Message({
-                conversation_id: conversation._id,
-                senderId: groupLeader,
-                contentType: 'notify',
-                content: `Nhóm "${conversationName}" đã được tạo bởi ${leader.userName}`,
-            });
-            await message.save();
-
-            io.to(conversation._id).emit('group-event', {
-                conversation_id: conversation._id,
-                event: 'group-created',
-                data: { conversationName, userName: leader.userName },
-            });
-
-            res.status(200).json({ conversation });
-        } catch (err) {
-            console.error('Lỗi tạo nhóm (Mobile):', err);
-            res.status(500).json({ message: 'Lỗi server', error: err.message });
-        }
-    }
-
-    async addMemberToConversationGroupMobile(req, res) {
-        try {
-            const { conversation_id, member_ids, user_id } = req.body;
-            const conversation = await Conversation.findById(conversation_id);
-            if (!conversation) {
-                return res.status(404).json({ message: 'Không tìm thấy nhóm' });
-            }
-
-            const user = await User.findById(user_id);
-            if (!user) {
-                return res.status(404).json({ message: 'Không tìm thấy người thực hiện hành động' });
-            }
-
-            // Kiểm tra danh sách member_ids
-            const newMembers = await User.find({ _id: { $in: member_ids } });
-            if (newMembers.length !== member_ids.length) {
-                return res.status(404).json({ message: 'Một hoặc nhiều thành viên không tồn tại' });
-            }
-
-            // Kiểm tra thành viên đã có trong nhóm
-            const alreadyMembers = member_ids.filter(id => conversation.members.includes(id));
-            if (alreadyMembers.length > 0) {
-                return res.status(400).json({ message: 'Một số người dùng đã là thành viên' });
-            }
-
-            if (
-                conversation.groupLeader.toString() !== user_id &&
-                !conversation.deputyLeader.includes(user_id)
-            ) {
-                return res.status(403).json({ message: 'Bạn không có quyền thêm thành viên' });
-            }
-
-            // Thêm tất cả member_ids vào nhóm
-            conversation.members.push(...member_ids);
-            await conversation.save();
-
-            // Cập nhật conversation_id cho các thành viên mới
-            await User.updateMany(
-                { _id: { $in: member_ids } },
-                { $push: { conversation_id: { conversation_id: conversation._id } } }
-            );
-
-            // Tạo thông báo cho từng thành viên
-            for (const member_id of member_ids) {
-                const newMember = await User.findById(member_id);
-                const message = new Message({
-                    conversation_id,
-                    senderId: user_id,
-                    contentType: 'notify',
-                    content: `${newMember.userName} đã được ${user.userName} thêm vào nhóm`,
-                });
-                await message.save();
-            }
-
-            emitGroupEvent(conversation_id, 'member-added', { member_ids });
-
-
-            res.status(200).json({ message: 'Thêm thành viên thành công', conversation });
-        } catch (err) {
-            console.error('Lỗi thêm thành viên (Mobile):', err);
-            res.status(500).json({ message: 'Lỗi server', error: err.message });
-        }
-    }
-
-    async removeMemberFromConversationGroupMobile(req, res) {
-        try {
-            const { conversation_id, member_id, user_id } = req.body;
-            if (!user_id) {
-                return res.status(400).json({ message: 'Thiếu user_id của người thực hiện hành động' });
-            }
-
-            const conversation = await Conversation.findById(conversation_id);
-            if (!conversation) {
-                return res.status(404).json({ message: 'Không tìm thấy nhóm' });
-            }
-
-            const user = await User.findById(user_id);
-            if (!user) {
-                return res.status(404).json({ message: 'Không tìm thấy người thực hiện hành động' });
-            }
-
-            const removedMember = await User.findById(member_id);
-            if (!removedMember) {
-                return res.status(404).json({ message: 'Không tìm thấy người dùng cần xóa' });
-            }
-
-            if (!conversation.members.includes(member_id)) {
-                return res.status(400).json({ message: 'Người dùng không phải thành viên' });
-            }
-
-            if (conversation.groupLeader.toString() === member_id) {
-                return res.status(400).json({ message: 'Không thể xóa trưởng nhóm' });
-            }
-
-            if (
-                conversation.groupLeader.toString() !== user_id &&
-                !conversation.deputyLeader.includes(user_id)
-            ) {
-                return res.status(403).json({ message: 'Bạn không có quyền xóa thành viên' });
-            }
-
-            conversation.members = conversation.members.filter((id) => id.toString() !== member_id);
-            conversation.deputyLeader = conversation.deputyLeader.filter((id) => id.toString() !== member_id);
-            await conversation.save();
-
-            // Xóa conversation_id khỏi user bị xóa
-            await User.updateOne(
-                { _id: member_id },
-                { $pull: { conversation_id: { conversation_id: conversation._id } } }
-            );
-
-            const message = new Message({
-                conversation_id,
-                senderId: user_id,
-                contentType: 'notify',
-                content: `${removedMember.userName} đã bị ${user.userName} xóa khỏi nhóm`,
-            });
-            await message.save();
-
-            emitGroupEvent(conversation_id, 'member-removed', {
-                userId: member_id,
-                userName: removedMember.userName,
-            });
-
-
-            res.status(200).json({ message: 'Xóa thành viên thành công', conversation });
-        } catch (err) {
-            console.error('Lỗi xóa thành viên (Mobile):', err);
-            res.status(500).json({ message: 'Lỗi server', error: err.message });
         }
     }
 
@@ -978,56 +928,7 @@ class ConversationController {
         }
     }
 
-    async authorizeGroupLeader(req, res) {
-        try {
-            const { conversation_id, member_id, user_id } = req.body; // Thêm user_id để kiểm tra quyền
-            const conversation = await Conversation.findById(conversation_id);
-            if (!conversation) {
-                return res.status(404).json({ message: 'Không tìm thấy nhóm' });
-            }
 
-            const user = await User.findById(user_id);
-            if (!user) {
-                return res.status(404).json({ message: 'Không tìm thấy người thực hiện hành động' });
-            }
-
-            const newLeader = await User.findById(member_id);
-            if (!newLeader) {
-                return res.status(404).json({ message: 'Không tìm thấy người dùng cần gán quyền' });
-            }
-
-            if (!conversation.members.includes(member_id)) {
-                return res.status(400).json({ message: 'Người dùng không phải thành viên' });
-            }
-
-            if (conversation.groupLeader.toString() !== user_id) {
-                return res.status(403).json({ message: 'Bạn không có quyền gán trưởng nhóm' });
-            }
-
-            conversation.groupLeader = member_id;
-            conversation.deputyLeader = conversation.deputyLeader.filter((id) => id.toString() !== member_id);
-            await conversation.save();
-
-            const message = new Message({
-                conversation_id,
-                senderId: user_id,
-                contentType: 'notify',
-                content: `${newLeader.userName} đã được ${user.userName} chuyển quyền trưởng nhóm`,
-            });
-            await message.save();
-
-            emitGroupEvent(conversation_id, 'leader-assigned', {
-                userId: member_id,
-                userName: newLeader.userName,
-            });
-
-
-            res.status(200).json({ message: 'Gán quyền trưởng nhóm thành công', conversation });
-        } catch (err) {
-            console.error('Lỗi gán quyền trưởng nhóm:', err);
-            res.status(500).json({ message: 'Lỗi server', error: err.message });
-        }
-    }
 
     async disbandGroupMobile(req, res) {
         try {
@@ -1058,49 +959,8 @@ class ConversationController {
             res.status(500).json({ message: 'Lỗi server', error: err.message });
         }
     }
-    async leaveGroupMobile(req, res) {
-        try {
-            const { conversation_id, user_id } = req.body;
-            const conversation = await Conversation.findById(conversation_id);
-            if (!conversation) {
-                return res.status(404).json({ message: 'Không tìm thấy nhóm' });
-            }
 
-            const user = await User.findById(user_id);
-            if (!user) {
-                return res.status(404).json({ message: 'Không tìm thấy người dùng' });
-            }
-
-            if (conversation.groupLeader.toString() === user_id) {
-                return res.status(400).json({ message: 'Trưởng nhóm không thể rời khỏi nhóm' });
-            }
-
-            if (!conversation.members.includes(user_id)) {
-                return res.status(400).json({ message: 'Bạn không phải thành viên của nhóm' });
-            }
-
-            conversation.members = conversation.members.filter((id) => id.toString() !== user_id);
-            conversation.deputyLeader = conversation.deputyLeader.filter((id) => id.toString() !== user_id);
-            await conversation.save();
-
-            const message = new Message({
-                conversation_id,
-                senderId: user_id,
-                contentType: 'notify',
-                content: `${user.userName} đã rời khỏi nhóm`,
-            });
-            await message.save();
-
-            emitGroupEvent(conversation_id, 'exit', { userName: user.userName });
-
-
-            res.status(200).json({ message: 'Rời khỏi nhóm thành công', conversation });
-        } catch (err) {
-            console.error('Lỗi rời nhóm (Mobile):', err);
-            res.status(500).json({ message: 'Lỗi server', error: err.message });
-        }
-    }
-async updateConversationAvatarWeb(req, res) {
+    async updateConversationAvatarWeb(req, res) {
         const { conversation_id, user_id } = req.body;
 
         if (!req.file) {
@@ -1158,9 +1018,10 @@ async updateConversationAvatarWeb(req, res) {
                 content: `${user.userName} đã cập nhật ảnh đại diện nhóm.`,
             });
             await notificationMessage.save();
-
+            // const updatingUser = await User.findById(user_id_updating_avatar).lean();
+            // await createSystemNotification(conversation_id, user_id_updating_avatar, `đã cập nhật ảnh đại diện nhóm.`);
             // Emit sự kiện qua socket
-            emitGroupEvent(conversation_id.toString(), 'avatar-updated', {
+            emitSocketEvent(conversation_id.toString(), 'group-metadata-updated', {
                 conversationId: conversation_id.toString(),
                 avatar: newAvatarUrl,
                 message: notificationMessage // Gửi kèm tin nhắn thông báo
@@ -1180,46 +1041,7 @@ async updateConversationAvatarWeb(req, res) {
             return res.status(500).json({ message: 'Lỗi máy chủ khi cập nhật ảnh đại diện nhóm.', error: err.message });
         }
     }
-    async changeGroupNameMobile(req, res) {
-        try {
-            const { conversation_id, conversationName, user_id } = req.body;
-            const conversation = await Conversation.findById(conversation_id);
-            if (!conversation) {
-                return res.status(404).json({ message: 'Không tìm thấy nhóm' });
-            }
-
-            const user = await User.findById(user_id);
-            if (!user) {
-                return res.status(404).json({ message: 'Không tìm thấy người dùng' });
-            }
-
-            if (
-                conversation.groupLeader.toString() !== user_id &&
-                !conversation.deputyLeader.includes(user_id)
-            ) {
-                return res.status(403).json({ message: 'Bạn không có quyền đổi tên nhóm' });
-            }
-
-            conversation.conversationName = conversationName;
-            await conversation.save();
-
-            const message = new Message({
-                conversation_id,
-                senderId: user_id,
-                contentType: 'notify',
-                content: `Tên nhóm đã được ${user.userName} thay đổi thành ${conversationName}`,
-            });
-            await message.save();
-
-            emitGroupEvent(conversation_id, 'rename', { userName: user.userName, conversationName });
-
-
-            res.status(200).json({ message: 'Đổi tên nhóm thành công', conversation });
-        } catch (err) {
-            console.error('Lỗi đổi tên nhóm (Mobile):', err);
-            res.status(500).json({ message: 'Lỗi server', error: err.message });
-        }
-    }
+    
 
    
     async getConversationsByUserIDMobile(req, res) {
@@ -1269,64 +1091,9 @@ async updateConversationAvatarWeb(req, res) {
             res.status(500).json({ message: 'Lỗi server', error: err.message });
         }
     }
-    //-------------------
 
-    // api check conversation có phải là nhóm  hay chưa dựa vào conversation đó có thuộc tính groupLeader hay không hoặc có conversationName hay không
-    async checkGroupWeb(req, res) {
-        const conversation_id = req.body.conversation_id
-        try {
-            const conversation = await Conversation.findOne({
-                _id: conversation_id,
-            })
-            if (!conversation) {
-                return res
-                    .status(404)
-                    .json({ message: 'Conversation not found' })
-            }
-            if (
-                conversation.groupLeader ||
-                (conversation.conversationName &&
-                    conversation.conversationName !== 'Cloud của tôi')
-            ) {
-                return res.status(200).json({
-                    message: 'Conversation là nhóm!!!',
-                })
-            } else {
-                return res.status(200).json({
-                    message: 'Conversation không phải là nhóm!!!',
-                })
-            }
-        } catch (error) {
-            res.status(500).json({ message: error.message })
-        }
-    }
-    // viết 1 api lấy tin nhắn cuối cùng của conversation nếu mà là của user mình nhắn sẽ hiện àlaf "Bạn : message" còn néu của người khác thì hiện là "userName : message"
 
-    // viết 1 api check nhóm chung giữa user_id và friend_id ta sẽ check xem 2 user_id và friend_id có chung 1 nhóm nào không nếu có thì trả về số lượng nhóm chung và tên nhóm cùng với avatar của nhóm
-    async checkGroupCommonWeb(req, res) {
-        const user_id = req.body.user_id
-        const friend_id = req.body.friend_id
-
-        // chỉ check conversation có thuộc tính groupLeader và conversationName và thuộc tính deleted = false
-        const conversation = await Conversation.find({
-            members: { $all: [user_id, friend_id] },
-            groupLeader: { $ne: null },
-            conversationName: { $ne: null },
-            deleted: false,
-        })
-        if (conversation.length === 0) {
-            return res.status(200).json({
-                message: 'Không có nhóm chung!!!',
-            })
-        }
-        return res.status(200).json({
-            message: 'Có nhóm chung!!!',
-
-            conversation: conversation,
-            // trả về số lượng nhóm chung
-            conversationCount: conversation.length,
-        })
-    }
+    
 }
 
 

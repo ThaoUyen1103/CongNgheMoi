@@ -24,6 +24,7 @@
   "homepage": "https://github.com/ThaoUyen1103/CongNgheMoi/edit/master/README.md",
   "dependencies": {
     "aws-sdk": "^2.1588.0",
+    "axios": "^1.9.0",
     "body-parser": "^1.20.2",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

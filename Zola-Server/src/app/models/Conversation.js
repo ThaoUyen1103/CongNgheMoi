@@ -30,10 +30,17 @@ const Conversation = new Schema(
             type: Array,
         },
         lastMessage: {
-    type: Schema.Types.ObjectId,
-    ref: 'Message',
-    default: null
-},
+            type: Schema.Types.ObjectId,
+            ref: 'Message',
+            default: null,
+        },
+        
+        deputyLeaders: [
+            {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'User',
+            },
+        ],
     },
     { timestamps: true }
 )
