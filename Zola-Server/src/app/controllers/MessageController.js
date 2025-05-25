@@ -132,72 +132,65 @@ class MessageController {
         }
         // trường hợp 2 : chỉ gửi ảnh không gửi text message
         else if (
-            req.files &&
-            req.files.image &&
-            req.files.image.length > 0 &&
-            req.body.contentType === 'image'
-        ) {
-            // Sử dụng req.files.image
-            console.log('Đã vào trường hợp 2 (gửi nhiều ảnh) ở server!!!')
-            const imagesToUpload = req.files.image // Đây là mảng các file ảnh
-            const conversation_id = req.body.conversation_id
-            const senderId = req.body.user_id
-            const replyTo = req.body.replyTo
-            const finalContentType =
-                imagesToUpload.length > 1 ? 'image_gallery' : 'image'
+    image && image.length > 0 && // SỬA Ở ĐÂY: dùng biến 'image' đã gán từ req.files
+    (req.body.contentType === 'image' || req.body.contentType === 'image_gallery') // contentType có thể là 'image' hoặc 'image_gallery'
+) {
+    console.log('Đã vào trường hợp 2 (gửi nhiều ảnh) ở server!!!');
+    const imagesToUpload = image; // SỬA Ở ĐÂY: gán trực tiếp từ biến 'image'
+    const conversation_id = req.body.conversation_id;
+    const senderId = req.body.user_id;
+    const replyTo = req.body.replyTo;
+    const finalContentType = imagesToUpload.length > 1 ? 'image_gallery' : 'image';
 
-            const uploadPromises = imagesToUpload.map((singleImageFile) => {
-                const imageParts = singleImageFile.originalname.split('.')
-                const fileType = imageParts[imageParts.length - 1]
-                const filePath = `${uuidv4() + Date.now().toString()
-                    }.${fileType}`
-                const params = {
-                    Bucket: bucketname,
-                    Key: filePath,
-                    Body: singleImageFile.buffer,
-                    ContentType: singleImageFile.mimetype,
-                }
+    const uploadPromises = imagesToUpload.map((singleImageFile) => {
+        const imageParts = singleImageFile.originalname.split('.');
+        const fileType = imageParts[imageParts.length - 1];
+        const filePath = `${uuidv4() + Date.now().toString()}.${fileType}`;
+        const params = {
+            Bucket: bucketname,
+            Key: filePath,
+            Body: singleImageFile.buffer,
+            ContentType: singleImageFile.mimetype,
+        };
+        return S3.upload(params).promise();
+    });
 
-                return S3.upload(params).promise() // Sử dụng .promise() để dễ làm việc với async/await
-            })
+    try {
+        const s3UploadResults = await Promise.all(uploadPromises);
+        const imageUrls = s3UploadResults.map(
+            (result) => result.Location
+        );
 
-            try {
-                const s3UploadResults = await Promise.all(uploadPromises)
-                const imageUrls = s3UploadResults.map(
-                    (result) => result.Location
-                ) // Mảng các URL ảnh
+        const messageData = {
+            conversation_id,
+            senderId,
+            content: imageUrls, 
+            contentType: finalContentType,
+        };
 
-                let galleryMessage
-                const messageData = {
-                    conversation_id,
-                    senderId,
-                    content: imageUrls, // content là một mảng các URL
-                    contentType: finalContentType, // hoặc 'image' nếu content luôn là mảng khi có nhiều ảnh
-                }
-
-                if (mongoose.Types.ObjectId.isValid(replyTo)) {
-                    messageData.replyTo = replyTo
-                }
-
-                galleryMessage = new Message(messageData)
-                await galleryMessage.save()
-
-                console.log(
-                    'Tạo tin nhắn gallery (TH2) thành công trên db !!!',
-                    galleryMessage
-                )
-                return res.status(200).json({
-                    thongbao: 'Tạo tin nhắn thành công!!!',
-                    message: galleryMessage, // Trả về MỘT đối tượng tin nhắn duy nhất
-                })
-            } catch (err) {
-                console.error('Lỗi khi xử lý gửi nhiều ảnh (TH2):', err)
-                return res.status(500).json({
-                    message: 'Lỗi khi tạo message gallery!!!',
-                    error: err.message,
-                })
-            }
+        if (mongoose.Types.ObjectId.isValid(replyTo)) {
+            messageData.replyTo = replyTo;
         }
+
+        const galleryMessage = new Message(messageData);
+        await galleryMessage.save();
+
+        console.log(
+            'Tạo tin nhắn gallery (TH2) thành công trên db !!!',
+            galleryMessage
+        );
+        return res.status(200).json({
+            thongbao: 'Tạo tin nhắn thành công!!!',
+            message: galleryMessage,
+        });
+    } catch (err) {
+        console.error('Lỗi khi xử lý gửi nhiều ảnh (TH2):', err);
+        return res.status(500).json({
+            message: 'Lỗi khi tạo message gallery!!!',
+            error: err.message,
+        });
+    }
+}
         // TH3 : Gửi cả text message và ảnh
         else if (image.length > 0 && content && contentType === 'text') {
             console.log('Đã vào trường hợp 3 ở server!!!')
@@ -771,24 +764,51 @@ class MessageController {
     }
     //viết 1 api lấy toàn bộ image và video dựa vào conversation_id trong message
     async getAllMediaWeb(req, res) {
-        const conversation_id = req.body.conversation_id
-        const media = await Message.find({
+    const conversation_id = req.body.conversation_id;
+    console.log(`[getAllMediaWeb] Nhận yêu cầu cho conversation_id: ${conversation_id}`); // Log conversation_id
+    try {
+        const messagesWithMedia = await Message.find({
             conversation_id: conversation_id,
-            contentType: { $in: ['image'] },
-        })
-        if (media.length === 0) {
+            contentType: { $in: ['image', 'image_gallery'] },
+        }).sort({ createdAt: -1 });
+
+        console.log(`[getAllMediaWeb] Số lượng tin nhắn media tìm thấy: ${messagesWithMedia.length}`); // Log số lượng
+        // console.log('[getAllMediaWeb] Chi tiết messagesWithMedia:', JSON.stringify(messagesWithMedia, null, 2)); // Log chi tiết (có thể rất dài)
+
+        if (messagesWithMedia.length === 0) {
             return res.status(200).json({
-                thongbao: 'Không tìm thấy media!!!',
-            })
+                thongbao: 'Không tìm thấy media nào trong cuộc trò chuyện này.',
+                media: [],
+            });
         }
-        if (media.length > 0) {
-            const mediaLinks = media.map((m) => m.content) // Extract the content links
-            return res.status(200).json({
-                thongbao: 'Tìm thấy media!!!',
-                media: mediaLinks, // Return the links instead of the full media objects
-            })
-        }
+
+        let allImageUrls = [];
+        messagesWithMedia.forEach(msg => {
+            console.log(`[getAllMediaWeb] Đang xử lý msg ID: ${msg._id}, contentType: ${msg.contentType}, isForwarded: ${msg.isForwarded}`); // Log từng tin nhắn
+            if (msg.contentType === 'image_gallery' && Array.isArray(msg.content)) {
+                allImageUrls = allImageUrls.concat(msg.content);
+            } else if (msg.contentType === 'image' && typeof msg.content === 'string') {
+                allImageUrls.push(msg.content);
+            }
+        });
+        allImageUrls = allImageUrls.filter(url => typeof url === 'string' && url.trim() !== '');
+
+        console.log(`[getAllMediaWeb] Tổng số URL ảnh thu được: ${allImageUrls.length}`); // Log số URL cuối cùng
+        // console.log('[getAllMediaWeb] Danh sách allImageUrls:', allImageUrls);
+
+        return res.status(200).json({
+            thongbao: 'Tìm thấy media!',
+            media: allImageUrls,
+        });
+
+    } catch (error) { // ... (phần catch giữ nguyên)
+        console.error("[getAllMediaWeb] Lỗi:", error);
+        return res.status(500).json({
+            thongbao: 'Lỗi server khi lấy media.',
+            error: error.message,
+        });
     }
+}
     // viết 1 api lấy toàn bộ file dựa vào conversation_id trong message
     async getAllFileWeb(req, res) {
         const conversation_id = req.body.conversation_id
@@ -820,45 +840,7 @@ class MessageController {
     }
 
     /// mobile --------------
-    async addMessage(req, res) {
-        const { conversation_id, senderId, content, contentType } = req.body
-        const newMessage = new Message({
-            conversation_id,
-            senderId,
-            content,
-            contentType,
-        })
-        try {
-            var message = await Message.create(newMessage)
-            message = await Message.populate(message, [
-                { path: 'senderId', select: 'userName avatar phoneNumber' },
-                { path: 'conversation_id' },
-            ])
-            message = await User.populate(message, {
-                path: 'conversation_id.members',
-                select: 'userName avatar phoneNumber',
-            })
-            await Conversation.findByIdAndUpdate(conversation_id, {
-                lastMessage: message._id,
-            })
-            res.status(200).json(message)
-        } catch (err) {
-            throw new Error(err.message)
-        }
-    }
-
-    // async getMessagesByConversationID(req, res) {
-    //     try {
-    //         const messages = await Message.find({
-    //             conversation_id: req.params.conversation_id,
-    //         })
-    //             .populate('senderId', 'userName avatar phoneNumber lastName')
-    //             .populate('conversation_id')
-    //         res.status(200).json(messages)
-    //     } catch (err) {
-    //         res.status(500).json(err)
-    //     }
-    // }
+    
     async getMessagesByConversationID(req, res) {
         try {
             const messages = await Message.find({
@@ -874,40 +856,9 @@ class MessageController {
     }
 
 
-    async recallMessage(req, res) {
-        try {
-            const message = await Message.findById(req.params.id)
-            message.recalled = true
-            const result = await message.save()
-            res.status(200).json(result)
-        } catch (err) {
-            res.status(500).json(err)
-        }
-    }
 
-    async deleteMyMessage(req, res) {
-        const { message_id, user_id } = req.body
-        try {
-            const message = await Message.findById(message_id)
-            if (!message) {
-                return res.status(200).json({ error: 'Tin nhắn không tồn tại' })
-            }
-            if (!message.deletedBy.includes(user_id)) {
-                message.deletedBy.push(user_id)
-                await message.save()
-            }
-            io.to(message.conversation_id).emit('message-deleted', message_id)
-            console.log(
-                `Emit message-deleted: ${message_id} to room ${message.conversation_id}`
-            )
-            return res.status(200).json({
-                thongbao: 'Xoá chỉ ở phía tôi thành công!!!',
-                message: message,
-            })
-        } catch (error) {
-            res.status(500).json({ error: 'Lỗi' })
-        }
-    }
+
+   
 
     async findNewestMessage(req, res) {
         try {

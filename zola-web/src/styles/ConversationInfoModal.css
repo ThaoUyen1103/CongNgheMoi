@@ -760,3 +760,201 @@
 .member-actions-dropdown button.action-remove:disabled:hover {
   background-color: transparent;
 }
+
+
+.storage-tab-content {
+  max-height: 300px; /* Hoặc chiều cao bạn muốn cho khu vực cuộn */
+  overflow-y: auto;
+  padding-top: 10px;
+}
+
+.media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); /* Tạo lưới responsive */
+  gap: 8px;
+}
+
+.storage-media-item {
+  width: 100%;
+  padding-bottom: 100%; /* Tạo tỷ lệ 1:1 cho item (hình vuông) */
+  position: relative;
+  background-color: #f0f0f0;
+  border-radius: 4px;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.storage-media-item img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* Ảnh sẽ lấp đầy item mà không bị méo */
+}
+
+.video-placeholder {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: #e9ecef;
+  color: #495057;
+  text-align: center;
+  padding: 5px;
+}
+
+.video-placeholder .video-icon-overlay {
+  font-size: 24px;
+  margin-bottom: 5px;
+}
+.video-placeholder span {
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 90%;
+}
+
+
+.file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.storage-file-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  border: 1px solid #e9ecef;
+}
+
+.storage-file-item .file-item-icon { /* Class chung cho icon file trong storage */
+  font-size: 24px; /* Kích thước icon */
+  margin-right: 10px;
+  flex-shrink: 0;
+  width: 24px; /* Đảm bảo icon có không gian cố định */
+  text-align: center;
+}
+/* Màu cho các loại icon file cụ thể */
+.storage-file-item .file-item-icon.word { color: #2b579a; }
+.storage-file-item .file-item-icon.excel { color: #1d6f42; }
+.storage-file-item .file-item-icon.ppt { color: #d04423; }
+.storage-file-item .file-item-icon.pdf { color: #B30B00; }
+.storage-file-item .file-item-icon.archive { color: #fab005; }
+.storage-file-item .file-item-icon.generic { color: #868e96; }
+
+
+.storage-file-item .file-item-details {
+  flex-grow: 1;
+  overflow: hidden;
+}
+
+.storage-file-item .file-item-name {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: #343a40;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.storage-file-item .download-icon-storage {
+  margin-left: auto;
+  color: #007bff;
+  font-size: 16px;
+  padding: 5px;
+  text-decoration: none;
+}
+.storage-file-item .download-icon-storage:hover {
+  color: #0056b3;
+}
+
+.link-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.storage-link-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  border: 1px solid #e9ecef;
+}
+
+.storage-link-item .link-item-icon {
+  font-size: 18px;
+  margin-right: 10px;
+  color: #007bff;
+}
+
+.storage-link-item .link-item-details {
+  flex-grow: 1;
+  overflow: hidden;
+}
+
+.storage-link-item .link-item-url {
+  display: block;
+  font-size: 13px;
+  color: #007bff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-decoration: none;
+}
+.storage-link-item .link-item-url:hover {
+  text-decoration: underline;
+}
+.storage-link-item .link-item-sender {
+  font-size: 11px;
+  color: #6c757d;
+  margin-top: 2px;
+}
+
+
+.loading-placeholder, .empty-tab-message, .error-message {
+  padding: 20px;
+  text-align: center;
+  color: #6c757d;
+  font-size: 14px;
+}
+.error-message {
+  color: #dc3545;
+}
+.loading-placeholder .spinner-icon {
+  margin-right: 8px;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.view-all-storage-btn {
+  display: block;
+  width: calc(100% - 20px);
+  margin: 15px auto 5px auto;
+  padding: 8px;
+  background-color: #f0f2f5;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  text-align: center;
+  font-size: 13px;
+  color: #007bff;
+  cursor: pointer;
+}
+.view-all-storage-btn:hover {
+  background-color: #e9ecef;
+}

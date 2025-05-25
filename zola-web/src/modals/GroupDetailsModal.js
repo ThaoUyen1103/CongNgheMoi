@@ -176,13 +176,13 @@ function GroupDetailsModal({
                             </div>
                         </div>
                         
-                        <div className="group-info-section">
+                        {/* <div className="group-info-section">
                             <div className="group-info-list-item" style={{cursor: 'default'}}>
                                 <FaPhotoVideo className="item-icon" />
                                 <span className="item-label">Ảnh/Video</span>
                             </div>
                             <p className="group-placeholder-text">Chưa có ảnh nào được chia sẻ</p>
-                        </div>
+                        </div> */}
 
                         <div className="group-info-section">
                             <div className="group-info-list-item" style={{cursor: 'default'}}>

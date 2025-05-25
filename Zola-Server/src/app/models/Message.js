@@ -18,10 +18,10 @@ const Message = new Schema(
     },*/
         contentType: {
             type: String,
-            enum: ['text', 'image', 'video', 'audio', 'file', 'notify'],
+            enum: ['text', 'image', 'video', 'audio', 'file', 'notify', 'image_gallery'],
         },
         content: {
-            type: String,
+            type: Schema.Types.Mixed,
         },
         recalled: {
             type: Boolean,

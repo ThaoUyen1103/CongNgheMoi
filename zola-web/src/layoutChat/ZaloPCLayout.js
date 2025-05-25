@@ -208,6 +208,7 @@ function ZaloPCLayout({ onLogout }) {
           selectedChat={selectedChat}
           currentLoggedInUserId={loggedInUser?._id}
           onConversationDeleted={handleConversationDeleted}
+          allConversations={allConversations}
         />
       }
       {activeView === 'contacts' &&

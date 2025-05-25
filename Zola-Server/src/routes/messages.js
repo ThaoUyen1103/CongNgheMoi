@@ -74,10 +74,7 @@ router.post(
 )
 router.post('/getLastMessageWeb', messageController.getLastMessageWeb)
 // //add mobile
-router.post('/', messageController.addMessage)
 router.get('/:conversation_id', messageController.getMessagesByConversationID)
-router.put('/recallMessage/:id', messageController.recallMessage)
-router.put('/deleteMessage', messageController.deleteMyMessage)
 router.post(
     '/findNewestMessage/:conversation_id',
     messageController.findNewestMessage
