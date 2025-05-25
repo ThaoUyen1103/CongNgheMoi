@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
 import '../styles/ZaloPCLayout.css';
 import Sidebar from './Sidebar';
@@ -35,31 +35,31 @@ function ZaloPCLayout({ onLogout }) {
                 const parsedUser = JSON.parse(storedUser);
                 setLoggedInUser(parsedUser);
             } catch (error) {
-                console.error("ZaloPCLayout: Lỗi đọc user từ localStorage:", error);
-                if (typeof onLogout === 'function') onLogout();
+                console.error("Lỗi khi đọc thông tin người dùng từ localStorage:", error);
+                onLogout(); // Đăng xuất nếu có lỗi
             }
         } else {
-            if (typeof onLogout === 'function') onLogout();
+            onLogout(); // Đăng xuất nếu không có thông tin user
         }
     }, [onLogout]);
 
     useEffect(() => {
         if (loggedInUser?._id) {
-            const jwtToken = localStorage.getItem('user_token');
+            const jwtToken = localStorage.getItem('user_token'); // Lấy JWT token
             const newSocket = io(SOCKET_SERVER_URL, {
                 auth: {
-                    token: jwtToken
+                    token: jwtToken // Gửi token khi kết nối
                 }
             });
             socketRef.current = newSocket;
             setSocket(newSocket);
 
             newSocket.on('connect', () => {
-                console.log('✅ ZaloPCLayout: Socket connected:', newSocket.id);
+                console.log('✅ ZaloPCLayout: Socket connected to server:', newSocket.id);
             });
 
             newSocket.on('disconnect', (reason) => {
-                console.log('❌ ZaloPCLayout: Socket disconnected:', reason);
+                console.log('❌ ZaloPCLayout: Socket disconnected from server:', reason);
             });
 
             newSocket.on('connect_error', (error) => {
@@ -83,28 +83,26 @@ function ZaloPCLayout({ onLogout }) {
         }
     }, [loggedInUser]);
 
-    const fetchAllUserConversations = useCallback(async () => {
+    const fetchAllUserConversations = async () => {
         if (!loggedInUser?._id) {
             setAllConversations([]);
             return;
         }
         setIsLoadingConversations(true);
         setConversationsError('');
-        const token = localStorage.getItem('user_token');
+        let fetchedGroups = [];
+        let fetchedFriendsAsConversations = [];
 
         try {
             const groupPromise = fetch('http://localhost:3001/conversation/getConversationGroupByUserIDWeb', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('user_token')}` },
                 body: JSON.stringify({ user_id: loggedInUser._id }),
             });
-            const friendsPromise = fetch(`http://localhost:3001/user/getFriends/${loggedInUser._id}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
+            const friendsPromise = fetch(`http://localhost:3001/user/getFriends/${loggedInUser._id}`,{
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('user_token')}` }
             });
-
             const [groupResponse, friendsResponse] = await Promise.all([groupPromise, friendsPromise]);
-            let fetchedGroups = [];
-            let fetchedFriendsAsConversations = [];
 
             if (groupResponse.ok) {
                 const groupData = await groupResponse.json();
@@ -117,7 +115,7 @@ function ZaloPCLayout({ onLogout }) {
                     }));
                 }
             } else {
-                console.error('ZaloPCLayout: Lỗi tải nhóm:', await groupResponse.text());
+                console.error('Lỗi tải danh sách nhóm:', await groupResponse.text());
             }
 
             if (friendsResponse.ok) {
@@ -127,8 +125,11 @@ function ZaloPCLayout({ onLogout }) {
                         try {
                             const convResponse = await fetch('http://localhost:3001/conversation/createConversationsWeb', {
                                 method: 'POST',
-                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                                body: JSON.stringify({ user_id: loggedInUser._id, friend_id: friend._id }),
+                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('user_token')}` },
+                                body: JSON.stringify({
+                                    user_id: loggedInUser._id,
+                                    friend_id: friend._id,
+                                }),
                             });
                             if (convResponse.ok) {
                                 const convData = await convResponse.json();
@@ -138,9 +139,11 @@ function ZaloPCLayout({ onLogout }) {
                                         name: friend.userName,
                                         avatar: friend.avatar,
                                         type: 'user',
-                                        isGroup: false,
                                         members: convData.conversation.members,
                                         updatedAt: convData.conversation.updatedAt || convData.conversation.createdAt || new Date(0).toISOString(),
+                                        isGroup: false,
+                                        groupLeader: null,
+                                        deputyLeaders: [],
                                     };
                                 }
                             }
@@ -150,28 +153,29 @@ function ZaloPCLayout({ onLogout }) {
                     fetchedFriendsAsConversations = (await Promise.all(conversationPromises)).filter(Boolean);
                 }
             } else {
-                console.error('ZaloPCLayout: Lỗi tải bạn bè:', await friendsResponse.text());
+                console.error('Lỗi tải danh sách bạn bè:', await friendsResponse.text());
             }
 
             const combinedList = [...fetchedGroups, ...fetchedFriendsAsConversations];
             combinedList.forEach(item => {
-                if (!item.updatedAt) item.updatedAt = item.createdAt || new Date(0).toISOString();
+                if (!item.updatedAt) {
+                    item.updatedAt = item.createdAt || new Date(0).toISOString();
+                }
             });
             combinedList.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
             setAllConversations(combinedList);
         } catch (error) {
             setConversationsError('Lỗi kết nối, không thể tải danh sách.');
-            console.error('ZaloPCLayout: Lỗi fetchAllUserConversations:', error);
         } finally {
             setIsLoadingConversations(false);
         }
-    }, [loggedInUser]);
+    };
 
     useEffect(() => {
         if (loggedInUser?._id) {
             fetchAllUserConversations();
         }
-    }, [loggedInUser, fetchAllUserConversations]);
+    }, [loggedInUser]);
 
     useEffect(() => {
         if (socket) {
@@ -183,13 +187,11 @@ function ZaloPCLayout({ onLogout }) {
                             if (newMessageData.contentType === 'image' || newMessageData.contentType === 'image_gallery') displayMessage = '[Hình ảnh]';
                             else if (newMessageData.contentType === 'video') displayMessage = '[Video]';
                             else if (newMessageData.contentType === 'file') displayMessage = '[Tệp]';
-                            else if (newMessageData.contentType === 'notify') displayMessage = newMessageData.content;
-
-
+                            
                             return {
                                 ...conv,
                                 lastMessage: displayMessage,
-                                lastMessageSenderName: newMessageData.senderId?.userName,
+                                lastMessageSender: newMessageData.senderId?.userName || newMessageData.senderId,
                                 lastMessageTimestamp: newMessageData.createdAt,
                                 updatedAt: newMessageData.createdAt,
                                 unread: (selectedChat?._id !== newMessageData.conversation_id) ? (conv.unread || 0) + 1 : 0,
@@ -207,8 +209,7 @@ function ZaloPCLayout({ onLogout }) {
                             return { 
                                 ...conv, 
                                 ...data.updatedData,
-                                name: data.updatedData.conversationName || conv.name,
-                                updatedAt: new Date().toISOString() 
+                                updatedAt: new Date().toISOString()
                             }; 
                         }
                         return conv;
@@ -218,8 +219,7 @@ function ZaloPCLayout({ onLogout }) {
                 if (selectedChat && selectedChat._id === data.conversationId) {
                     setSelectedChat(prevSelected => ({
                         ...prevSelected,
-                        ...data.updatedData,
-                        name: data.updatedData.conversationName || prevSelected.name
+                        ...data.updatedData
                     }));
                 }
             };
@@ -228,16 +228,14 @@ function ZaloPCLayout({ onLogout }) {
                  setAllConversations(prevConvs =>
                     prevConvs.map(conv => {
                         if (conv._id === data.conversationId) {
-                            const updatedMembers = Array.isArray(data.updatedMembers) 
-                                ? data.updatedMembers 
-                                : (conv.members || []).filter(m => (m._id || m) !== data.userId);
-                            const updatedDeputyLeaders = Array.isArray(data.updatedDeputyLeaders) 
-                                ? data.updatedDeputyLeaders 
-                                : (conv.deputyLeaders || []).filter(id => (id._id || id) !== data.userId);
+                             const newMembers = Array.isArray(data.updatedMembers) ? data.updatedMembers : 
+                                                (conv.members || []).filter(m => (m._id || m) !== data.userId);
+                             const newDeputies = Array.isArray(data.updatedDeputyLeaders) ? data.updatedDeputyLeaders :
+                                                (conv.deputyLeaders || []).filter(id => id !== data.userId);
                             return {
                                 ...conv,
-                                members: updatedMembers,
-                                deputyLeaders: updatedDeputyLeaders,
+                                members: newMembers,
+                                deputyLeaders: newDeputies,
                                 updatedAt: new Date().toISOString()
                             };
                         }
@@ -247,22 +245,22 @@ function ZaloPCLayout({ onLogout }) {
                 if (selectedChat && selectedChat._id === data.conversationId) {
                     setSelectedChat(prev => ({
                         ...prev,
-                        members: Array.isArray(data.updatedMembers) 
-                            ? data.updatedMembers 
-                            : (prev.members || []).filter(m => (m._id || m) !== data.userId),
-                        deputyLeaders: Array.isArray(data.updatedDeputyLeaders) 
-                            ? data.updatedDeputyLeaders 
-                            : (prev.deputyLeaders || []).filter(id => (id._id || id) !== data.userId)
+                        members: Array.isArray(data.updatedMembers) ? data.updatedMembers : 
+                                 (prev.members || []).filter(m => (m._id || m) !== data.userId),
+                        deputyLeaders: Array.isArray(data.updatedDeputyLeaders) ? data.updatedDeputyLeaders :
+                                       (prev.deputyLeaders || []).filter(id => id !== data.userId)
                     }));
                 }
             };
 
             const handleGroupDisbanded = (data) => {
-                const disbandedConv = allConversations.find(c => c._id === data.conversationId);
-                setAllConversations(prevConvs => prevConvs.filter(conv => conv._id !== data.conversationId));
+                const disbandedConvName = allConversations.find(c => c._id === data.conversationId)?.name || "Một nhóm";
+                setAllConversations(prevConvs =>
+                    prevConvs.filter(conv => conv._id !== data.conversationId)
+                );
                 if (selectedChat && selectedChat._id === data.conversationId) {
                     setSelectedChat(null);
-                    alert(`Nhóm "${disbandedConv?.name || 'Đã chọn'}" đã bị giải tán bởi ${data.disbandedBy?.name || 'trưởng nhóm'}.`);
+                    alert(`Nhóm "${disbandedConvName}" đã bị giải tán bởi ${data.disbandedBy?.name || 'trưởng nhóm'}.`);
                 }
             };
 
@@ -271,9 +269,9 @@ function ZaloPCLayout({ onLogout }) {
                     ...data.conversation,
                     type: 'group',
                     name: data.conversation.conversationName,
-                    isGroup: true,
                     updatedAt: data.conversation.updatedAt || data.conversation.createdAt || new Date().toISOString()
                 };
+
                 setAllConversations(prevConvs => {
                     if (prevConvs.some(c => c._id === newGroup._id)) {
                         return prevConvs.map(c => c._id === newGroup._id ? newGroup : c)
@@ -282,7 +280,7 @@ function ZaloPCLayout({ onLogout }) {
                     return [newGroup, ...prevConvs]
                            .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
                 });
-                if (data.conversation.members?.some(m => (m._id || m) === loggedInUser?._id)) {
+                if (data.conversation.groupLeader?._id === loggedInUser?._id || data.conversation.members?.some(m => (m._id || m) === loggedInUser?._id)) {
                     handleSelectChat(newGroup);
                 }
             };
@@ -301,34 +299,32 @@ function ZaloPCLayout({ onLogout }) {
                 socket.off('group-created', handleGroupCreated);
             };
         }
-    }, [socket, loggedInUser, selectedChat, allConversations, fetchAllUserConversations]);
+    }, [socket, loggedInUser, selectedChat, allConversations]);
 
 
     const handleSelectChat = (chatData) => {
         if (!chatData || !chatData._id) {
-            console.error("ZaloPCLayout: handleSelectChat - Invalid chat data", chatData);
+            console.error("handleSelectChat: Invalid chat data received", chatData);
             return;
         }
-        const fullChatDataFromList = allConversations.find(c => c._id === chatData._id);
-        const chatToSelect = fullChatDataFromList ? {...fullChatDataFromList, ...chatData} : chatData;
+        const fullChatData = allConversations.find(c => c._id === chatData._id) || chatData;
     
         setAllConversations(prevConvs => 
             prevConvs.map(c => 
-                c._id === chatToSelect._id ? { ...c, unread: 0 } : c
+                c._id === fullChatData._id ? { ...c, unread: 0 } : c
             ).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
         );
-        setSelectedChat({...chatToSelect, unread: 0 });
+        setSelectedChat({...fullChatData, unread: 0 });
         setActiveView('chats');
     };
     
 
     const handleInitiateChatWithFriend = async (friend) => {
         if (!loggedInUser || !friend) return;
-        const token = localStorage.getItem('user_token');
         try {
             const response = await fetch('http://localhost:3001/conversation/createConversationsWeb', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('user_token')}` },
                 body: JSON.stringify({ user_id: loggedInUser._id, friend_id: friend._id }),
             });
             const data = await response.json();
@@ -339,7 +335,7 @@ function ZaloPCLayout({ onLogout }) {
                     avatar: friend.avatar,
                     type: 'user',
                     isGroup: false,
-                    members: data.conversation.members || [loggedInUser, friend],
+                    members: data.conversation.members.map(m => typeof m === 'string' ? allConversations.flatMap(c => c.members).find(member => member._id === m) || { _id: m } : m),
                     updatedAt: data.conversation.updatedAt || data.conversation.createdAt || new Date().toISOString(),
                 };
                 setAllConversations(prev => {
@@ -353,10 +349,10 @@ function ZaloPCLayout({ onLogout }) {
                 });
                 handleSelectChat(preparedSelectedChat);
             } else {
-                console.error('ZaloPCLayout: Không thể tạo/mở cuộc trò chuyện:', data.message || 'Lỗi không xác định');
+                console.error('Không thể tạo/mở cuộc trò chuyện:', data.message || 'Lỗi không xác định');
             }
         } catch (error) {
-            console.error('ZaloPCLayout: Lỗi kết nối khi tạo cuộc trò chuyện:', error);
+            console.error('Lỗi kết nối khi tạo cuộc trò chuyện:', error);
         }
     };
 
@@ -381,15 +377,20 @@ function ZaloPCLayout({ onLogout }) {
     const closeCreateGroupModal = () => setIsCreateGroupModalOpen(false);
 
     const handleProfileUpdate = (updatedData) => {
-        const newLoggedInUser = {
-            ...loggedInUser,
+        setLoggedInUser(prevData => ({
+            ...prevData,
+            userName: updatedData.name,
+            gender: updatedData.gender,
+            dateOfBirth: updatedData.dob,
+            avatar: updatedData.avatar || prevData.avatar
+        }));
+        localStorage.setItem('user', JSON.stringify({
+            ...loggedInUser, 
             userName: updatedData.name,
             gender: updatedData.gender,
             dateOfBirth: updatedData.dob,
             avatar: updatedData.avatar || loggedInUser.avatar
-        };
-        setLoggedInUser(newLoggedInUser);
-        localStorage.setItem('user', JSON.stringify(newLoggedInUser));
+        }));
         justCloseUpdateInfoModal();
         setIsAccountInfoModalOpen(true);
     };
@@ -398,7 +399,6 @@ function ZaloPCLayout({ onLogout }) {
         const groupToAdd = { 
             ...newGroupDataFromAPI, 
             type: 'group', 
-            isGroup: true,
             name: newGroupDataFromAPI.conversationName, 
             updatedAt: newGroupDataFromAPI.updatedAt || newGroupDataFromAPI.createdAt || new Date().toISOString() 
         };
@@ -432,40 +432,25 @@ function ZaloPCLayout({ onLogout }) {
     
         setAllConversations(prevConvs => 
             prevConvs.map(conv => {
-                if (conv.type === 'user' && conv.members && conv.members.some(m => (m._id || m) === updatedUser._id)) {
-                    const otherUserInConv = conv.members.find(m => (m._id || m) !== updatedUser._id);
-                    if(otherUserInConv) { // Check if this is a 1-on-1 chat
-                       return {
-                           ...conv,
-                           name: (otherUserInConv._id || otherUserInConv) === loggedInUser._id ? updatedUser.userName : conv.name,
-                           avatar: (otherUserInConv._id || otherUserInConv) === loggedInUser._id ? updatedUser.avatar : conv.avatar,
-                           members: conv.members.map(m => (m._id || m) === updatedUser._id ? updatedUser : m)
-                       };
-                    }
-                } else if (conv.type === 'group' && conv.members && conv.members.some(m => (m._id || m) === updatedUser._id)) {
-                     return {
+                if (conv.type === 'user' && conv.members.some(m => (m._id || m) === updatedUser._id)) {
+                    const otherUser = conv.members.find(m => (m._id || m) !== updatedUser._id);
+                    return {
                         ...conv,
-                        members: conv.members.map(m => (m._id || m) === updatedUser._id ? {...m, userName: updatedUser.userName, avatar: updatedUser.avatar } : m)
-                     }
+                        name: otherUser?._id === loggedInUser?._id ? updatedUser.userName : conv.name, // Cập nhật tên nếu là chat với chính mình (ít xảy ra)
+                        avatar: otherUser?._id === loggedInUser?._id ? updatedUser.avatar : conv.avatar,
+                        members: conv.members.map(m => (m._id || m) === updatedUser._id ? updatedUser : m)
+                    };
                 }
                 return conv;
             })
         );
     
-        if (selectedChat && selectedChat.type === 'user' && selectedChat.members && selectedChat.members.some(m => (m._id || m) === updatedUser._id)) {
-            const otherUserInSelectedChat = selectedChat.members.find(m => (m._id || m) !== updatedUser._id);
-            if(otherUserInSelectedChat) {
-                setSelectedChat(prev => ({
-                    ...prev,
-                    name: (otherUserInSelectedChat._id || otherUserInSelectedChat) === loggedInUser._id ? updatedUser.userName : prev.name,
-                    avatar: (otherUserInSelectedChat._id || otherUserInSelectedChat) === loggedInUser._id ? updatedUser.avatar : prev.avatar,
-                    members: prev.members.map(m => (m._id || m) === updatedUser._id ? updatedUser : m)
-                }));
-            }
-        } else if (selectedChat && selectedChat.type === 'group' && selectedChat.members && selectedChat.members.some(m => (m._id || m) === updatedUser._id)) {
+        if (selectedChat && selectedChat.type === 'user' && selectedChat.members.some(m => (m._id || m) === updatedUser._id)) {
             setSelectedChat(prev => ({
                 ...prev,
-                members: prev.members.map(m => (m._id || m) === updatedUser._id ? {...m, userName: updatedUser.userName, avatar: updatedUser.avatar } : m)
+                name: prev.members.find(m => (m._id || m) !== updatedUser._id)?._id === loggedInUser?._id ? updatedUser.userName : prev.name,
+                avatar: prev.members.find(m => (m._id || m) !== updatedUser._id)?._id === loggedInUser?._id ? updatedUser.avatar : prev.avatar,
+                members: prev.members.map(m => (m._id || m) === updatedUser._id ? updatedUser : m)
             }));
         }
     };
@@ -499,7 +484,6 @@ function ZaloPCLayout({ onLogout }) {
                     onConversationDeleted={handleConversationDeleted}
                     allConversations={allConversations}
                     socket={socket}
-                    key={selectedChat?._id || 'no-chat'}
                 />
             )}
             {activeView === 'contacts' && (
@@ -529,7 +513,7 @@ function ZaloPCLayout({ onLogout }) {
                 isOpen={isAddFriendModalOpen}
                 onClose={closeAddFriendModal}
                 currentLoggedInUserId={loggedInUser?._id}
-                onFriendRequestSentOrAccepted={fetchAllUserConversations}
+                onFriendRequestSent={fetchAllUserConversations}
             />
             <CreateGroupModal
                 isOpen={isCreateGroupModalOpen}

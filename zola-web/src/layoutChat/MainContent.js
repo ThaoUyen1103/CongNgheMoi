@@ -1,21 +1,21 @@
 import React, { useState, useRef, useEffect } from 'react';
 import '../styles/MainContent.css';
-import {
+import { 
     FaPhoneAlt, FaVideo, FaInfoCircle, FaPaperclip, FaImage, FaEllipsisH, FaSmile, FaSpinner, FaDownload,
-    FaFileWord, FaFileExcel, FaFilePowerpoint, FaFilePdf, FaFileAlt, FaFileArchive
+    FaFileWord, FaFileExcel, FaFilePowerpoint, FaFilePdf, FaFileAlt, FaFileArchive 
 } from 'react-icons/fa';
 import ConversationInfoModal from '../modals/ConversationInfoModal';
 import MessageContextMenu from '../modals/MessageContextMenu';
 import EmojiPicker, { EmojiStyle } from 'emoji-picker-react';
 import ForwardMessageModal from '../modals/ForwardMessageModal';
 
-function MainContent({ selectedChat, currentLoggedInUserId, onConversationDeleted, allConversations, socket }) {
+function MainContent({ selectedChat, currentLoggedInUserId, onConversationDeleted, allConversations, socket }) { 
     const messagesEndRef = useRef(null);
     const menuRef = useRef(null);
     const fileInputRef = useRef(null);
     const imageInputRef = useRef(null);
     const emojiPickerRef = useRef(null);
-    const replyInputPreviewRef = useRef(null);
+    const replyInputPreviewRef = useRef(null); 
     const prevSelectedChatIdRef = useRef(null);
 
     const [replyingToMessage, setReplyingToMessage] = useState(null);
@@ -34,6 +34,7 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
     useEffect(() => {
         setLocalSelectedChat(selectedChat);
     }, [selectedChat]);
+
 
     const openConvInfoModal = () => {
         if (localSelectedChat) setIsConvInfoModalOpen(true);
@@ -106,7 +107,7 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
         if (activeMenu.messageId) document.addEventListener('mousedown', handleClickOutsideMenu);
         return () => document.removeEventListener('mousedown', handleClickOutsideMenu);
     }, [activeMenu.messageId]);
-
+    
     useEffect(() => {
         if (socket && localSelectedChat?._id) {
             const newRoomId = localSelectedChat._id;
@@ -114,15 +115,18 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
 
             if (prevSelectedChatIdRef.current && prevSelectedChatIdRef.current !== newRoomId) {
                  socket.emit('leave-conversation', { conversation_id: prevSelectedChatIdRef.current, user_id: userId });
+                 console.log(`MainContent: Gửi yêu cầu rời phòng ${prevSelectedChatIdRef.current} cho user ${userId}`);
             }
             
             if (prevSelectedChatIdRef.current !== newRoomId) {
                 socket.emit('join-conversation', { conversation_id: newRoomId, user_id: userId });
+                console.log(`MainContent: Gửi yêu cầu tham gia phòng ${newRoomId} cho user ${userId}`);
                 prevSelectedChatIdRef.current = newRoomId;
             }
 
         } else if (socket && !localSelectedChat?._id && prevSelectedChatIdRef.current) {
              socket.emit('leave-conversation', { conversation_id: prevSelectedChatIdRef.current, user_id: currentLoggedInUserId });
+            console.log(`MainContent: Logic rời phòng ${prevSelectedChatIdRef.current} (không có chat được chọn)`);
             prevSelectedChatIdRef.current = null;
         }
     }, [socket, localSelectedChat?._id, currentLoggedInUserId]);
@@ -159,9 +163,7 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
             };
             
             const handleMessageDeletedForMe = (data) => {
-                if(data.conversation_id === localSelectedChat?._id) {
-                    setMessages(prev => prev.filter(msg => msg._id !== data.message_id));
-                }
+                setMessages(prev => prev.filter(msg => msg._id !== data.message_id));
             };
             
             const handleGroupMetadataUpdateForMain = (data) => {
@@ -170,11 +172,13 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
                 }
             };
 
+
             socket.on('receive-message', handleReceiveMessage);
             socket.on('message-recalled', handleMessageRecalledFromServer);
             socket.on('server-message-deleted-for-everyone', handleServerMessageDeleted);
             socket.on('message-deleted-for-me', handleMessageDeletedForMe);
             socket.on('group-metadata-updated', handleGroupMetadataUpdateForMain);
+
 
             return () => {
                 socket.off('receive-message', handleReceiveMessage);
@@ -190,7 +194,7 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
         const files = Array.from(event.target.files);
         const newFiles = files.filter(file => !selectedMedia.some(existingFile => existingFile.name === file.name && existingFile.size === file.size));
         
-        const oversizedFiles = newFiles.filter(file => file.size > 100 * 1024 * 1024);
+        const oversizedFiles = newFiles.filter(file => file.size > 100 * 1024 * 1024); // 100MB
         if (oversizedFiles.length > 0) {
             alert(`Các tệp sau vượt quá giới hạn 100MB và sẽ không được thêm: \n${oversizedFiles.map(f => f.name).join('\n')}`);
         }
@@ -215,7 +219,6 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
         const otherFilesToSend = selectedMedia.filter(f => !f.type.startsWith('image/'));
         
         const uploadPromises = [];
-        const token = localStorage.getItem('user_token');
 
         if (hasText || imagesToSend.length > 0) {
             const formData = new FormData();
@@ -226,7 +229,7 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
             
             if (imagesToSend.length > 0) {
                  formData.append('contentType', hasText ? 'text' : (imagesToSend.length > 1 ? 'image_gallery' : 'image'));
-                 imagesToSend.forEach(img => formData.append('image', img));
+                 imagesToSend.forEach(img => formData.append('image', img)); // 'image' cho cả gallery và single image
             } else {
                  formData.append('contentType', 'text');
             }
@@ -234,7 +237,7 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
             const textAndImagePromise = fetch('http://localhost:3001/message/createMessagesWeb', { 
                 method: 'POST', 
                 body: formData,
-                headers: { 'Authorization': `Bearer ${token}` } 
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('user_token')}` } 
             })
             .then(async response => {
                 const data = await response.json();
@@ -245,10 +248,11 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
                 let newMsgs = [];
                 if (data.textMessage) newMsgs.push(data.textMessage);
                 if (data.imageMessage && Array.isArray(data.imageMessage)) newMsgs = newMsgs.concat(data.imageMessage);
-                else if (data.imageMessage) newMsgs.push(data.imageMessage);
+                else if (data.imageMessage) newMsgs.push(data.imageMessage); // Handle single image object
                 else if (data.message && data.message.contentType === 'image_gallery' && Array.isArray(data.message.content)) {
+                    // Xử lý trường hợp trả về một tin nhắn gallery
                      newMsgs.push(data.message);
-                } else if (data.message) {
+                } else if (data.message) { // Handle single generic message for text or single image
                     newMsgs.push(data.message);
                 }
                 return newMsgs.filter(Boolean);
@@ -268,7 +272,7 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
                 const filePromise = fetch('http://localhost:3001/message/uploadMediaWeb', { 
                     method: 'POST', 
                     body: fileFormData,
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('user_token')}` }
                 })
                 .then(async response => {
                     const data = await response.json();
@@ -321,15 +325,16 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
     const handleCloseMenu = () => setActiveMenu({ messageId: null, x: 0, y: 0 });
 
     const handleRecallMessage = async (messageId) => {
-        const token = localStorage.getItem('user_token');
         try {
             const response = await fetch('http://localhost:3001/message/recallMessageWeb', { 
                 method: 'POST', 
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, 
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('user_token')}` }, 
                 body: JSON.stringify({ message_id: messageId }) 
             });
             const data = await response.json();
-            if (!response.ok) { 
+            if (response.ok && data.message) {
+                 // UI được cập nhật qua socket event 'message-recalled'
+            } else { 
                 console.error('Thu hồi tin nhắn thất bại API:', data.thongbao || data.message || data.error); 
             }
         } catch (err) { 
@@ -339,11 +344,10 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
     };
 
     const handleDeleteForMe = async (messageId) => {
-        const token = localStorage.getItem('user_token');
         try {
             const response = await fetch('http://localhost:3001/message/deleteMyMessageWeb', { 
                 method: 'POST', 
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, 
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('user_token')}` }, 
                 body: JSON.stringify({ message_id: messageId, user_id: currentLoggedInUserId }) 
             });
             const data = await response.json();
@@ -381,7 +385,6 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
         const messageToForward = messages.find(m => m._id === forwardingMessageId);
         if (!messageToForward || targetConversationIds.length === 0) return;
         const hasAdditionalMessage = additionalMessage && additionalMessage.trim() !== '';
-        const token = localStorage.getItem('user_token');
         
         const originalSender = messageToForward.senderId; 
 
@@ -394,7 +397,7 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
             };
             const forwardMessagePromise = fetch('http://localhost:3001/message/forwardMessageWeb', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('user_token')}` },
                 body: JSON.stringify(body)
             }).then(res => res.json());
 
@@ -407,7 +410,7 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
                 const sendAdditionalMessagePromise = fetch('http://localhost:3001/message/createMessagesWeb', {
                     method: 'POST',
                     body: formData,
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('user_token')}` }
                 }).then(res => res.json());
                 return Promise.all([forwardMessagePromise, sendAdditionalMessagePromise]);
             }
@@ -428,13 +431,14 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
         
             if (socket && newMessagesToAdd.length > 0) {
                 newMessagesToAdd.forEach(msg => {
-                    if (msg.conversation_id) { 
+                    if (msg.conversation_id) { // Ensure message has conversation_id before emitting
                          socket.emit('send-message', msg);
                     } else {
                         console.warn("Forwarded/Additional message missing conversation_id:", msg);
                     }
                 });
             }
+
         } catch (err) {
             console.error('Lỗi khi chuyển tiếp hoặc gửi tin nhắn kèm theo:', err);
         } finally {
@@ -442,6 +446,7 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
             setForwardingMessageId(null);
         }
     };
+
 
     const handleInputChange = (e) => {
         setInputText(e.target.value);
@@ -466,7 +471,7 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
         let previewContent = originalMessage.content;
         let senderName = "Một ai đó";
         if (originalMessage.senderId) {
-            const sender = originalMessage.senderId;
+            const sender = originalMessage.senderId; // Đây có thể là ID hoặc object
             if ( (typeof sender === 'object' && sender._id === currentUserId) || sender === currentUserId) {
                 senderName = "Bạn";
             } else {
@@ -498,6 +503,9 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
         const contentType = msg.contentType || msg.type;
         let content = msg.content || msg.text;
         if (msg.recalled) { return <p className="message-text-content recalled-message"><i>Tin nhắn đã được thu hồi</i></p>; }
+        
+        const isMyMessage = msg.senderId?._id === currentLoggedInUserId || msg.senderId === currentLoggedInUserId;
+        const canRecall = isMyMessage && !msg.recalled;
         
         const commonMenuButton = !msg.recalled && msg.contentType !== 'system' && msg.contentType !== 'notify' && (
             <button className={contentType === 'text' ? "message-menu-trigger-btn" : "media-item-menu-trigger"} onClick={(e) => handleOpenMenu(msg, e)} title="Tùy chọn"><FaEllipsisH /></button>
@@ -539,11 +547,10 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
     }
 
     const getGroupMembersCount = (chat) => {
-        if (!chat) return 0;
-        if (chat.type === 'group' || chat.isGroup) {
+        if (chat.type === 'group' || chat.isGroup) { // Thêm isGroup để tương thích
             if (chat.membersCount) return chat.membersCount;
             if (chat.members && chat.members.length > 0) return chat.members.length;
-            return 0;
+            return chat.name.toLowerCase().includes("nhóm") || chat.name.toLowerCase().includes("group") || chat.name.toLowerCase().includes("clb") ? 2 : 1;
         }
         return null;
     };
@@ -557,7 +564,7 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
                     <div className="chat-header">
                         <div className="chat-header-info">
                             <div className={`avatar header-avatar ${(localSelectedChat.type === 'group' || localSelectedChat.isGroup) ? 'group-avatar' : 'user-avatar'}`}>
-                                {localSelectedChat.avatar && (typeof localSelectedChat.avatar === 'string' && (localSelectedChat.avatar.startsWith('http') || localSelectedChat.avatar.startsWith('data:image'))) ? <img src={localSelectedChat.avatar} alt="avatar" onError={(e) => {e.target.onerror = null; e.target.src = 'default-avatar.png'}} /> : localSelectedChat.name?.substring(0, 2).toUpperCase() || '?'}
+                                {localSelectedChat.avatar && (typeof localSelectedChat.avatar === 'string' && (localSelectedChat.avatar.startsWith('http') || localSelectedChat.avatar.startsWith('data:image'))) ? <img src={localSelectedChat.avatar} alt="avatar" /> : localSelectedChat.name?.substring(0, 2).toUpperCase() || '?'}
                             </div>
                             <div className="chat-header-name-status">
                                 <span className="chat-header-name">{localSelectedChat.name}</span>
@@ -579,7 +586,7 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
                                 <div key={msg._id || msg.id || Math.random().toString()} className={`message-item ${(msg.contentType === 'system' || msg.contentType === 'notify')? 'system' : (msg.senderId?._id === currentLoggedInUserId || msg.senderId === currentLoggedInUserId? 'sent': 'received')}`}>
                                     {(msg.contentType !== 'system' && msg.contentType !== 'notify' && (msg.senderId?._id !== currentLoggedInUserId && msg.senderId !== currentLoggedInUserId)) && (
                                         <div className={`avatar message-avatar ${(localSelectedChat.type === 'group' || localSelectedChat.isGroup) ? 'group-message-avatar' : 'user-message-avatar'}`}>
-                                            {(localSelectedChat.type === 'group' || localSelectedChat.isGroup) ? (msg.senderId?.avatar ? <img src={msg.senderId.avatar} alt="avatar" onError={(e) => {e.target.onerror = null; e.target.src = 'default-avatar.png'}}/> : msg.senderId?.userName?.substring(0, 1).toUpperCase() || '?') : (localSelectedChat.avatar && (typeof localSelectedChat.avatar === 'string' && (localSelectedChat.avatar.startsWith('http') || localSelectedChat.avatar.startsWith('data:image'))) ? <img src={localSelectedChat.avatar} alt="avatar" onError={(e) => {e.target.onerror = null; e.target.src = 'default-avatar.png'}}/> : localSelectedChat.name?.substring(0, 1).toUpperCase())}
+                                            {(localSelectedChat.type === 'group' || localSelectedChat.isGroup) ? (msg.senderId?.avatar ? <img src={msg.senderId.avatar} alt="avatar" /> : msg.senderId?.userName?.substring(0, 1).toUpperCase() || '?') : (localSelectedChat.avatar && (typeof localSelectedChat.avatar === 'string' && (localSelectedChat.avatar.startsWith('http') || localSelectedChat.avatar.startsWith('data:image'))) ? <img src={localSelectedChat.avatar} alt="avatar" /> : localSelectedChat.name?.substring(0, 1).toUpperCase())}
                                         </div>
                                     )}
                                     <div className="message-content-wrapper">
@@ -621,7 +628,7 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
                             {selectedMedia.length > 0 && (
                                 <div className="preview-container">
                                     {selectedMedia.map((media, index) => (
-                                        <div key={`${media.name}-${index}-${media.size}`} className="preview-item">
+                                        <div key={`${media.name}-${index}`} className="preview-item">
                                             {media.type.startsWith('image/') ? ( <img src={URL.createObjectURL(media)} className="preview-image" alt="preview"/>
                                             ) : ( <div className="file-preview-item"><span className="file-preview-icon">
                                                     { media.name.endsWith('.doc') || media.name.endsWith('.docx') ? <FaFileWord className="file-type-icon word"/> :
