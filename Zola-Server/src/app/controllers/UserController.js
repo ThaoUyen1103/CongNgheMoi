@@ -2,6 +2,7 @@ import User from '../models/User.js'
 import Account from '../models/Account.js';
 import ConversationController from './ConversationController.js';
 import { io } from '../../index.js';
+import axios from 'axios';
 
 import AWS from 'aws-sdk'
 import path from 'path'
@@ -46,6 +47,17 @@ function checkFileType(file, callback) {
         callback('Error: Images Only!')
     }
 }
+const emitSocketEvent = async (room, event, payload) => {
+    try {
+        await axios.post('http://localhost:3005/api/emit-to-room', {
+            room,
+            event,
+            payload
+        });
+    } catch (error) {
+        console.error(`Lỗi khi emit sự kiện '${event}' tới phòng '${room}':`, error.message);
+    }
+};
 
 function normalizePhoneNumberForSearch(phone) {
   if (typeof phone !== 'string') {

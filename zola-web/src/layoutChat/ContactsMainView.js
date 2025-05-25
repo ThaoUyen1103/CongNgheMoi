@@ -1,80 +1,111 @@
-import React, { useState, useEffect } from 'react';
-import '../styles/ContactsMainView.css';
-import { FaSearch, FaFilter, FaEllipsisH, FaSortAmountDown, FaAddressBook, FaUsers, FaUserPlus, FaCommentDots, FaSpinner, FaPaperPlane, FaTrashAlt } from 'react-icons/fa'; // Thêm icon mới
+// Trong file ContactsMainView.jsx
 
-function ContactsMainView({ subViewType, currentLoggedInUserId,onInitiateChatWithFriend  }) {
+import React, { useState, useEffect, useRef } from 'react';
+import '../styles/ContactsMainView.css';
+import { 
+    FaSearch, FaFilter, FaEllipsisH, FaSortAmountDown, FaAddressBook, FaUsers, 
+    FaUserPlus, FaCommentDots, FaSpinner, FaPaperPlane, FaTrashAlt, FaUserMinus // Thêm icon xóa bạn
+} from 'react-icons/fa';
+
+function ContactsMainView({ subViewType, currentLoggedInUserId, onInitiateChatWithFriend, fetchAllConversations }) { // Thêm fetchAllConversations
     const [searchTerm, setSearchTerm] = useState('');
     const [sortOrder, setSortOrder] = useState('name_asc');
-
     const [receivedFriendRequests, setReceivedFriendRequests] = useState([]);
     const [isLoadingReceivedRequests, setIsLoadingReceivedRequests] = useState(false);
-
     const [sentFriendRequests, setSentFriendRequests] = useState([]);
     const [isLoadingSentRequests, setIsLoadingSentRequests] = useState(false);
-
     const [friendsList, setFriendsList] = useState([]);
     const [isLoadingFriends, setIsLoadingFriends] = useState(false);
     const [friendsError, setFriendsError] = useState('');
-
     const [groupsList, setGroupsList] = useState([]);
     const [isLoadingGroups, setIsLoadingGroups] = useState(false);
     const [groupsError, setGroupsError] = useState('');
-
     const [requestActionStatus, setRequestActionStatus] = useState({});
-
     const [globalSearchResult, setGlobalSearchResult] = useState(null);
     const [isGlobalSearching, setIsGlobalSearching] = useState(false);
     const [globalSearchError, setGlobalSearchError] = useState('');
     const [globalSearchActionStatus, setGlobalSearchActionStatus] = useState('');
+    const [openMenuId, setOpenMenuId] = useState(null);
 
-
-    // --- BẮT ĐẦU: THÊM STATE VÀ LOGIC CHO MENU ---
-    const [openMenuId, setOpenMenuId] = useState(null); // State để lưu ID của nhóm có menu đang mở
-
-    // useEffect để xử lý việc đóng menu khi click ra ngoài
     useEffect(() => {
         const handleClickOutside = () => {
-            setOpenMenuId(null); // Đóng menu đang mở
+            setOpenMenuId(null);
         };
-
         if (openMenuId) {
             document.addEventListener('click', handleClickOutside);
         }
-
-        // Dọn dẹp listener khi component unmount hoặc menu đóng
         return () => {
             document.removeEventListener('click', handleClickOutside);
         };
     }, [openMenuId]);
 
-    // Hàm xử lý khi nhấn vào nút menu
-    const handleMenuToggle = (e, groupId) => {
-        e.stopPropagation(); // Ngăn sự kiện click lan ra document
-        setOpenMenuId(openMenuId === groupId ? null : groupId); // Mở menu mới hoặc đóng menu hiện tại
+    const handleMenuToggle = (e, id) => {
+        e.stopPropagation();
+        setOpenMenuId(openMenuId === id ? null : id);
     };
 
-    // Hàm xử lý hành động "Nhắn tin"
-    const handleSendMessageToGroup = (groupName) => {
-        console.log(`Bắt đầu nhắn tin với nhóm: ${groupName}`);
-        // Tại đây, bạn có thể thêm logic điều hướng đến màn hình chat của nhóm
-        setOpenMenuId(null); // Đóng menu sau khi chọn
-    };
-
-    // Hàm xử lý hành động "Giải tán nhóm"
-    const handleDisbandGroup = (groupName, groupId) => {
-        // Hiển thị hộp thoại xác nhận trước khi giải tán
-        if (window.confirm(`Bạn có chắc chắn muốn giải tán nhóm "${groupName}" không?`)) {
-            console.log(`Yêu cầu giải tán nhóm ID: ${groupId}`);
-            // Tại đây, bạn sẽ gọi API để giải tán nhóm
-            // Sau khi thành công, bạn có thể lọc nhóm đó ra khỏi `groupsList`
-            // Ví dụ: setGroupsList(prev => prev.filter(g => g._id !== groupId));
+    const handleSendMessageToGroup = (group) => {
+        if (onInitiateChatWithFriend && group) { // Sử dụng onInitiateChatWithFriend hoặc một hàm tương tự
+            onInitiateChatWithFriend({
+                _id: group._id, // Cần ID của conversation, không phải group ID
+                name: group.conversationName,
+                avatar: group.avatar,
+                type: 'group', // Đánh dấu đây là group
+                members: group.members,
+                // Các thuộc tính khác nếu cần
+            });
         }
-        setOpenMenuId(null); // Đóng menu sau khi chọn
+        setOpenMenuId(null);
     };
-    // --- KẾT THÚC: THÊM STATE VÀ LOGIC CHO MENU ---
+    
+    const handleDisbandGroup = async (groupName, groupId) => {
+        if (window.confirm(`Bạn có chắc chắn muốn giải tán nhóm "${groupName}" không?`)) {
+            try {
+                const response = await fetch('http://localhost:3001/conversation/disbandGroupWeb', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('user_token')}` },
+                    body: JSON.stringify({ conversation_id: groupId, user_id: currentLoggedInUserId })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    alert(data.message || "Giải tán nhóm thành công!");
+                    setGroupsList(prev => prev.filter(g => g._id !== groupId));
+                    if(typeof fetchAllConversations === 'function') fetchAllConversations();
+                } else {
+                    alert(data.message || "Giải tán nhóm thất bại.");
+                }
+            } catch (error) {
+                alert("Lỗi kết nối khi giải tán nhóm.");
+            }
+        }
+        setOpenMenuId(null);
+    };
+
+    const fetchFriendsList = async () => {
+        setIsLoadingFriends(true);
+        setFriendsError('');
+        setFriendsList([]);
+        const token = localStorage.getItem('user_token');
+        try {
+            const response = await fetch(`http://localhost:3001/user/getFriends/${currentLoggedInUserId}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setFriendsList(data || []);
+            } else {
+                setFriendsError('Không thể tải danh sách bạn bè.');
+                setFriendsList([]);
+            }
+        } catch (error) {
+            setFriendsError('Lỗi kết nối máy chủ.');
+            setFriendsList([]);
+        } finally {
+            setIsLoadingFriends(false);
+        }
+    };
 
     useEffect(() => {
-        // ... (Toàn bộ code useEffect hiện có của bạn giữ nguyên, không thay đổi)
         setGlobalSearchResult(null);
         setGlobalSearchError('');
         setGlobalSearchActionStatus('');
@@ -85,33 +116,34 @@ function ContactsMainView({ subViewType, currentLoggedInUserId,onInitiateChatWit
                 const fetchAllRequests = async () => {
                     setIsLoadingReceivedRequests(true);
                     setIsLoadingSentRequests(true);
+                    const token = localStorage.getItem('user_token');
                     try {
-                        const receivedRes = await fetch(`http://localhost:3001/user/friend-request/${currentLoggedInUserId}`);
+                        const receivedRes = await fetch(`http://localhost:3001/user/friend-request/${currentLoggedInUserId}`, {
+                             headers: { 'Authorization': `Bearer ${token}` }
+                        });
                         if (receivedRes.ok) {
                             const receivedData = await receivedRes.json();
                             setReceivedFriendRequests(receivedData || []);
                         } else {
-                            console.error('Lỗi tải danh sách lời mời đã nhận:', await receivedRes.text());
                             setReceivedFriendRequests([]);
                         }
                     } catch (error) {
-                        console.error('Lỗi kết nối khi tải lời mời đã nhận:', error);
                         setReceivedFriendRequests([]);
                     } finally {
                         setIsLoadingReceivedRequests(false);
                     }
 
                     try {
-                        const sentRes = await fetch(`http://localhost:3001/user/getSentFriendRequests/${currentLoggedInUserId}`);
+                        const sentRes = await fetch(`http://localhost:3001/user/getSentFriendRequests/${currentLoggedInUserId}`, {
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
                         if (sentRes.ok) {
                             const sentData = await sentRes.json();
                             setSentFriendRequests(sentData || []);
                         } else {
-                            console.error('Lỗi tải danh sách lời mời đã gửi:', await sentRes.text());
                             setSentFriendRequests([]);
                         }
                     } catch (error) {
-                        console.error('Lỗi kết nối khi tải lời mời đã gửi:', error);
                         setSentFriendRequests([]);
                     } finally {
                         setIsLoadingSentRequests(false);
@@ -119,52 +151,27 @@ function ContactsMainView({ subViewType, currentLoggedInUserId,onInitiateChatWit
                 };
                 fetchAllRequests();
             } else if (subViewType === 'friends') {
-                const fetchFriendsList = async () => {
-                    setIsLoadingFriends(true);
-                    setFriendsError('');
-                    setFriendsList([]);
-                    try {
-                        const response = await fetch(`http://localhost:3001/user/getFriends/${currentLoggedInUserId}`);
-                        if (response.ok) {
-                            const data = await response.json();
-                            setFriendsList(data || []);
-                        } else {
-                            const errorText = await response.text();
-                            console.error('Lỗi tải danh sách bạn bè:', errorText);
-                            setFriendsError('Không thể tải danh sách bạn bè.');
-                            setFriendsList([]);
-                        }
-                    } catch (error) {
-                        console.error('Lỗi kết nối khi tải danh sách bạn bè:', error);
-                        setFriendsError('Lỗi kết nối máy chủ.');
-                        setFriendsList([]);
-                    } finally {
-                        setIsLoadingFriends(false);
-                    }
-                };
                 fetchFriendsList();
             } else if (subViewType === 'groups') {
                 const fetchGroupsList = async () => {
                     setIsLoadingGroups(true);
                     setGroupsError('');
                     setGroupsList([]);
+                    const token = localStorage.getItem('user_token');
                     try {
                         const response = await fetch(`http://localhost:3001/conversation/getConversationGroupByUserIDWeb`, {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json', },
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                             body: JSON.stringify({ user_id: currentLoggedInUserId }),
                         });
                         if (response.ok) {
                             const data = await response.json();
                             setGroupsList(data.conversationGroup || []);
                         } else {
-                            const errorText = await response.text();
-                            console.error('Lỗi tải danh sách nhóm:', errorText);
                             setGroupsError('Không thể tải danh sách nhóm.');
                             setGroupsList([]);
                         }
                     } catch (error) {
-                        console.error('Lỗi kết nối khi tải danh sách nhóm:', error);
                         setGroupsError('Lỗi kết nối máy chủ.');
                         setGroupsList([]);
                     } finally {
@@ -176,35 +183,26 @@ function ContactsMainView({ subViewType, currentLoggedInUserId,onInitiateChatWit
         }
     }, [subViewType, currentLoggedInUserId]);
 
-    // ... (Toàn bộ các hàm handle... khác của bạn giữ nguyên, không thay đổi)
     const handleAcceptFriendRequest = async (senderId) => {
         if (!currentLoggedInUserId) {
             setRequestActionStatus(prev => ({ ...prev, [`received_${senderId}`]: 'Lỗi: Thiếu ID người dùng' }));
             return;
         }
         setRequestActionStatus(prev => ({ ...prev, [`received_${senderId}`]: 'Đang xử lý...' }));
+        const token = localStorage.getItem('user_token');
         try {
             const response = await fetch('http://localhost:3001/user/acceptFriendRequestWeb', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ user_id: currentLoggedInUserId, friend_id: senderId }),
             });
             const data = await response.json();
             if (response.ok) {
                 setRequestActionStatus(prev => ({ ...prev, [`received_${senderId}`]: 'Đã chấp nhận' }));
                 setReceivedFriendRequests(prevRequests => prevRequests.filter(req => req._id !== senderId));
-                if (subViewType === 'friends' || true) {
-                    const fetchFriendsList = async () => {
-                        setIsLoadingFriends(true); setFriendsError(''); setFriendsList([]);
-                        try {
-                            const res = await fetch(`http://localhost:3001/user/getFriends/${currentLoggedInUserId}`);
-                            if (res.ok) { const d = await res.json(); setFriendsList(d || []); }
-                            else { setFriendsError('Không thể tải lại danh sách bạn bè.'); setFriendsList([]); }
-                        } catch (e) { setFriendsError('Lỗi kết nối.'); setFriendsList([]); }
-                        finally { setIsLoadingFriends(false); }
-                    };
-                    fetchFriendsList();
-                }
+                if(typeof fetchAllConversations === 'function') fetchAllConversations();
+                if (subViewType === 'friends') fetchFriendsList();
+
             } else {
                 setRequestActionStatus(prev => ({ ...prev, [`received_${senderId}`]: data.message || 'Lỗi' }));
             }
@@ -219,10 +217,11 @@ function ContactsMainView({ subViewType, currentLoggedInUserId,onInitiateChatWit
             return;
         }
         setRequestActionStatus(prev => ({ ...prev, [`received_${senderId}`]: 'Đang xử lý...' }));
+        const token = localStorage.getItem('user_token');
         try {
             const response = await fetch('http://localhost:3001/user/deleteFriendRequestWeb', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ user_id: currentLoggedInUserId, friend_id: senderId }),
             });
             const data = await response.json();
@@ -243,10 +242,11 @@ function ContactsMainView({ subViewType, currentLoggedInUserId,onInitiateChatWit
             return;
         }
         setRequestActionStatus(prev => ({ ...prev, [`sent_${recipientId}`]: 'Đang thu hồi...' }));
+        const token = localStorage.getItem('user_token');
         try {
             const response = await fetch('http://localhost:3001/user/cancelFriendRequestWeb', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ user_id: currentLoggedInUserId, friend_id: recipientId }),
             });
             const data = await response.json();
@@ -271,10 +271,11 @@ function ContactsMainView({ subViewType, currentLoggedInUserId,onInitiateChatWit
         setGlobalSearchError('');
         setGlobalSearchResult(null);
         setGlobalSearchActionStatus('');
+        const token = localStorage.getItem('user_token');
         try {
             const response = await fetch('http://localhost:3001/user/findUserByPhoneWeb', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ phoneNumber: searchTerm.trim() }),
             });
             const data = await response.json();
@@ -298,10 +299,11 @@ function ContactsMainView({ subViewType, currentLoggedInUserId,onInitiateChatWit
             return;
         }
         setGlobalSearchActionStatus('Đang gửi lời mời...');
+        const token = localStorage.getItem('user_token');
         try {
             const response = await fetch('http://localhost:3001/user/sendFriendRequestWeb', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ user_id: currentLoggedInUserId, friend_id: recipientId }),
             });
             const data = await response.json();
@@ -322,10 +324,11 @@ function ContactsMainView({ subViewType, currentLoggedInUserId,onInitiateChatWit
             return;
         }
         setGlobalSearchActionStatus('Đang hủy lời mời...');
+        const token = localStorage.getItem('user_token');
         try {
             const response = await fetch('http://localhost:3001/user/cancelFriendRequestWeb', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ user_id: currentLoggedInUserId, friend_id: recipientId }),
             });
             const data = await response.json();
@@ -355,38 +358,71 @@ function ContactsMainView({ subViewType, currentLoggedInUserId,onInitiateChatWit
         }
     };
 
-     const renderFriendItem = (contact) => (
-        // Bọc contact-list-item trong một div có thể click hoặc thêm một nút "Nhắn tin"
-        <div 
-            key={contact._id} 
-            className="contact-list-item" 
-            onClick={() => onInitiateChatWithFriend && onInitiateChatWithFriend(contact)} // Gọi khi click vào item
-            title={`Nhắn tin với ${contact.userName}`}
-            style={{ cursor: 'pointer' }} // Thêm con trỏ để người dùng biết có thể click
-        >
-            <div className="contact-item-main-info">
+    // ✅ HÀM XÓA BẠN BÈ
+    const handleDeleteFriend = async (friendIdToDelete, friendName) => {
+        if (!currentLoggedInUserId) {
+            alert("Lỗi: Không xác định được người dùng hiện tại.");
+            return;
+        }
+        if (window.confirm(`Bạn có chắc chắn muốn xóa bạn bè với ${friendName} không?`)) {
+            setRequestActionStatus(prev => ({ ...prev, [`friend_${friendIdToDelete}`]: 'Đang xóa...' }));
+            const token = localStorage.getItem('user_token');
+            try {
+                const response = await fetch('http://localhost:3001/user/deleteFriendWeb', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({
+                        user_id: currentLoggedInUserId,
+                        friend_id: friendIdToDelete
+                    }),
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    alert(data.message || "Xóa bạn bè thành công!");
+                    setFriendsList(prevFriends => prevFriends.filter(friend => friend._id !== friendIdToDelete));
+                    // Gọi fetchAllConversations để cập nhật lại danh sách cuộc trò chuyện ở ZaloPCLayout
+                    if(typeof fetchAllConversations === 'function') fetchAllConversations();
+                } else {
+                    alert(data.message || "Xóa bạn bè thất bại.");
+                    setRequestActionStatus(prev => ({ ...prev, [`friend_${friendIdToDelete}`]: data.message || 'Lỗi xóa' }));
+                }
+            } catch (error) {
+                alert("Lỗi kết nối khi xóa bạn bè.");
+                setRequestActionStatus(prev => ({ ...prev, [`friend_${friendIdToDelete}`]: 'Lỗi kết nối' }));
+            }
+        }
+         setOpenMenuId(null);
+    };
+
+
+    const renderFriendItem = (contact) => (
+        <div key={contact._id} className="contact-list-item">
+            <div className="contact-item-main-info" onClick={() => onInitiateChatWithFriend && onInitiateChatWithFriend(contact)} title={`Nhắn tin với ${contact.userName}`} style={{ cursor: 'pointer', flexGrow: 1 }}>
                 <img src={contact.avatar || 'https://via.placeholder.com/40/000000/FFFFFF?Text=??'} alt={contact.userName} className="contact-item-avatar" />
                 <div className="contact-item-info">
                     <span className="contact-item-name">{contact.userName}</span>
                 </div>
             </div>
-            {/* Bạn có thể thêm một nút nhắn tin rõ ràng hơn nếu muốn */}
-            <button 
-                className="contact-item-action-btn chat-btn" 
-                onClick={(e) => {
-                    e.stopPropagation(); // Ngăn sự kiện click của div cha nếu bạn bọc nút này
-                    if (onInitiateChatWithFriend) onInitiateChatWithFriend(contact);
-                }}
-            >
-                <FaCommentDots />
-            </button>
-            {/* <button className="contact-item-options-btn"> <FaEllipsisH /> </button> */}
+            <div className="contact-item-options-container">
+                <button className="contact-item-options-btn" onClick={(e) => handleMenuToggle(e, contact._id)}>
+                    <FaEllipsisH />
+                </button>
+                {openMenuId === contact._id && (
+                    <div className="contact-item-menu" onClick={(e) => e.stopPropagation()}>
+                        <button className="menu-item" onClick={() => { onInitiateChatWithFriend && onInitiateChatWithFriend(contact); setOpenMenuId(null); }}>
+                            <FaCommentDots className="menu-item-icon" /> Nhắn tin
+                        </button>
+                        <button className="menu-item menu-item-danger" onClick={() => handleDeleteFriend(contact._id, contact.userName)}>
+                            <FaUserMinus className="menu-item-icon" /> Xóa bạn
+                        </button>
+                    </div>
+                )}
+            </div>
         </div>
     );
 
-    // --- BẮT ĐẦU: CẬP NHẬT renderGroupItem VỚI MENU ---
     const renderGroupItem = (group) => (
-        <div key={group._id} className="group-list-item">
+        <div key={group._id} className="group-list-item" onClick={() => onInitiateChatWithFriend && onInitiateChatWithFriend({...group, type: 'group', name: group.conversationName})} style={{cursor: 'pointer'}}>
             <div className="group-item-main-info">
                 <div className="group-item-avatar">
                     {group.avatar ? (
@@ -402,17 +438,13 @@ function ContactsMainView({ subViewType, currentLoggedInUserId,onInitiateChatWit
                     )}
                 </div>
             </div>
-
-            {/* Nút options và Menu */}
             <div className="contact-item-options-container">
                 <button className="contact-item-options-btn" onClick={(e) => handleMenuToggle(e, group._id)}>
                     <FaEllipsisH />
                 </button>
-
-                {/* Menu chỉ hiển thị khi openMenuId trùng với id của nhóm này */}
                 {openMenuId === group._id && (
                     <div className="group-item-menu" onClick={(e) => e.stopPropagation()}>
-                        <button className="menu-item" onClick={() => handleSendMessageToGroup(group.conversationName)}>
+                        <button className="menu-item" onClick={() => {onInitiateChatWithFriend && onInitiateChatWithFriend({...group, type: 'group', name: group.conversationName}); setOpenMenuId(null); }}>
                             <FaPaperPlane className="menu-item-icon" />
                             <span>Nhắn tin</span>
                         </button>
@@ -425,11 +457,8 @@ function ContactsMainView({ subViewType, currentLoggedInUserId,onInitiateChatWit
             </div>
         </div>
     );
-    // --- KẾT THÚC: CẬP NHẬT renderGroupItem VỚI MENU ---
-
 
     const renderReceivedRequestItem = (request) => (
-        // ... (Không thay đổi)
         <div key={request._id} className="friend-request-card received-request-card">
             <img src={request.avatar || 'https://via.placeholder.com/60/7F8C8D/FFFFFF?Text=??'} alt={request.userName} className="request-card-avatar" />
             <div className="request-card-info">
@@ -446,7 +475,6 @@ function ContactsMainView({ subViewType, currentLoggedInUserId,onInitiateChatWit
     );
 
     const renderSentRequestItem = (request) => (
-        // ... (Không thay đổi)
         <div key={request._id} className="friend-request-card sent-request-card">
             <img src={request.avatar || 'https://via.placeholder.com/60/8E44AD/FFFFFF?Text=??'} alt={request.userName} className="request-card-avatar" />
             <div className="request-card-info">
@@ -471,7 +499,6 @@ function ContactsMainView({ subViewType, currentLoggedInUserId,onInitiateChatWit
     );
 
     const renderGlobalSearchResultItem = () => (
-        // ... (Không thay đổi)
         globalSearchResult && (
             <div className="friend-requests-section global-search-result-section">
                 <h3 className="friend-requests-section-title">Kết quả tìm kiếm SĐT</h3>
@@ -508,7 +535,6 @@ function ContactsMainView({ subViewType, currentLoggedInUserId,onInitiateChatWit
     let content = null;
 
     if (subViewType === 'friends') {
-        // ... (Không thay đổi)
         title = `Bạn bè (${friendsList.length})`;
         titleIcon = <FaAddressBook className="contacts-title-icon" />;
         searchPlaceholder = "Tìm bạn";
@@ -556,7 +582,6 @@ function ContactsMainView({ subViewType, currentLoggedInUserId,onInitiateChatWit
             </>
         );
     } else if (subViewType === 'groups') {
-        // ... (Không thay đổi)
         title = `Danh sách nhóm (${groupsList.length})`;
         titleIcon = <FaUsers className="contacts-title-icon" />;
         searchPlaceholder = "Tìm nhóm...";
@@ -591,7 +616,6 @@ function ContactsMainView({ subViewType, currentLoggedInUserId,onInitiateChatWit
             </>
         );
     } else if (subViewType === 'friend_requests') {
-        // ... (Không thay đổi)
         title = 'Lời mời kết bạn';
         titleIcon = <FaUserPlus className="contacts-title-icon" />;
         searchPlaceholder = "Tìm theo tên hoặc nhập SĐT để tìm (Enter)";
