@@ -7,7 +7,8 @@ import {
     FaUserPlus, FaCommentDots, FaSpinner, FaPaperPlane, FaTrashAlt, FaUserMinus // Thêm icon xóa bạn
 } from 'react-icons/fa';
 
-function ContactsMainView({ subViewType, currentLoggedInUserId, onInitiateChatWithFriend, fetchAllConversations }) { // Thêm fetchAllConversations
+// Giả sử onInitiateChatWithFriend và fetchAllConversations được truyền từ ZaloPCLayout
+function ContactsMainView({ subViewType, currentLoggedInUserId, onInitiateChatWithFriend, fetchAllConversations }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [sortOrder, setSortOrder] = useState('name_asc');
     const [receivedFriendRequests, setReceivedFriendRequests] = useState([]);
@@ -25,11 +26,14 @@ function ContactsMainView({ subViewType, currentLoggedInUserId, onInitiateChatWi
     const [isGlobalSearching, setIsGlobalSearching] = useState(false);
     const [globalSearchError, setGlobalSearchError] = useState('');
     const [globalSearchActionStatus, setGlobalSearchActionStatus] = useState('');
-    const [openMenuId, setOpenMenuId] = useState(null);
+    const [openMenuId, setOpenMenuId] = useState(null); // Dùng cho cả menu bạn bè và menu nhóm
 
     useEffect(() => {
-        const handleClickOutside = () => {
-            setOpenMenuId(null);
+        const handleClickOutside = (event) => {
+            // Kiểm tra xem click có nằm ngoài menu và nút mở menu không
+            if (openMenuId && !event.target.closest('.contact-item-menu') && !event.target.closest('.group-item-menu') && !event.target.closest('.contact-item-options-btn')) {
+                setOpenMenuId(null);
+            }
         };
         if (openMenuId) {
             document.addEventListener('click', handleClickOutside);
@@ -45,14 +49,14 @@ function ContactsMainView({ subViewType, currentLoggedInUserId, onInitiateChatWi
     };
 
     const handleSendMessageToGroup = (group) => {
-        if (onInitiateChatWithFriend && group) { // Sử dụng onInitiateChatWithFriend hoặc một hàm tương tự
+        if (onInitiateChatWithFriend && group) {
             onInitiateChatWithFriend({
-                _id: group._id, // Cần ID của conversation, không phải group ID
+                _id: group._id,
                 name: group.conversationName,
                 avatar: group.avatar,
-                type: 'group', // Đánh dấu đây là group
+                type: 'group',
+                isGroup: true,
                 members: group.members,
-                // Các thuộc tính khác nếu cần
             });
         }
         setOpenMenuId(null);
@@ -60,10 +64,11 @@ function ContactsMainView({ subViewType, currentLoggedInUserId, onInitiateChatWi
     
     const handleDisbandGroup = async (groupName, groupId) => {
         if (window.confirm(`Bạn có chắc chắn muốn giải tán nhóm "${groupName}" không?`)) {
+            const token = localStorage.getItem('user_token');
             try {
                 const response = await fetch('http://localhost:3001/conversation/disbandGroupWeb', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('user_token')}` },
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                     body: JSON.stringify({ conversation_id: groupId, user_id: currentLoggedInUserId })
                 });
                 const data = await response.json();
@@ -104,19 +109,19 @@ function ContactsMainView({ subViewType, currentLoggedInUserId, onInitiateChatWi
             setIsLoadingFriends(false);
         }
     };
-
+    
     useEffect(() => {
         setGlobalSearchResult(null);
         setGlobalSearchError('');
         setGlobalSearchActionStatus('');
         setRequestActionStatus({});
+        const token = localStorage.getItem('user_token');
 
         if (currentLoggedInUserId) {
             if (subViewType === 'friend_requests') {
                 const fetchAllRequests = async () => {
                     setIsLoadingReceivedRequests(true);
                     setIsLoadingSentRequests(true);
-                    const token = localStorage.getItem('user_token');
                     try {
                         const receivedRes = await fetch(`http://localhost:3001/user/friend-request/${currentLoggedInUserId}`, {
                              headers: { 'Authorization': `Bearer ${token}` }
@@ -135,7 +140,7 @@ function ContactsMainView({ subViewType, currentLoggedInUserId, onInitiateChatWi
 
                     try {
                         const sentRes = await fetch(`http://localhost:3001/user/getSentFriendRequests/${currentLoggedInUserId}`, {
-                            headers: { 'Authorization': `Bearer ${token}` }
+                             headers: { 'Authorization': `Bearer ${token}` }
                         });
                         if (sentRes.ok) {
                             const sentData = await sentRes.json();
@@ -157,7 +162,6 @@ function ContactsMainView({ subViewType, currentLoggedInUserId, onInitiateChatWi
                     setIsLoadingGroups(true);
                     setGroupsError('');
                     setGroupsList([]);
-                    const token = localStorage.getItem('user_token');
                     try {
                         const response = await fetch(`http://localhost:3001/conversation/getConversationGroupByUserIDWeb`, {
                             method: 'POST',
@@ -202,7 +206,6 @@ function ContactsMainView({ subViewType, currentLoggedInUserId, onInitiateChatWi
                 setReceivedFriendRequests(prevRequests => prevRequests.filter(req => req._id !== senderId));
                 if(typeof fetchAllConversations === 'function') fetchAllConversations();
                 if (subViewType === 'friends') fetchFriendsList();
-
             } else {
                 setRequestActionStatus(prev => ({ ...prev, [`received_${senderId}`]: data.message || 'Lỗi' }));
             }
@@ -358,7 +361,6 @@ function ContactsMainView({ subViewType, currentLoggedInUserId, onInitiateChatWi
         }
     };
 
-    // ✅ HÀM XÓA BẠN BÈ
     const handleDeleteFriend = async (friendIdToDelete, friendName) => {
         if (!currentLoggedInUserId) {
             alert("Lỗi: Không xác định được người dùng hiện tại.");
@@ -380,8 +382,9 @@ function ContactsMainView({ subViewType, currentLoggedInUserId, onInitiateChatWi
                 if (response.ok) {
                     alert(data.message || "Xóa bạn bè thành công!");
                     setFriendsList(prevFriends => prevFriends.filter(friend => friend._id !== friendIdToDelete));
-                    // Gọi fetchAllConversations để cập nhật lại danh sách cuộc trò chuyện ở ZaloPCLayout
-                    if(typeof fetchAllConversations === 'function') fetchAllConversations();
+                    if(typeof fetchAllConversations === 'function') {
+                        fetchAllConversations(); // Gọi để ZaloPCLayout cập nhật lại allConversations
+                    }
                 } else {
                     alert(data.message || "Xóa bạn bè thất bại.");
                     setRequestActionStatus(prev => ({ ...prev, [`friend_${friendIdToDelete}`]: data.message || 'Lỗi xóa' }));
@@ -397,8 +400,13 @@ function ContactsMainView({ subViewType, currentLoggedInUserId, onInitiateChatWi
 
     const renderFriendItem = (contact) => (
         <div key={contact._id} className="contact-list-item">
-            <div className="contact-item-main-info" onClick={() => onInitiateChatWithFriend && onInitiateChatWithFriend(contact)} title={`Nhắn tin với ${contact.userName}`} style={{ cursor: 'pointer', flexGrow: 1 }}>
-                <img src={contact.avatar || 'https://via.placeholder.com/40/000000/FFFFFF?Text=??'} alt={contact.userName} className="contact-item-avatar" />
+            <div 
+                className="contact-item-main-info" 
+                onClick={() => onInitiateChatWithFriend && onInitiateChatWithFriend(contact)} 
+                title={`Nhắn tin với ${contact.userName}`} 
+                style={{ cursor: 'pointer', flexGrow: 1 }}
+            >
+                <img src={contact.avatar || 'https://via.placeholder.com/40'} alt={contact.userName} className="contact-item-avatar" />
                 <div className="contact-item-info">
                     <span className="contact-item-name">{contact.userName}</span>
                 </div>
@@ -409,7 +417,7 @@ function ContactsMainView({ subViewType, currentLoggedInUserId, onInitiateChatWi
                 </button>
                 {openMenuId === contact._id && (
                     <div className="contact-item-menu" onClick={(e) => e.stopPropagation()}>
-                        <button className="menu-item" onClick={() => { onInitiateChatWithFriend && onInitiateChatWithFriend(contact); setOpenMenuId(null); }}>
+                        <button className="menu-item" onClick={() => { if(onInitiateChatWithFriend) onInitiateChatWithFriend(contact); setOpenMenuId(null); }}>
                             <FaCommentDots className="menu-item-icon" /> Nhắn tin
                         </button>
                         <button className="menu-item menu-item-danger" onClick={() => handleDeleteFriend(contact._id, contact.userName)}>
@@ -444,7 +452,7 @@ function ContactsMainView({ subViewType, currentLoggedInUserId, onInitiateChatWi
                 </button>
                 {openMenuId === group._id && (
                     <div className="group-item-menu" onClick={(e) => e.stopPropagation()}>
-                        <button className="menu-item" onClick={() => {onInitiateChatWithFriend && onInitiateChatWithFriend({...group, type: 'group', name: group.conversationName}); setOpenMenuId(null); }}>
+                         <button className="menu-item" onClick={() => {onInitiateChatWithFriend && onInitiateChatWithFriend({...group, type: 'group', name: group.conversationName}); setOpenMenuId(null); }}>
                             <FaPaperPlane className="menu-item-icon" />
                             <span>Nhắn tin</span>
                         </button>
@@ -460,7 +468,7 @@ function ContactsMainView({ subViewType, currentLoggedInUserId, onInitiateChatWi
 
     const renderReceivedRequestItem = (request) => (
         <div key={request._id} className="friend-request-card received-request-card">
-            <img src={request.avatar || 'https://via.placeholder.com/60/7F8C8D/FFFFFF?Text=??'} alt={request.userName} className="request-card-avatar" />
+            <img src={request.avatar || 'https://via.placeholder.com/60'} alt={request.userName} className="request-card-avatar" />
             <div className="request-card-info">
                 <span className="request-card-name">{request.userName}</span>
                 {requestActionStatus[`received_${request._id}`] && <span className="request-action-feedback">{requestActionStatus[`received_${request._id}`]}</span>}
@@ -476,7 +484,7 @@ function ContactsMainView({ subViewType, currentLoggedInUserId, onInitiateChatWi
 
     const renderSentRequestItem = (request) => (
         <div key={request._id} className="friend-request-card sent-request-card">
-            <img src={request.avatar || 'https://via.placeholder.com/60/8E44AD/FFFFFF?Text=??'} alt={request.userName} className="request-card-avatar" />
+            <img src={request.avatar || 'https://via.placeholder.com/60'} alt={request.userName} className="request-card-avatar" />
             <div className="request-card-info">
                 <span className="request-card-name">{request.userName}</span>
                 {requestActionStatus[`sent_${request._id}`] ? (
@@ -504,7 +512,7 @@ function ContactsMainView({ subViewType, currentLoggedInUserId, onInitiateChatWi
                 <h3 className="friend-requests-section-title">Kết quả tìm kiếm SĐT</h3>
                 <div className="friend-request-grid">
                     <div key={globalSearchResult._id} className="friend-request-card suggestion-card">
-                        <img src={globalSearchResult.avatar || 'https://via.placeholder.com/60/1ABC9C/FFFFFF?Text=??'} alt={globalSearchResult.userName} className="request-card-avatar" />
+                        <img src={globalSearchResult.avatar || 'https://via.placeholder.com/60'} alt={globalSearchResult.userName} className="request-card-avatar" />
                         <div className="request-card-info">
                             <span className="request-card-name">{globalSearchResult.userName}</span>
                             {globalSearchActionStatus && <span className="request-action-feedback">{globalSearchActionStatus}</span>}

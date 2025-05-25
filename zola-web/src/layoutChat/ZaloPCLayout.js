@@ -36,19 +36,19 @@ function ZaloPCLayout({ onLogout }) {
                 setLoggedInUser(parsedUser);
             } catch (error) {
                 console.error("Lỗi khi đọc thông tin người dùng từ localStorage:", error);
-                onLogout(); // Đăng xuất nếu có lỗi
+                onLogout();
             }
         } else {
-            onLogout(); // Đăng xuất nếu không có thông tin user
+            onLogout();
         }
     }, [onLogout]);
 
     useEffect(() => {
         if (loggedInUser?._id) {
-            const jwtToken = localStorage.getItem('user_token'); // Lấy JWT token
+            const jwtToken = localStorage.getItem('user_token');
             const newSocket = io(SOCKET_SERVER_URL, {
                 auth: {
-                    token: jwtToken // Gửi token khi kết nối
+                    token: jwtToken
                 }
             });
             socketRef.current = newSocket;
@@ -84,92 +84,163 @@ function ZaloPCLayout({ onLogout }) {
     }, [loggedInUser]);
 
     const fetchAllUserConversations = async () => {
-        if (!loggedInUser?._id) {
-            setAllConversations([]);
-            return;
-        }
-        setIsLoadingConversations(true);
-        setConversationsError('');
-        let fetchedGroups = [];
-        let fetchedFriendsAsConversations = [];
+    if (!loggedInUser?._id) {
+        setAllConversations([]);
+        return;
+    }
+    setIsLoadingConversations(true);
+    setConversationsError('');
+    let fetchedGroups = [];
+    let fetchedFriendsAsConversations = [];
 
-        try {
-            const groupPromise = fetch('http://localhost:3001/conversation/getConversationGroupByUserIDWeb', {
+    try {
+        const groupPromise = fetch('http://localhost:3001/conversation/getConversationGroupByUserIDWeb', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('user_token')}` },
+            body: JSON.stringify({ user_id: loggedInUser._id }),
+        });
+        const friendsPromise = fetch(`http://localhost:3001/user/getFriends/${loggedInUser._id}`,{
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('user_token')}` }
+        });
+        const [groupResponse, friendsResponse] = await Promise.all([groupPromise, friendsPromise]);
+
+        if (groupResponse.ok) {
+            const groupData = await groupResponse.json();
+            if (groupData.conversationGroup) {
+                fetchedGroups = groupData.conversationGroup.map(group => ({
+                    ...group,
+                    type: 'group',
+                    name: group.conversationName,
+                    updatedAt: group.updatedAt || group.createdAt || new Date(0).toISOString(),
+                }));
+            }
+        } else {
+            console.error('Lỗi tải danh sách nhóm:', await groupResponse.text());
+        }
+
+        if (friendsResponse.ok) {
+            const friendsData = await friendsResponse.json();
+            if (friendsData && Array.isArray(friendsData)) {
+                const conversationPromises = friendsData.map(async (friend) => {
+                    try {
+                        const convResponse = await fetch('http://localhost:3001/conversation/createConversationsWeb', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('user_token')}` },
+                            body: JSON.stringify({
+                                user_id: loggedInUser._id,
+                                friend_id: friend._id,
+                            }),
+                        });
+                        if (convResponse.ok) {
+                            const convData = await convResponse.json();
+                            if (convData.conversation) {
+                                return {
+                                    _id: convData.conversation._id,
+                                    name: friend.userName,
+                                    avatar: friend.avatar,
+                                    type: 'user',
+                                    members: convData.conversation.members,
+                                    updatedAt: convData.conversation.updatedAt || convData.conversation.createdAt || new Date(0).toISOString(),
+                                    isGroup: false,
+                                    groupLeader: null,
+                                    deputyLeaders: [],
+                                };
+                            }
+                        }
+                        return null;
+                    } catch (e) { 
+                        console.error("Lỗi khi tạo/lấy conversation cho bạn bè:", friend._id, e);
+                        return null; 
+                    }
+                });
+                fetchedFriendsAsConversations = (await Promise.all(conversationPromises)).filter(Boolean);
+            }
+        } else {
+            console.error('Lỗi tải danh sách bạn bè:', await friendsResponse.text());
+        }
+        
+        let combinedList = [...fetchedGroups, ...fetchedFriendsAsConversations];
+
+        const lastMessagePromises = combinedList.map(conv =>
+            fetch('http://localhost:3001/message/getLastMessageWeb', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('user_token')}` },
-                body: JSON.stringify({ user_id: loggedInUser._id }),
-            });
-            const friendsPromise = fetch(`http://localhost:3001/user/getFriends/${loggedInUser._id}`,{
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('user_token')}` }
-            });
-            const [groupResponse, friendsResponse] = await Promise.all([groupPromise, friendsPromise]);
+                body: JSON.stringify({
+                    conversation_id: conv._id,
+                    user_id: loggedInUser._id
+                })
+            })
+            .then(res => {
+                if (res.ok) return res.json();
+                // Nếu API trả về lỗi, vẫn trả về một cấu trúc để Promise.all không bị reject hoàn toàn
+                // và có thể gán giá trị mặc định cho tin nhắn cuối
+                console.error(`Lỗi API getLastMessageWeb cho conv ${conv._id}: ${res.status}`);
+                return { thongbao: `API Error ${res.status}`, retrievedLastMessage: null };
+            })
+            .catch(err => {
+                console.error(`Lỗi fetch getLastMessageWeb cho conv ${conv._id}:`, err);
+                return { thongbao: "Fetch Error", retrievedLastMessage: null };
+            })
+        );
 
-            if (groupResponse.ok) {
-                const groupData = await groupResponse.json();
-                if (groupData.conversationGroup) {
-                    fetchedGroups = groupData.conversationGroup.map(group => ({
-                        ...group,
-                        type: 'group',
-                        name: group.conversationName,
-                        updatedAt: group.updatedAt || group.createdAt || new Date(0).toISOString(),
-                    }));
+        const lastMessagesAPIResponses = await Promise.all(lastMessagePromises);
+
+        const enrichedList = combinedList.map((conv, index) => {
+            const apiResponse = lastMessagesAPIResponses[index];
+            // Lấy object lastMessage từ API, đảm bảo nó tồn tại và không phải null
+            const lastMessageDetail = apiResponse?.retrievedLastMessage || null; 
+
+            let finalLastMessageStringForSidebar = "";
+            // Sử dụng timestamp của tin nhắn cuối cùng nếu có, nếu không thì dùng updatedAt của conversation
+            let accurateTimestamp = lastMessageDetail?.createdAt || conv.updatedAt || new Date(0).toISOString();
+
+            if (lastMessageDetail && lastMessageDetail.messageString) {
+                // Sử dụng messageString đã được backend chuẩn bị (ví dụ: "Tên: Nội dung" hoặc "Bạn: Nội dung")
+                finalLastMessageStringForSidebar = lastMessageDetail.messageString;
+
+                // Logic bỏ tên người gửi cho chat 1-1 (nếu người kia nhắn)
+                if (conv.type === 'user' && 
+                    lastMessageDetail.sender && 
+                    lastMessageDetail.sender._id && // Đảm bảo sender._id tồn tại
+                    loggedInUser?._id && // Đảm bảo loggedInUser._id tồn tại
+                    lastMessageDetail.sender._id.toString() !== loggedInUser._id.toString()) {
+                    
+                    // Nếu messageString từ backend là "Tên Người Gửi: Nội dung"
+                    // và không phải là "Bạn: Nội dung", thì chỉ lấy phần nội dung.
+                    const bạnPrefix = "Bạn: "; // Backend có thể trả về "Bạn : " (có khoảng trắng)
+                    const potentialSenderPrefixPattern = /^(.+?):\s+/;
+
+                    if (finalLastMessageStringForSidebar.startsWith(bạnPrefix) || finalLastMessageStringForSidebar.startsWith("Bạn : ")) {
+                        // Giữ nguyên nếu là "Bạn: ..."
+                    } else if (potentialSenderPrefixPattern.test(finalLastMessageStringForSidebar)) {
+                        // Là "Tên Người Khác: Nội dung", lấy phần nội dung
+                        finalLastMessageStringForSidebar = finalLastMessageStringForSidebar.substring(finalLastMessageStringForSidebar.indexOf(": ") + 2).trim();
+                    }
+                    // Nếu không khớp dạng nào, có thể là tin nhắn hệ thống hoặc nội dung không có prefix, giữ nguyên
                 }
             } else {
-                console.error('Lỗi tải danh sách nhóm:', await groupResponse.text());
+                finalLastMessageStringForSidebar = conv.type === 'group' ? "Bắt đầu cuộc trò chuyện nhóm" : "Bắt đầu trò chuyện";
+                // Nếu không có lastMessageDetail, accurateTimestamp đã là conv.updatedAt
             }
+            
+            return {
+                ...conv,
+                lastMessage: finalLastMessageStringForSidebar,
+                lastMessageTimestamp: accurateTimestamp, // Timestamp chính xác của tin nhắn cuối cùng
+                updatedAt: accurateTimestamp // Dùng timestamp này để sort
+            };
+        });
 
-            if (friendsResponse.ok) {
-                const friendsData = await friendsResponse.json();
-                if (friendsData && Array.isArray(friendsData)) {
-                    const conversationPromises = friendsData.map(async (friend) => {
-                        try {
-                            const convResponse = await fetch('http://localhost:3001/conversation/createConversationsWeb', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('user_token')}` },
-                                body: JSON.stringify({
-                                    user_id: loggedInUser._id,
-                                    friend_id: friend._id,
-                                }),
-                            });
-                            if (convResponse.ok) {
-                                const convData = await convResponse.json();
-                                if (convData.conversation) {
-                                    return {
-                                        _id: convData.conversation._id,
-                                        name: friend.userName,
-                                        avatar: friend.avatar,
-                                        type: 'user',
-                                        members: convData.conversation.members,
-                                        updatedAt: convData.conversation.updatedAt || convData.conversation.createdAt || new Date(0).toISOString(),
-                                        isGroup: false,
-                                        groupLeader: null,
-                                        deputyLeaders: [],
-                                    };
-                                }
-                            }
-                            return null;
-                        } catch (e) { return null; }
-                    });
-                    fetchedFriendsAsConversations = (await Promise.all(conversationPromises)).filter(Boolean);
-                }
-            } else {
-                console.error('Lỗi tải danh sách bạn bè:', await friendsResponse.text());
-            }
+        enrichedList.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+        setAllConversations(enrichedList);
 
-            const combinedList = [...fetchedGroups, ...fetchedFriendsAsConversations];
-            combinedList.forEach(item => {
-                if (!item.updatedAt) {
-                    item.updatedAt = item.createdAt || new Date(0).toISOString();
-                }
-            });
-            combinedList.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-            setAllConversations(combinedList);
-        } catch (error) {
-            setConversationsError('Lỗi kết nối, không thể tải danh sách.');
-        } finally {
-            setIsLoadingConversations(false);
-        }
-    };
+    } catch (error) {
+        console.error("Lỗi tổng thể khi tải cuộc trò chuyện:", error);
+        setConversationsError('Lỗi kết nối, không thể tải danh sách.');
+    } finally {
+        setIsLoadingConversations(false);
+    }
+};
 
     useEffect(() => {
         if (loggedInUser?._id) {
@@ -179,28 +250,48 @@ function ZaloPCLayout({ onLogout }) {
 
     useEffect(() => {
         if (socket) {
-            const handleReceiveMessage = (newMessageData) => {
-                setAllConversations(prevConvs =>
-                    prevConvs.map(conv => {
-                        if (conv._id === newMessageData.conversation_id) {
-                            let displayMessage = newMessageData.content;
-                            if (newMessageData.contentType === 'image' || newMessageData.contentType === 'image_gallery') displayMessage = '[Hình ảnh]';
-                            else if (newMessageData.contentType === 'video') displayMessage = '[Video]';
-                            else if (newMessageData.contentType === 'file') displayMessage = '[Tệp]';
-                            
-                            return {
-                                ...conv,
-                                lastMessage: displayMessage,
-                                lastMessageSender: newMessageData.senderId?.userName || newMessageData.senderId,
-                                lastMessageTimestamp: newMessageData.createdAt,
-                                updatedAt: newMessageData.createdAt,
-                                unread: (selectedChat?._id !== newMessageData.conversation_id) ? (conv.unread || 0) + 1 : 0,
-                            };
-                        }
-                        return conv;
-                    }).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-                );
-            };
+const handleReceiveMessage = (newMessageData) => {
+    setAllConversations(prevConvs =>
+        prevConvs.map(conv => {
+            if (conv._id === newMessageData.conversation_id) {
+                let displayContent = newMessageData.content; // Nội dung gốc
+                if (newMessageData.contentType === 'image' || newMessageData.contentType === 'image_gallery') displayContent = '[Hình ảnh]';
+                else if (newMessageData.contentType === 'video') displayContent = '[Video]';
+                else if (newMessageData.contentType === 'file') displayContent = '[Tệp]';
+                // Tin nhắn dạng text thì giữ nguyên displayContent là newMessageData.content
+
+                let senderPrefix = "";
+                let senderNameForDisplay = "Một ai đó"; // Tên mặc định
+
+                if (newMessageData.senderId) {
+                    const senderObject = newMessageData.senderId; // newMessageData.senderId nên là một object { _id, userName, ...}
+                    
+                    if (senderObject._id === loggedInUser?._id) {
+                        senderPrefix = "Bạn: ";
+                    } else {
+                        senderNameForDisplay = senderObject.userName || "Một người bạn";
+                        senderPrefix = `${senderNameForDisplay}: `;
+                    }
+                } else {
+                     senderPrefix = "Hệ thống: "; // Hoặc một tên phù hợp cho tin nhắn không rõ người gửi
+                }
+                
+                const formattedLastMessage = senderPrefix + displayContent;
+
+                return {
+                    ...conv,
+                    lastMessage: formattedLastMessage, // Đã bao gồm người gửi và nội dung
+                    lastMessageSenderName: senderNameForDisplay, // Giữ lại để có thể dùng cho mục đích khác nếu cần
+                    lastMessageTimestamp: newMessageData.createdAt,
+                    updatedAt: newMessageData.createdAt, // Quan trọng cho việc sắp xếp
+                    unread: (selectedChat?._id !== newMessageData.conversation_id) ? (conv.unread || 0) + 1 : 0,
+                };
+            }
+            return conv;
+        }).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    );
+};
+
 
             const handleGroupMetadataUpdate = (data) => {
                 setAllConversations(prevConvs =>
@@ -226,31 +317,31 @@ function ZaloPCLayout({ onLogout }) {
 
             const handleMemberLeft = (data) => {
                  setAllConversations(prevConvs =>
-                    prevConvs.map(conv => {
-                        if (conv._id === data.conversationId) {
+                     prevConvs.map(conv => {
+                         if (conv._id === data.conversationId) {
                              const newMembers = Array.isArray(data.updatedMembers) ? data.updatedMembers : 
-                                                (conv.members || []).filter(m => (m._id || m) !== data.userId);
+                                                 (conv.members || []).filter(m => (m._id || m) !== data.userId);
                              const newDeputies = Array.isArray(data.updatedDeputyLeaders) ? data.updatedDeputyLeaders :
-                                                (conv.deputyLeaders || []).filter(id => id !== data.userId);
+                                                 (conv.deputyLeaders || []).filter(id => id !== data.userId);
                             return {
                                 ...conv,
                                 members: newMembers,
                                 deputyLeaders: newDeputies,
                                 updatedAt: new Date().toISOString()
                             };
-                        }
-                        return conv;
-                    }).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-                );
-                if (selectedChat && selectedChat._id === data.conversationId) {
-                    setSelectedChat(prev => ({
-                        ...prev,
-                        members: Array.isArray(data.updatedMembers) ? data.updatedMembers : 
-                                 (prev.members || []).filter(m => (m._id || m) !== data.userId),
-                        deputyLeaders: Array.isArray(data.updatedDeputyLeaders) ? data.updatedDeputyLeaders :
-                                       (prev.deputyLeaders || []).filter(id => id !== data.userId)
-                    }));
-                }
+                         }
+                         return conv;
+                     }).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+                 );
+                 if (selectedChat && selectedChat._id === data.conversationId) {
+                     setSelectedChat(prev => ({
+                         ...prev,
+                         members: Array.isArray(data.updatedMembers) ? data.updatedMembers : 
+                                    (prev.members || []).filter(m => (m._id || m) !== data.userId),
+                         deputyLeaders: Array.isArray(data.updatedDeputyLeaders) ? data.updatedDeputyLeaders :
+                                    (prev.deputyLeaders || []).filter(id => id !== data.userId)
+                     }));
+                 }
             };
 
             const handleGroupDisbanded = (data) => {
@@ -275,16 +366,16 @@ function ZaloPCLayout({ onLogout }) {
                 setAllConversations(prevConvs => {
                     if (prevConvs.some(c => c._id === newGroup._id)) {
                         return prevConvs.map(c => c._id === newGroup._id ? newGroup : c)
-                                      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+                                        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
                     }
                     return [newGroup, ...prevConvs]
-                           .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+                            .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
                 });
                 if (data.conversation.groupLeader?._id === loggedInUser?._id || data.conversation.members?.some(m => (m._id || m) === loggedInUser?._id)) {
                     handleSelectChat(newGroup);
                 }
             };
-            
+           
             socket.on('receive-message', handleReceiveMessage);
             socket.on('group-metadata-updated', handleGroupMetadataUpdate);
             socket.on('member-left', handleMemberLeft);
@@ -436,7 +527,7 @@ function ZaloPCLayout({ onLogout }) {
                     const otherUser = conv.members.find(m => (m._id || m) !== updatedUser._id);
                     return {
                         ...conv,
-                        name: otherUser?._id === loggedInUser?._id ? updatedUser.userName : conv.name, // Cập nhật tên nếu là chat với chính mình (ít xảy ra)
+                        name: otherUser?._id === loggedInUser?._id ? updatedUser.userName : conv.name,
                         avatar: otherUser?._id === loggedInUser?._id ? updatedUser.avatar : conv.avatar,
                         members: conv.members.map(m => (m._id || m) === updatedUser._id ? updatedUser : m)
                     };

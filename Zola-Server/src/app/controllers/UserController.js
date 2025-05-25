@@ -485,6 +485,7 @@ class UserController {
             
             await receiver.save();
             await sender.save();
+            
             return res.status(200).json({
                 message: 'Gửi yêu cầu kết bạn thành công!!!',
             });

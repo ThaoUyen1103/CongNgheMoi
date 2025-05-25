@@ -1,16 +1,14 @@
-// src/modals/ForwardMessageModal.js (Ví dụ)
+// src/modals/ForwardMessageModal.js
 import React, { useState, useEffect, useMemo } from 'react';
-import '../styles/ForwardMessageModal.css'; // Tạo file CSS riêng cho modal này
+import '../styles/ForwardMessageModal.css'; // Đảm bảo file CSS này tồn tại và đúng đường dẫn
 import { FaSearch, FaTimes, FaPaperPlane } from 'react-icons/fa';
 
-// Hàm render nội dung tin nhắn (có thể copy một phần từ MainContent.js hoặc tạo riêng)
+// Hàm renderForwardPreviewContent (giữ nguyên như của bạn)
 const renderForwardPreviewContent = (message) => {
     if (!message) return <p>Không có tin nhắn để hiển thị.</p>;
     if (message.recalled) return <p><i>Tin nhắn đã được thu hồi</i></p>;
-
     const contentType = message.contentType || message.type;
     let content = message.content || message.text;
-
     switch (contentType) {
         case 'text':
             return <p className="forward-preview-text">{String(content).substring(0,150)}{String(content).length > 150 ? "..." : ""}</p>;
@@ -22,7 +20,7 @@ const renderForwardPreviewContent = (message) => {
             }
             return <p className="forward-preview-text">[Gallery Ảnh]</p>;
         case 'file':
-             const fileName = typeof content === 'string' ? content.split('/').pop() : (message.fileName || "Tệp đính kèm");
+            const fileName = typeof content === 'string' ? content.split('/').pop() : (message.fileName || "Tệp đính kèm");
             return <p className="forward-preview-text">[Tệp: {fileName}]</p>;
         case 'video':
             return <p className="forward-preview-text">[Video]</p>;
@@ -31,15 +29,18 @@ const renderForwardPreviewContent = (message) => {
     }
 };
 
-
 function ForwardMessageModal({ isOpen, onClose, onConfirm, currentUserId, messageToForward, allConversations }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedConversationId, setSelectedConversationId] = useState(null);
+    // KHÔNG CẦN STATE CHO additionalMessage NỮA
+    // const [additionalMessage, setAdditionalMessage] = useState(''); 
 
     useEffect(() => {
         if (isOpen) {
             setSearchTerm('');
             setSelectedConversationId(null);
+            // KHÔNG CẦN RESET additionalMessage NỮA
+            // setAdditionalMessage(''); 
         }
     }, [isOpen]);
 
@@ -47,17 +48,19 @@ function ForwardMessageModal({ isOpen, onClose, onConfirm, currentUserId, messag
         if (!allConversations) return [];
         return allConversations.filter(conv => 
             (conv.name || conv.conversationName || '').toLowerCase().includes(searchTerm.toLowerCase()) &&
-            (conv._id || conv.id) !== (messageToForward?.conversation_id) // Không cho chuyển tiếp vào chính cuộc trò chuyện hiện tại của tin nhắn gốc
+            (conv._id || conv.id) !== (messageToForward?.conversation_id)
         );
     }, [allConversations, searchTerm, messageToForward?.conversation_id]);
 
     const handleSelectConversation = (convId) => {
-        setSelectedConversationId(prevId => prevId === convId ? null : convId); // Cho phép toggle
+        setSelectedConversationId(prevId => prevId === convId ? null : convId);
     };
 
     const handleConfirm = () => {
         if (selectedConversationId) {
-            onConfirm(selectedConversationId); // Gọi hàm confirm từ MainContent
+            // *** THAY ĐỔI Ở ĐÂY ***
+            // Chỉ truyền mảng chứa ID cuộc trò chuyện, không truyền tin nhắn gửi kèm
+            onConfirm([selectedConversationId], null); // Hoặc onConfirm([selectedConversationId]) nếu hàm cha xử lý được việc thiếu tham số thứ 2
         } else {
             alert("Vui lòng chọn một cuộc trò chuyện để chuyển tiếp.");
         }
@@ -81,6 +84,17 @@ function ForwardMessageModal({ isOpen, onClose, onConfirm, currentUserId, messag
                         </div>
                     </div>
                 )}
+
+                {/* KHÔNG CẦN Ô NHẬP TIN NHẮN GỬI KÈM NỮA
+                <div className="forward-additional-message">
+                    <textarea
+                        placeholder="Nhập tin nhắn gửi kèm (tùy chọn)..."
+                        value={additionalMessage}
+                        onChange={(e) => setAdditionalMessage(e.target.value)}
+                        rows="2"
+                    />
+                </div>
+                */}
 
                 <div className="forward-search-bar">
                     <FaSearch />

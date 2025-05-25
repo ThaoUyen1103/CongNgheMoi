@@ -1,3 +1,5 @@
+// Trong file: Sidebar.js
+
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import "../styles/Sidebar.css";
 import { MdOutlinePersonAddAlt, MdOutlineGroupAdd } from "react-icons/md";
@@ -21,7 +23,6 @@ function Sidebar({
   conversations,
   isLoadingConversations,
   conversationsError,
-  
 }) {
   const [isSettingsDropdownOpen, setIsSettingsDropdownOpen] = useState(false);
   const settingsRef = useRef(null);
@@ -122,27 +123,37 @@ function Sidebar({
             name: conv.conversationName || conv.name,
             avatar: conv.avatar,
             type: "group",
-            message: conv.members
-              ? `${conv.members.length} thành viên`
-              : "Nhóm chat",
-            time: conv.updatedAt
+            // Thay đổi ở đây: Hiển thị lastMessage, nếu không có thì hiển thị thông báo mặc định
+            message: conv.lastMessage || "Bắt đầu cuộc trò chuyện nhóm", 
+            time: conv.lastMessageTimestamp
+              ? new Date(conv.lastMessageTimestamp).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hour12: false,
+                })
+              : conv.updatedAt
               ? new Date(conv.updatedAt).toLocaleTimeString([], {
                   hour: "2-digit",
                   minute: "2-digit",
                   hour12: false,
                 })
               : "",
-            timestamp: conv.updatedAt ? new Date(conv.updatedAt).getTime() : 0,
+            timestamp: conv.lastMessageTimestamp
+              ? new Date(conv.lastMessageTimestamp).getTime()
+              : conv.updatedAt
+              ? new Date(conv.updatedAt).getTime()
+              : 0,
             unread: conv.unread || 0,
             originalData: conv,
           };
-        } else if (conv.type === "user") {
+        } 
+        else if (conv.type === "user") {
           return {
             id: conv._id,
             name: conv.userName || conv.name,
             avatar: conv.avatar,
             type: "user",
-            message: conv.lastMessage || "Bắt đầu trò chuyện",
+            message: conv.lastMessage || "Bắt đầu trò chuyện", // lastMessage ở đây cũng đã được ZaloPCLayout chuẩn bị
             time: conv.lastMessageTimestamp
               ? new Date(conv.lastMessageTimestamp).toLocaleTimeString([], {
                   hour: "2-digit",
@@ -167,12 +178,24 @@ function Sidebar({
             id: conv._id,
             name: conv.userName,
             avatar: conv.avatar,
-            type: "user",
-            message: "Bắt đầu trò chuyện",
-            time: "",
-            timestamp: conv.updatedAt ? new Date(conv.updatedAt).getTime() : 0,
+            type: "user", 
+            message: conv.lastMessage || "Bắt đầu trò chuyện", 
+            time: conv.lastMessageTimestamp 
+              ? new Date(conv.lastMessageTimestamp).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hour12: false,
+                })
+              : conv.updatedAt
+              ? new Date(conv.updatedAt).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hour12: false,
+                })
+              : "",
+            timestamp: conv.lastMessageTimestamp ? new Date(conv.lastMessageTimestamp).getTime() : (conv.updatedAt ? new Date(conv.updatedAt).getTime() : 0),
             unread: conv.unread || 0,
-            originalData: { ...conv, type: "user" },
+            originalData: { ...conv, type: "user" }, 
           };
         }
         return null;
@@ -307,7 +330,6 @@ function Sidebar({
                             src={chat.avatar}
                             alt={chat.name}
                             className="chat-list-avatar-img"
-                            
                           />
                         ) : chat.name ? (
                           chat.name.substring(0, 2).toUpperCase()

@@ -69,276 +69,137 @@ class MessageController {
         res.json(messages)
     }
     // gửi tin nhắn
-    async createMessagesWeb(req, res) {
-        const conversation_id = req.body.conversation_id
-        const senderId = req.body.user_id
-        const content = req.body.content
-        const contentType = req.body.contentType
+     async createMessagesWeb(req, res) {
+        const { conversation_id, user_id: senderId, content, contentType, replyTo } = req.body;
+        const files = req.files;
+        let savedMessage = null; // Khai báo savedMessage ở đây và khởi tạo là null
 
-        // thêm reply
-        const replyTo = req.body.replyTo // new line
-
-        // const image = req.file?.originalname.split('.')
-        const image = req.files
-        console.log('bucketname nhận là : ', bucketname)
-        console.log(
-            'Các giá trị bên server lúc đầu  là: ',
-            conversation_id,
-            senderId,
-            content,
-            contentType,
-            image,
-            replyTo
-        )
-
-        // TH1 : Chỉ có gửi text message , không gửi ảnh
-        if ((!image || image.length <= 0) && contentType === 'text') {
-            // kiểm tra xem replyTo có tồn tại không nếu có thì tạo message mới với replyTo , còn nếu replyTo không tồn tại thì tạo message mới không có replyTo
-            let message
-            if (mongoose.Types.ObjectId.isValid(replyTo)) {
-                console.log('Có reply')
-                message = new Message({
+        try {
+            // TH1 : Chỉ có gửi text message
+            if ((!files || files.length === 0) && contentType === 'text' && content) {
+                let message = new Message({
                     conversation_id,
                     senderId,
                     content,
                     contentType,
-                    replyTo, // new line
-                })
-            } else {
-                console.log('No reply')
-                message = new Message({
-                    conversation_id,
-                    senderId,
-                    content,
-                    contentType,
-                })
-            }
-
-            await message
-                .save()
-                .then(() => {
-                    console.log('Tạo tin nhắn TH1 thành công!!!')
-                    return res.status(200).json({
-                        thongbao: 'Tạo tin nhắn thành công!!!',
-                        message: message,
-                    })
-                })
-                .catch((err) => {
-                    console.error(err) // log lỗi
-                    return res.status(200).json({
-                        message: 'Lỗi khi tạo message!!!',
-                        error: err.message, // thêm chi tiết lỗi
-                    })
-                })
-        }
-        // trường hợp 2 : chỉ gửi ảnh không gửi text message
-        else if (
-    image && image.length > 0 && // SỬA Ở ĐÂY: dùng biến 'image' đã gán từ req.files
-    (req.body.contentType === 'image' || req.body.contentType === 'image_gallery') // contentType có thể là 'image' hoặc 'image_gallery'
-) {
-    console.log('Đã vào trường hợp 2 (gửi nhiều ảnh) ở server!!!');
-    const imagesToUpload = image; // SỬA Ở ĐÂY: gán trực tiếp từ biến 'image'
-    const conversation_id = req.body.conversation_id;
-    const senderId = req.body.user_id;
-    const replyTo = req.body.replyTo;
-    const finalContentType = imagesToUpload.length > 1 ? 'image_gallery' : 'image';
-
-    const uploadPromises = imagesToUpload.map((singleImageFile) => {
-        const imageParts = singleImageFile.originalname.split('.');
-        const fileType = imageParts[imageParts.length - 1];
-        const filePath = `${uuidv4() + Date.now().toString()}.${fileType}`;
-        const params = {
-            Bucket: bucketname,
-            Key: filePath,
-            Body: singleImageFile.buffer,
-            ContentType: singleImageFile.mimetype,
-        };
-        return S3.upload(params).promise();
-    });
-
-    try {
-        const s3UploadResults = await Promise.all(uploadPromises);
-        const imageUrls = s3UploadResults.map(
-            (result) => result.Location
-        );
-
-        const messageData = {
-            conversation_id,
-            senderId,
-            content: imageUrls, 
-            contentType: finalContentType,
-        };
-
-        if (mongoose.Types.ObjectId.isValid(replyTo)) {
-            messageData.replyTo = replyTo;
-        }
-
-        const galleryMessage = new Message(messageData);
-        await galleryMessage.save();
-
-        console.log(
-            'Tạo tin nhắn gallery (TH2) thành công trên db !!!',
-            galleryMessage
-        );
-        return res.status(200).json({
-            thongbao: 'Tạo tin nhắn thành công!!!',
-            message: galleryMessage,
-        });
-    } catch (err) {
-        console.error('Lỗi khi xử lý gửi nhiều ảnh (TH2):', err);
-        return res.status(500).json({
-            message: 'Lỗi khi tạo message gallery!!!',
-            error: err.message,
-        });
-    }
-}
-        // TH3 : Gửi cả text message và ảnh
-        else if (image.length > 0 && content && contentType === 'text') {
-            console.log('Đã vào trường hợp 3 ở server!!!')
-            // const textMessage = new Message({
-            //     conversation_id,
-            //     senderId,
-            //     content,
-            //     contentType,
-            //     replyTo, // new line
-            // })
-            let textMessage
-            if (mongoose.Types.ObjectId.isValid(replyTo)) {
-                console.log('Có reply')
-                textMessage = new Message({
-                    conversation_id,
-                    senderId,
-                    content,
-                    contentType,
-                    replyTo, // new line
-                })
-            } else {
-                console.log('No reply')
-                textMessage = new Message({
-                    conversation_id,
-                    senderId,
-                    content,
-                    contentType,
-                })
-            }
-
-            textMessage.save()
-            const uploadPromises = image.map((img) => {
-                // Tạo message cho text trước
-
-                console.log('Tạo tin nhắn text message TH3 thành công!!!')
-
-                // Tiếp theo, tạo message cho ảnh
-                const fileType = img.originalname.split('.')[1]
-                const filePath = `${img.originalname.split('.')[0]}.${fileType}`
-                const params = {
-                    Bucket: bucketname,
-                    Key: filePath,
-                    Body: img.buffer,
-                    ContentType: img.mimetype,
+                    ...(mongoose.Types.ObjectId.isValid(replyTo) && { replyTo }),
+                });
+                await message.save();
+                await message.populate('senderId', 'userName avatar');
+                savedMessage = message; // Gán giá trị cho savedMessage
+                
+                if (io) {
+                     io.to(conversation_id.toString()).emit('receive-message', savedMessage);
                 }
+                return res.status(200).json({ thongbao: 'Tạo tin nhắn text thành công!', message: savedMessage });
+            }
+            // TH2 : Chỉ gửi ảnh/gallery (không có text content đi kèm)
+            else if (files && files.length > 0 && !content && (contentType === 'image' || contentType === 'image_gallery')) {
+                const imagesToUpload = files;
+                const finalContentType = imagesToUpload.length > 1 ? 'image_gallery' : 'image';
+                
+                const uploadPromises = imagesToUpload.map((singleImageFile) => {
+                    const imageParts = singleImageFile.originalname.split('.');
+                    const fileType = imageParts[imageParts.length - 1];
+                    const filePath = `${uuidv4() + Date.now().toString()}.${fileType}`;
+                    const params = {
+                        Bucket: bucketname, Key: filePath, Body: singleImageFile.buffer, ContentType: singleImageFile.mimetype,
+                    };
+                    return S3.upload(params).promise();
+                });
 
-                return new Promise((resolve, reject) => {
-                    S3.upload(params, async (err, data) => {
-                        if (err) {
-                            console.log('Lỗi khi tải ảnh lên S3!!!', err)
-                            reject(err)
-                        } else {
-                            const ImageURL = data.Location
-                            console.log(
-                                'Các giá trị bên server ở TH3: ',
-                                conversation_id,
-                                senderId,
-                                ImageURL,
-                                contentType,
-                                replyTo // new line
-                            )
-                            // const imageMessage = new Message({
-                            //     conversation_id,
-                            //     senderId,
-                            //     content: ImageURL,
-                            //     contentType: 'image',
-                            //     replyTo, // new line
-                            // })
-                            let imageMessage
-                            if (mongoose.Types.ObjectId.isValid(replyTo)) {
-                                console.log('Có reply')
-                                imageMessage = new Message({
-                                    conversation_id,
-                                    senderId,
-                                    content: ImageURL,
-                                    contentType: 'image',
-                                    replyTo, // new line
-                                })
-                            } else {
-                                console.log('No reply')
-                                imageMessage = new Message({
-                                    conversation_id,
-                                    senderId,
-                                    content: ImageURL,
-                                    contentType: 'image',
-                                })
-                            }
+                const s3UploadResults = await Promise.all(uploadPromises);
+                const imageUrls = s3UploadResults.map((result) => result.Location);
 
-                            try {
-                                await imageMessage.save()
-                                console.log(
-                                    'Tạo tin nhắn TH3 thành công trên db !!!'
-                                )
-                                resolve({ textMessage, imageMessage }) // Thay đổi ở đây
-                            } catch (err) {
-                                console.error(err) // log lỗi
-                                reject(err)
-                            }
-                        }
-                    })
-                })
-            })
+                const messageData = {
+                    conversation_id, senderId, content: imageUrls, contentType: finalContentType,
+                    ...(mongoose.Types.ObjectId.isValid(replyTo) && { replyTo }),
+                };
+                const galleryMessage = new Message(messageData);
+                await galleryMessage.save();
+                await galleryMessage.populate('senderId', 'userName avatar');
+                savedMessage = galleryMessage; // Gán giá trị cho savedMessage
+                
+                if (io) {
+                    io.to(conversation_id.toString()).emit('receive-message', savedMessage);
+                }
+                return res.status(200).json({ thongbao: 'Tạo tin nhắn gallery thành công!', message: savedMessage });
+            }
+            // TH3 : Gửi cả text message và ảnh/gallery
+            else if (files && files.length > 0 && content && contentType === 'text') {
+                let textMessage = new Message({
+                    conversation_id, senderId, content, contentType: 'text',
+                    ...(mongoose.Types.ObjectId.isValid(replyTo) && { replyTo }),
+                });
+                await textMessage.save();
+                await textMessage.populate('senderId', 'userName avatar');
+                if (io) {
+                    io.to(conversation_id.toString()).emit('receive-message', textMessage);
+                }
+                await Conversation.findByIdAndUpdate(conversation_id, { lastMessage: textMessage._id, updatedAt: textMessage.createdAt });
 
-            Promise.all(uploadPromises)
-                .then((messages) => {
-                    console.log('Tạo tin nhắn TH3 ở Promise thành công!!!')
-                    const textMessages = messages[0].textMessage // Chỉ lấy textMessage từ hình ảnh đầu tiên
-                    const imageMessages = messages.map(
-                        (message) => message.imageMessage
-                    )
-                    return res.status(200).json({
-                        thongbao: 'Tạo tin nhắn thành công!!!',
-                        textMessage: textMessages,
-                        imageMessage: imageMessages,
-                    })
-                })
-                .catch((err) => {
-                    return res.status(500).json({
-                        message: 'Lỗi khi tạo message!!!',
-                        error: err.message, // thêm chi tiết lỗi
-                    })
-                })
+                const imagesToUpload = files;
+                const imgContentType = imagesToUpload.length > 1 ? 'image_gallery' : 'image';
+                
+                const imgUploadPromises = imagesToUpload.map((img) => {
+                    const imgParts = img.originalname.split('.');
+                    const imgFileType = imgParts[imgParts.length - 1];
+                    const imgFilePath = `${uuidv4() + Date.now().toString()}.${imgFileType}`;
+                    const params = { Bucket: bucketname, Key: imgFilePath, Body: img.buffer, ContentType: img.mimetype };
+                    return S3.upload(params).promise();
+                });
+
+                const s3ImgResults = await Promise.all(imgUploadPromises);
+                const imgUrls = s3ImgResults.map(result => result.Location);
+
+                const imageMessageInstance = new Message({
+                    conversation_id, senderId, content: imgUrls, contentType: imgContentType,
+                });
+                await imageMessageInstance.save();
+                await imageMessageInstance.populate('senderId', 'userName avatar');
+                savedMessage = imageMessageInstance; // Gán giá trị cho savedMessage (tin nhắn ảnh là tin nhắn cuối trong flow này)
+
+                if (io) {
+                    io.to(conversation_id.toString()).emit('receive-message', savedMessage);
+                }
+                
+                return res.status(200).json({
+                    thongbao: 'Tạo tin nhắn text và ảnh thành công!',
+                    textMessage: textMessage,
+                    imageMessage: savedMessage 
+                });
+            } else {
+                 return res.status(400).json({ message: 'Yêu cầu không hợp lệ hoặc thiếu thông tin (cần content cho text, hoặc files cho media).' });
+            }
+        } catch (err) {
+            console.error("Lỗi trong createMessagesWeb: ", err);
+            return res.status(500).json({ message: 'Lỗi server khi tạo message!!!', error: err.message });
+        } finally {
+            // Khối finally sẽ luôn được thực thi
+            // savedMessage giờ đã có thể truy cập được ở đây
+            if (savedMessage && savedMessage._id && conversation_id) {
+                 try {
+                    await Conversation.findByIdAndUpdate(conversation_id, { 
+                        lastMessage: savedMessage._id, 
+                        updatedAt: savedMessage.createdAt 
+                    });
+                 } catch (convUpdateError) {
+                    console.error("Lỗi cập nhật conversation sau khi gửi tin nhắn:", convUpdateError);
+                 }
+            }
         }
     }
 
     async forwardMessageWeb(req, res) {
         try {
-            const {
-                message_id,
-                conversation_id,
-                forwarded_by,
-                forwarded_at,
-                original_sender,
-            } = req.body
+            const { message_id, conversation_id, forwarded_by, forwarded_at, original_sender } = req.body;
 
-            if (
-                !mongoose.Types.ObjectId.isValid(message_id) ||
-                !mongoose.Types.ObjectId.isValid(conversation_id)
-            ) {
-                return res.status(400).json({ thongbao: 'ID không hợp lệ!' })
+            if (!mongoose.Types.ObjectId.isValid(message_id) || !mongoose.Types.ObjectId.isValid(conversation_id) || !mongoose.Types.ObjectId.isValid(forwarded_by)) {
+                return res.status(400).json({ thongbao: 'ID không hợp lệ!' });
             }
-
-            const originalMessage = await Message.findById(message_id)
+            const originalMessage = await Message.findById(message_id);
             if (!originalMessage) {
-                return res
-                    .status(404)
-                    .json({ thongbao: 'Không tìm thấy tin nhắn gốc!' })
+                return res.status(404).json({ thongbao: 'Không tìm thấy tin nhắn gốc!' });
             }
 
             const forwardedMessage = new Message({
@@ -348,139 +209,101 @@ class MessageController {
                 contentType: originalMessage.contentType,
                 isForwarded: true,
                 originalMessage: message_id,
-                forwardedBy: forwarded_by,
+                forwardedBy: forwarded_by, 
                 forwardedAt: forwarded_at || new Date(),
-                originalSender: original_sender, // ⚠️ cần dòng này
-            })
-
-            await forwardedMessage.save()
-
+                originalSender: mongoose.Types.ObjectId.isValid(original_sender) ? original_sender : originalMessage.senderId, // Đảm bảo originalSender hợp lệ
+            });
+            await forwardedMessage.save();
             await forwardedMessage.populate([
-                { path: 'forwardedBy', select: 'userName firstName lastName' },
-                {
-                    path: 'originalSender',
-                    select: 'userName firstName lastName',
-                },
-            ])
+                { path: 'senderId', select: 'userName avatar' }, 
+                { path: 'originalSender', select: 'userName avatar' },
+                { path: 'forwardedBy', select: 'userName avatar' } 
+            ]);
+            
+            await Conversation.findByIdAndUpdate(conversation_id, { 
+                lastMessage: forwardedMessage._id, 
+                updatedAt: forwardedMessage.createdAt 
+            });
 
-            console.log('✅ Message populated:', forwardedMessage)
-
-            // Emit socket event to notify clients in the conversation room (group)
             if (io) {
-                io.to(conversation_id.toString()).emit(
-                    'receive-message',
-                    forwardedMessage
-                )
+                io.to(conversation_id.toString()).emit('receive-message', forwardedMessage);
             }
-
             return res.status(200).json({
                 thongbao: 'Chuyển tiếp tin nhắn thành công!',
                 message: forwardedMessage,
-            })
+            });
         } catch (error) {
-            console.error('Lỗi chuyển tiếp tin nhắn:', error)
-            return res.status(500).json({
-                thongbao: 'Lỗi server khi chuyển tiếp tin nhắn!',
-                error: error.message,
-            })
+            console.error('Lỗi chuyển tiếp tin nhắn web:', error);
+            return res.status(500).json({ thongbao: 'Lỗi server khi chuyển tiếp tin nhắn!', error: error.message });
         }
     }
 
     async getLastMessageWeb(req, res) {
-        // console.log('heeqweqwe')
-        const conversation_id = req.body.conversation_id
-        const user_id = req.body.user_id
+        const conversation_id = req.body.conversation_id;
+        const user_id = req.body.user_id; 
+
         try {
-            const conversation = await Conversation.findOne({
-                _id: conversation_id,
-            })
-            if (!conversation) {
-                return res
-                    .status(404)
-                    .json({ message: 'Conversation not found' })
-            }
-            const lastMessage = await Message.findOne({
-                conversation_id: conversation_id,
-            }).sort({ createdAt: -1 })
+            // Bỏ qua kiểm tra conversation, trực tiếp tìm lastMessage
+            // const conversation = await Conversation.findOne({ _id: conversation_id });
+            // if (!conversation) {
+            //     return res.status(404).json({ thongbao: 'Conversation not found', retrievedLastMessage: null });
+            // }
+
+            const lastMessage = await Message.findOne({ conversation_id: conversation_id })
+                .sort({ createdAt: -1 })
+                .populate('senderId', 'userName avatar');
+
             if (!lastMessage) {
-                return res
-                    .status(404)
-                    .json({ message: 'No messages found in this conversation' })
+                return res.status(200).json({ 
+                    thongbao: 'No messages found in this conversation', 
+                    retrievedLastMessage: null 
+                });
             }
-            // if (lastMessage.senderId.toString() === user_id) {
-            if (
-                lastMessage.senderId &&
-                lastMessage.senderId.toString() === user_id
-            ) {
-                let content
-                if (lastMessage.recalled) {
-                    content = 'Tin nhắn đã bị thu hồi'
-                } else {
-                    switch (lastMessage.contentType) {
-                        case 'image':
-                            content = 'hình ảnh'
-                            break
-                        case 'video':
-                            const urlParts123 = lastMessage.content.split('/')
-                            content = urlParts123[urlParts123.length - 1]
-                            break
-                        case 'audio':
-                            content = 'audio'
-                            break
-                        case 'file':
-                            // Extract file name from URL
-                            const urlParts = lastMessage.content.split('/')
-                            content = urlParts[urlParts.length - 1]
-                            break
-                        case 'notify':
-                            content = lastMessage.content
-                            break
-                        default:
-                            content = lastMessage.content
-                    }
-                }
-                return res.status(200).json({
-                    thongbao: 'Tìm thấy tin nhắn!!!',
-                    message: 'Bạn : ' + content,
-                })
+
+            let displayContentSummary = '';
+            if (lastMessage.recalled) {
+                displayContentSummary = 'Tin nhắn đã bị thu hồi';
             } else {
-                const user = await User.findOne({
-                    _id: lastMessage.senderId,
-                })
-                let content
-                if (lastMessage.recalled) {
-                    content = 'Tin nhắn đã bị thu hồi'
-                } else {
-                    switch (lastMessage.contentType) {
-                        case 'image':
-                            content = 'hình ảnh'
-                            break
-                        case 'video':
-                            const urlParts123 = lastMessage.content.split('/')
-                            content = urlParts123[urlParts123.length - 1]
-                            break
-                        case 'audio':
-                            content = 'audio'
-                            break
-                        case 'file':
-                            // Extract file name from URL
-                            const urlParts = lastMessage.content.split('/')
-                            content = urlParts[urlParts.length - 1]
-                            break
-                        case 'notify':
-                            content = lastMessage.content
-                            break
-                        default:
-                            content = lastMessage.content
-                    }
+                switch (lastMessage.contentType) {
+                    case 'image': case 'image_gallery': displayContentSummary = '[Hình ảnh]'; break;
+                    case 'video': displayContentSummary = '[Video]'; break;
+                    case 'audio': displayContentSummary = '[Audio]'; break;
+                    case 'file':
+                        const fileName = (typeof lastMessage.content === 'string' && lastMessage.content.includes('/')) ? lastMessage.content.split('/').pop() : "Tệp";
+                        displayContentSummary = `[Tệp]`;
+                        break;
+                    case 'notify': displayContentSummary = lastMessage.content; break;
+                    default: displayContentSummary = String(lastMessage.content || "").substring(0, 50) + (String(lastMessage.content || "").length > 50 ? "..." : ""); // Rút gọn text
                 }
-                return res.status(200).json({
-                    thongbao: 'Tìm thấy tin nhắn!!!',
-                    message: user.userName + ' : ' + content,
-                })
             }
+            
+            let messageStringForSidebar = "";
+            if (lastMessage.senderId && lastMessage.senderId._id) { // Đảm bảo senderId và _id tồn tại
+                if (lastMessage.senderId._id.toString() === user_id) {
+                    messageStringForSidebar = "Bạn: " + displayContentSummary;
+                } else {
+                    messageStringForSidebar = `${lastMessage.senderId.userName || "Một người"}: ${displayContentSummary}`;
+                }
+            } else {
+                 messageStringForSidebar = displayContentSummary; 
+            }
+
+            return res.status(200).json({
+                thongbao: 'Tìm thấy tin nhắn!!!',
+                retrievedLastMessage: {
+                    _id: lastMessage._id,
+                    messageString: messageStringForSidebar,
+                    rawContent: lastMessage.content, // Nội dung gốc
+                    contentType: lastMessage.contentType,
+                    sender: lastMessage.senderId, 
+                    createdAt: lastMessage.createdAt, 
+                    recalled: lastMessage.recalled,
+                }
+            });
+
         } catch (error) {
-            res.status(500).json({ message: error.message })
+            console.error("Lỗi trong getLastMessageWeb:", error);
+            res.status(500).json({ thongbao: 'Lỗi server!', retrievedLastMessage: null, error: error.message });
         }
     }
 
@@ -501,25 +324,28 @@ class MessageController {
         })
     }
 
-    // post findAllMessagesWeb http://localhost:3001/message/findAllMessagesWeb
     async findAllMessagesWeb(req, res) {
-        const conversation_id = req.body.conversation_id
-        // tìm tất cả tin nhắn trong conversation_id
-        const messages = await Message.find({
-            conversation_id: conversation_id,
-        })
+        const conversation_id = req.body.conversation_id;
+        try {
+            const messages = await Message.find({ conversation_id: conversation_id })
+                .populate('senderId', 'userName avatar')
+                .populate({
+                    path: 'replyTo',
+                    populate: {
+                        path: 'senderId',
+                        select: 'userName avatar'
+                    }
+                })
+                .sort({ createdAt: 'asc' });
 
-        if (messages.length > 0) {
-            console.log('Tìm thấy tin nhắn!!!')
-            return res.status(200).json({
-                thongbao: 'Tìm thấy tin nhắn!!!',
-                message: messages,
-            })
-        } else {
-            console.log('Không tìm thấy tin nhắn!!!')
-            return res.status(200).json({
-                thongbao: 'Không tìm thấy tin nhắn!!!',
-            })
+            if (messages.length > 0) {
+                return res.status(200).json({ thongbao: 'Tìm thấy tin nhắn!!!', message: messages });
+            } else {
+                return res.status(200).json({ thongbao: 'Không tìm thấy tin nhắn!!!', message: [] });
+            }
+        } catch (error) {
+            console.error("Lỗi findAllMessagesWeb:", error);
+            return res.status(500).json({ thongbao: 'Lỗi server!', error: error.message });
         }
     }
     // post thu hồi tin nhắn cả 2 bên recallMessageWeb http://localhost:3001/message/recallMessageWeb
