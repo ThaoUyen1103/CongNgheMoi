@@ -1,21 +1,21 @@
 import React, { useState, useRef, useEffect } from 'react';
 import '../styles/MainContent.css';
-import { 
+import {
     FaPhoneAlt, FaVideo, FaInfoCircle, FaPaperclip, FaImage, FaEllipsisH, FaSmile, FaSpinner, FaDownload,
-    FaFileWord, FaFileExcel, FaFilePowerpoint, FaFilePdf, FaFileAlt, FaFileArchive 
+    FaFileWord, FaFileExcel, FaFilePowerpoint, FaFilePdf, FaFileAlt, FaFileArchive
 } from 'react-icons/fa';
 import ConversationInfoModal from '../modals/ConversationInfoModal';
 import MessageContextMenu from '../modals/MessageContextMenu';
 import EmojiPicker, { EmojiStyle } from 'emoji-picker-react';
 import ForwardMessageModal from '../modals/ForwardMessageModal';
 
-function MainContent({ selectedChat, currentLoggedInUserId, onConversationDeleted, allConversations, socket }) { 
+function MainContent({ selectedChat, currentLoggedInUserId, onConversationDeleted, allConversations, socket }) {
     const messagesEndRef = useRef(null);
     const menuRef = useRef(null);
     const fileInputRef = useRef(null);
     const imageInputRef = useRef(null);
     const emojiPickerRef = useRef(null);
-    const replyInputPreviewRef = useRef(null); 
+    const replyInputPreviewRef = useRef(null);
     const prevSelectedChatIdRef = useRef(null);
 
     const [replyingToMessage, setReplyingToMessage] = useState(null);
@@ -34,7 +34,6 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
     useEffect(() => {
         setLocalSelectedChat(selectedChat);
     }, [selectedChat]);
-
 
     const openConvInfoModal = () => {
         if (localSelectedChat) setIsConvInfoModalOpen(true);
@@ -107,26 +106,20 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
         if (activeMenu.messageId) document.addEventListener('mousedown', handleClickOutsideMenu);
         return () => document.removeEventListener('mousedown', handleClickOutsideMenu);
     }, [activeMenu.messageId]);
-    
+
     useEffect(() => {
         if (socket && localSelectedChat?._id) {
             const newRoomId = localSelectedChat._id;
             const userId = currentLoggedInUserId;
-
             if (prevSelectedChatIdRef.current && prevSelectedChatIdRef.current !== newRoomId) {
-                 socket.emit('leave-conversation', { conversation_id: prevSelectedChatIdRef.current, user_id: userId });
-                 console.log(`MainContent: Gửi yêu cầu rời phòng ${prevSelectedChatIdRef.current} cho user ${userId}`);
+                socket.emit('leave-conversation', { conversation_id: prevSelectedChatIdRef.current, user_id: userId });
             }
-            
             if (prevSelectedChatIdRef.current !== newRoomId) {
                 socket.emit('join-conversation', { conversation_id: newRoomId, user_id: userId });
-                console.log(`MainContent: Gửi yêu cầu tham gia phòng ${newRoomId} cho user ${userId}`);
                 prevSelectedChatIdRef.current = newRoomId;
             }
-
         } else if (socket && !localSelectedChat?._id && prevSelectedChatIdRef.current) {
-             socket.emit('leave-conversation', { conversation_id: prevSelectedChatIdRef.current, user_id: currentLoggedInUserId });
-            console.log(`MainContent: Logic rời phòng ${prevSelectedChatIdRef.current} (không có chat được chọn)`);
+            socket.emit('leave-conversation', { conversation_id: prevSelectedChatIdRef.current, user_id: currentLoggedInUserId });
             prevSelectedChatIdRef.current = null;
         }
     }, [socket, localSelectedChat?._id, currentLoggedInUserId]);
@@ -143,42 +136,36 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
                     });
                 }
             };
-
             const handleMessageRecalledFromServer = (recalledMessageData) => {
                 if (recalledMessageData.conversation_id === localSelectedChat?._id) {
-                    setMessages(prevMessages => 
-                        prevMessages.map(msg => 
-                            msg._id === recalledMessageData._id 
-                            ? { ...recalledMessageData } 
-                            : msg
+                    setMessages(prevMessages =>
+                        prevMessages.map(msg =>
+                            msg._id === recalledMessageData._id
+                                ? { ...recalledMessageData }
+                                : msg
                         )
                     );
                 }
             };
-
             const handleServerMessageDeleted = (data) => {
                 if (data.conversation_id === localSelectedChat?._id) {
                     setMessages(prev => prev.filter(msg => msg._id !== data.message_id));
                 }
             };
-            
             const handleMessageDeletedForMe = (data) => {
                 setMessages(prev => prev.filter(msg => msg._id !== data.message_id));
             };
-            
             const handleGroupMetadataUpdateForMain = (data) => {
                 if (localSelectedChat && data.conversationId === localSelectedChat._id) {
-                    setLocalSelectedChat(prev => ({...prev, ...data.updatedData}));
+                    setLocalSelectedChat(prev => ({ ...prev, ...data.updatedData }));
                 }
             };
-
 
             socket.on('receive-message', handleReceiveMessage);
             socket.on('message-recalled', handleMessageRecalledFromServer);
             socket.on('server-message-deleted-for-everyone', handleServerMessageDeleted);
             socket.on('message-deleted-for-me', handleMessageDeletedForMe);
             socket.on('group-metadata-updated', handleGroupMetadataUpdateForMain);
-
 
             return () => {
                 socket.off('receive-message', handleReceiveMessage);
@@ -193,13 +180,11 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
     const onMediaSelected = (event) => {
         const files = Array.from(event.target.files);
         const newFiles = files.filter(file => !selectedMedia.some(existingFile => existingFile.name === file.name && existingFile.size === file.size));
-        
-        const oversizedFiles = newFiles.filter(file => file.size > 100 * 1024 * 1024); // 100MB
+        const oversizedFiles = newFiles.filter(file => file.size > 100 * 1024 * 1024);
         if (oversizedFiles.length > 0) {
             alert(`Các tệp sau vượt quá giới hạn 100MB và sẽ không được thêm: \n${oversizedFiles.map(f => f.name).join('\n')}`);
         }
         const validFiles = newFiles.filter(file => file.size <= 100 * 1024 * 1024);
-
         setSelectedMedia(prev => [...prev, ...validFiles]);
         event.target.value = null;
     };
@@ -217,7 +202,7 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
 
         const imagesToSend = selectedMedia.filter(f => f.type.startsWith('image/'));
         const otherFilesToSend = selectedMedia.filter(f => !f.type.startsWith('image/'));
-        
+
         const uploadPromises = [];
 
         if (hasText || imagesToSend.length > 0) {
@@ -226,18 +211,18 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
             formData.append('user_id', currentLoggedInUserId);
             if (hasText) formData.append('content', textContentTrimmed);
             if (currentReplyToId) formData.append('replyTo', currentReplyToId);
-            
+
             if (imagesToSend.length > 0) {
-                 formData.append('contentType', hasText ? 'text' : (imagesToSend.length > 1 ? 'image_gallery' : 'image'));
-                 imagesToSend.forEach(img => formData.append('image', img)); // 'image' cho cả gallery và single image
+                formData.append('contentType', hasText ? 'text' : (imagesToSend.length > 1 ? 'image_gallery' : 'image'));
+                imagesToSend.forEach(img => formData.append('image', img));
             } else {
-                 formData.append('contentType', 'text');
+                formData.append('contentType', 'text');
             }
-            
-            const textAndImagePromise = fetch('http://localhost:3001/message/createMessagesWeb', { 
-                method: 'POST', 
+
+            const textAndImagePromise = fetch('http://localhost:3001/message/createMessagesWeb', {
+                method: 'POST',
                 body: formData,
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('user_token')}` } 
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('user_token')}` }
             })
             .then(async response => {
                 const data = await response.json();
@@ -248,11 +233,10 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
                 let newMsgs = [];
                 if (data.textMessage) newMsgs.push(data.textMessage);
                 if (data.imageMessage && Array.isArray(data.imageMessage)) newMsgs = newMsgs.concat(data.imageMessage);
-                else if (data.imageMessage) newMsgs.push(data.imageMessage); // Handle single image object
+                else if (data.imageMessage) newMsgs.push(data.imageMessage);
                 else if (data.message && data.message.contentType === 'image_gallery' && Array.isArray(data.message.content)) {
-                    // Xử lý trường hợp trả về một tin nhắn gallery
-                     newMsgs.push(data.message);
-                } else if (data.message) { // Handle single generic message for text or single image
+                    newMsgs.push(data.message);
+                } else if (data.message) {
                     newMsgs.push(data.message);
                 }
                 return newMsgs.filter(Boolean);
@@ -265,18 +249,18 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
                 const fileFormData = new FormData();
                 fileFormData.append('conversation_id', conversationId);
                 fileFormData.append('user_id', currentLoggedInUserId);
-                fileFormData.append('contentType', file.type.startsWith('video/') ? 'video' : 'file');
+                fileFormData.append('contentType', file.type.startsWith('video/') ? 'video' : (file.type.startsWith('audio/') ? 'audio' : 'file'));
                 fileFormData.append('media', file);
                 if (currentReplyToId) fileFormData.append('replyTo', currentReplyToId);
 
-                const filePromise = fetch('http://localhost:3001/message/uploadMediaWeb', { 
-                    method: 'POST', 
+                const filePromise = fetch('http://localhost:3001/message/uploadMediaWeb', {
+                    method: 'POST',
                     body: fileFormData,
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('user_token')}` }
                 })
                 .then(async response => {
                     const data = await response.json();
-                    if (!response.ok) { throw new Error(data.thongbao || data.message || `Lỗi gửi file ${file.name}`);}
+                    if (!response.ok) { throw new Error(data.thongbao || data.message || `Lỗi gửi file ${file.name}`); }
                     return data;
                 })
                 .then(data => {
@@ -289,11 +273,10 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
 
         try {
             const results = await Promise.all(uploadPromises);
-            const newMessagesFromAPI = results.flat().filter(Boolean); 
-            
+            const newMessagesFromAPI = results.flat().filter(Boolean);
             if (socket && newMessagesFromAPI.length > 0) {
                 newMessagesFromAPI.forEach(msg => {
-                    socket.emit('send-message', msg); 
+                    socket.emit('send-message', msg);
                 });
             }
         } catch (error) {
@@ -313,8 +296,8 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
         event.stopPropagation();
         let xPosition = event.clientX;
         let yPosition = event.clientY;
-        const menuWidth = 180; 
-        const menuHeight = message.senderId?._id === currentLoggedInUserId || message.senderId === currentLoggedInUserId ? 200 : 130; 
+        const menuWidth = 180;
+        const menuHeight = message.senderId?._id === currentLoggedInUserId || message.senderId === currentLoggedInUserId ? 200 : 130;
         if (xPosition + menuWidth > window.innerWidth) xPosition = window.innerWidth - menuWidth - 10;
         if (yPosition + menuHeight > window.innerHeight) yPosition = window.innerHeight - menuHeight - 10;
         if (xPosition < 0) xPosition = 10;
@@ -326,41 +309,39 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
 
     const handleRecallMessage = async (messageId) => {
         try {
-            const response = await fetch('http://localhost:3001/message/recallMessageWeb', { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('user_token')}` }, 
-                body: JSON.stringify({ message_id: messageId }) 
+            const response = await fetch('http://localhost:3001/message/recallMessageWeb', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('user_token')}` },
+                body: JSON.stringify({ message_id: messageId })
             });
             const data = await response.json();
-            if (response.ok && data.message) {
-                 // UI được cập nhật qua socket event 'message-recalled'
-            } else { 
-                console.error('Thu hồi tin nhắn thất bại API:', data.thongbao || data.message || data.error); 
+            if (!response.ok || !data.message) {
+                console.error('Thu hồi tin nhắn thất bại API:', data.thongbao || data.message || data.error);
             }
-        } catch (err) { 
-            console.error('Lỗi khi gọi API thu hồi tin nhắn:', err); 
+        } catch (err) {
+            console.error('Lỗi khi gọi API thu hồi tin nhắn:', err);
         }
         handleCloseMenu();
     };
 
     const handleDeleteForMe = async (messageId) => {
         try {
-            const response = await fetch('http://localhost:3001/message/deleteMyMessageWeb', { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('user_token')}` }, 
-                body: JSON.stringify({ message_id: messageId, user_id: currentLoggedInUserId }) 
+            const response = await fetch('http://localhost:3001/message/deleteMyMessageWeb', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('user_token')}` },
+                body: JSON.stringify({ message_id: messageId, user_id: currentLoggedInUserId })
             });
             const data = await response.json();
             if (response.ok && data.message) {
-                setMessages(prev => prev.filter(msg => msg._id !== messageId)); 
+                setMessages(prev => prev.filter(msg => msg._id !== messageId));
                 if (socket) {
                     socket.emit('delete-my-message', { message_id: messageId, conversation_id: localSelectedChat?._id, user_id_room: currentLoggedInUserId });
                 }
-            } else { 
-                console.error('Xóa tin nhắn thất bại API:', data.thongbao || data.message || data.error); 
+            } else {
+                console.error('Xóa tin nhắn thất bại API:', data.thongbao || data.message || data.error);
             }
-        } catch (err) { 
-            console.error('Lỗi khi gọi API xóa tin nhắn:', err); 
+        } catch (err) {
+            console.error('Lỗi khi gọi API xóa tin nhắn:', err);
         }
         handleCloseMenu();
     };
@@ -382,11 +363,27 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
     };
 
     const confirmForward = async (targetConversationIds, additionalMessage) => {
+        if (!Array.isArray(targetConversationIds)) {
+            console.error("confirmForward: targetConversationIds is not an array. Received:", targetConversationIds);
+            alert("Lỗi: Không thể chuyển tiếp tin nhắn do danh sách người nhận không hợp lệ.");
+            setIsForwardModalOpen(false);
+            setForwardingMessageId(null);
+            return;
+        }
         const messageToForward = messages.find(m => m._id === forwardingMessageId);
-        if (!messageToForward || targetConversationIds.length === 0) return;
+        if (!messageToForward) {
+            alert("Không tìm thấy tin nhắn để chuyển tiếp.");
+            setIsForwardModalOpen(false);
+            setForwardingMessageId(null);
+            return;
+        }
+        if (targetConversationIds.length === 0) {
+             alert("Vui lòng chọn ít nhất một cuộc trò chuyện để chuyển tiếp.");
+            return;
+        }
+
         const hasAdditionalMessage = additionalMessage && additionalMessage.trim() !== '';
-        
-        const originalSender = messageToForward.senderId; 
+        const originalSender = messageToForward.senderId;
 
         const forwardPromises = targetConversationIds.map(targetConvId => {
             const body = {
@@ -423,35 +420,35 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
                 if (result.textMessage) newMsgs.push(result.textMessage);
                 if (result.imageMessage && Array.isArray(result.imageMessage)) newMsgs = newMsgs.concat(result.imageMessage);
                 else if (result.imageMessage) newMsgs.push(result.imageMessage);
-                if (result.message && result.message.content) newMsgs.push(result.message); 
-                if (result.MediaMessage) newMsgs = newMsgs.concat(result.MediaMessage); 
+                if (result.message && result.message.content) newMsgs.push(result.message);
+                if (result.MediaMessage) newMsgs = newMsgs.concat(result.MediaMessage);
                 return newMsgs;
             });
             const newMessagesToAdd = newMessagesNested.flat().filter(Boolean);
-        
+
             if (socket && newMessagesToAdd.length > 0) {
                 newMessagesToAdd.forEach(msg => {
-                    if (msg.conversation_id) { // Ensure message has conversation_id before emitting
-                         socket.emit('send-message', msg);
+                    if (msg.conversation_id) {
+                        socket.emit('send-message', msg);
                     } else {
                         console.warn("Forwarded/Additional message missing conversation_id:", msg);
                     }
                 });
             }
-
+             alert("Đã chuyển tiếp tin nhắn thành công!");
         } catch (err) {
             console.error('Lỗi khi chuyển tiếp hoặc gửi tin nhắn kèm theo:', err);
+            alert('Lỗi khi chuyển tiếp tin nhắn: ' + err.message);
         } finally {
             setIsForwardModalOpen(false);
             setForwardingMessageId(null);
         }
     };
 
-
     const handleInputChange = (e) => {
         setInputText(e.target.value);
         e.target.style.height = 'inherit';
-        e.target.style.height = `${Math.min(e.target.scrollHeight, 100)}px`; 
+        e.target.style.height = `${Math.min(e.target.scrollHeight, 100)}px`;
     };
 
     const onEmojiClick = (emojiObject) => setInputText(prevInput => prevInput + emojiObject.emoji);
@@ -462,17 +459,17 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
 
     const handleFileAttachment = () => fileInputRef.current?.click();
     const handleImageAttachment = () => imageInputRef.current?.click();
-    
+
     const ReplyPreviewBubble = ({ messageId, currentUserId }) => {
         const originalMessage = messages.find(m => m._id === messageId);
         if (!originalMessage) { return <div className="reply-preview-bubble missing" onClick={(e) => e.stopPropagation()}><em>Tin nhắn không còn tồn tại</em></div>; }
         if (originalMessage.recalled) { return <div className="reply-preview-bubble recalled" onClick={(e) => e.stopPropagation()}><em>Trả lời một tin nhắn đã thu hồi</em></div>; }
-        
+
         let previewContent = originalMessage.content;
         let senderName = "Một ai đó";
         if (originalMessage.senderId) {
-            const sender = originalMessage.senderId; // Đây có thể là ID hoặc object
-            if ( (typeof sender === 'object' && sender._id === currentUserId) || sender === currentUserId) {
+            const sender = originalMessage.senderId;
+            if ((typeof sender === 'object' && sender._id === currentUserId) || sender === currentUserId) {
                 senderName = "Bạn";
             } else {
                 senderName = typeof sender === 'object' ? sender.userName : "Người gửi";
@@ -502,52 +499,156 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
     const renderMessageContent = (msg) => {
         const contentType = msg.contentType || msg.type;
         let content = msg.content || msg.text;
-        if (msg.recalled) { return <p className="message-text-content recalled-message"><i>Tin nhắn đã được thu hồi</i></p>; }
-        
-        const isMyMessage = msg.senderId?._id === currentLoggedInUserId || msg.senderId === currentLoggedInUserId;
-        const canRecall = isMyMessage && !msg.recalled;
-        
+
+        if (msg.recalled) {
+            return <p className="message-text-content recalled-message"><i>Tin nhắn đã được thu hồi</i></p>;
+        }
+
         const commonMenuButton = !msg.recalled && msg.contentType !== 'system' && msg.contentType !== 'notify' && (
-            <button className={contentType === 'text' ? "message-menu-trigger-btn" : "media-item-menu-trigger"} onClick={(e) => handleOpenMenu(msg, e)} title="Tùy chọn"><FaEllipsisH /></button>
+            <button
+                className={
+                    contentType === 'text' || contentType === 'audio'
+                        ? "message-menu-trigger-btn"
+                        : "media-item-menu-trigger"
+                }
+                onClick={(e) => handleOpenMenu(msg, e)}
+                title="Tùy chọn"
+            >
+                <FaEllipsisH />
+            </button>
         );
+
         switch (contentType) {
-            case 'text': return ( <div className="text-message-wrapper"> {msg.replyTo && <ReplyPreviewBubble messageId={msg.replyTo} currentUserId={currentLoggedInUserId} />} {msg.isForwarded && <p className="forwarded-label">Đã chuyển tiếp</p>} <p className="message-text-content">{content}</p> {commonMenuButton} </div> );
+            case 'text':
+                return (
+                    <div className="text-message-wrapper">
+                        {msg.replyTo && <ReplyPreviewBubble messageId={msg.replyTo} currentUserId={currentLoggedInUserId} />}
+                        {msg.isForwarded && <p className="forwarded-label">Đã chuyển tiếp</p>}
+                        <p className="message-text-content">{content}</p>
+                        {commonMenuButton}
+                    </div>
+                );
             case 'image': {
                 const imageUrl = msg.imageUrl || content;
                 const fileName = typeof imageUrl === 'string' ? imageUrl.substring(imageUrl.lastIndexOf('/') + 1) : 'image.jpg';
-                return ( <div className="message-media-container"> {msg.replyTo && <ReplyPreviewBubble messageId={msg.replyTo} currentUserId={currentLoggedInUserId} />} {msg.isForwarded && <p className="forwarded-label">Đã chuyển tiếp</p>} <div className="message-image-wrapper"> <img src={imageUrl} alt="Hình ảnh" className="message-image-content" onError={(e) => { e.target.onerror = null; e.target.src='fallback-image.png';}}/> <a href={imageUrl} download={fileName} className="message-image-download-btn" title="Tải ảnh xuống" onClick={(e) => e.stopPropagation()}><FaDownload /></a> {commonMenuButton} </div> </div> );
+                return (
+                    <div className="message-media-container">
+                        {msg.replyTo && <ReplyPreviewBubble messageId={msg.replyTo} currentUserId={currentLoggedInUserId} />}
+                        {msg.isForwarded && <p className="forwarded-label">Đã chuyển tiếp</p>}
+                        <div className="message-image-wrapper">
+                            <img src={imageUrl} alt="Hình ảnh" className="message-image-content" onError={(e) => { e.target.onerror = null; e.target.src = 'fallback-image.png'; }} />
+                            <a href={imageUrl} download={fileName} className="message-image-download-btn" title="Tải ảnh xuống" onClick={(e) => e.stopPropagation()}><FaDownload /></a>
+                            {commonMenuButton}
+                        </div>
+                    </div>
+                );
             }
             case 'image_gallery': {
                 const galleryItems = Array.isArray(content) ? content : (typeof content === 'string' ? [content] : []);
-                return ( <div className="message-media-container"> {msg.replyTo && <ReplyPreviewBubble messageId={msg.replyTo} currentUserId={currentLoggedInUserId} />} {msg.isForwarded && <p className="forwarded-label">Đã chuyển tiếp</p>} <div className="message-image-gallery-container"> {galleryItems.map((url, index) => { const galleryFileName = typeof url === 'string' ? url.substring(url.lastIndexOf('/') + 1) : `gallery_image_${index + 1}.jpg`; return ( <div key={index} className="message-image-wrapper gallery-image-item"> <img src={url} alt={`Hình ảnh ${index + 1}`} className="message-image-content" onError={(e) => { e.target.onerror = null; e.target.src='fallback-image.png';}}/> <a href={url} download={galleryFileName} className="message-image-download-btn" title="Tải ảnh xuống" onClick={(e) => e.stopPropagation()}><FaDownload /></a> </div> ); })} </div> {commonMenuButton} </div> );
+                return (
+                    <div className="message-media-container">
+                        {msg.replyTo && <ReplyPreviewBubble messageId={msg.replyTo} currentUserId={currentLoggedInUserId} />}
+                        {msg.isForwarded && <p className="forwarded-label">Đã chuyển tiếp</p>}
+                        <div className="message-image-gallery-container">
+                            {galleryItems.map((url, index) => {
+                                const galleryFileName = typeof url === 'string' ? url.substring(url.lastIndexOf('/') + 1) : `gallery_image_${index + 1}.jpg`;
+                                return (
+                                    <div key={index} className="message-image-wrapper gallery-image-item">
+                                        <img src={url} alt={`Hình ảnh ${index + 1}`} className="message-image-content" onError={(e) => { e.target.onerror = null; e.target.src = 'fallback-image.png'; }} />
+                                        <a href={url} download={galleryFileName} className="message-image-download-btn" title="Tải ảnh xuống" onClick={(e) => e.stopPropagation()}><FaDownload /></a>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        {commonMenuButton}
+                    </div>
+                );
             }
-            case 'file':
             case 'video': {
-                const fullFileName = typeof content === 'string' ? content.split('/').pop() : (msg.fileName || "Tệp đính kèm");
+                const videoUrl = content;
+                const fullFileName = typeof videoUrl === 'string' ? videoUrl.split('/').pop() : (msg.fileName || "Video.mp4");
+                return (
+                    <div className="message-media-container video-container">
+                        {msg.replyTo && <ReplyPreviewBubble messageId={msg.replyTo} currentUserId={currentLoggedInUserId} />}
+                        {msg.isForwarded && <p className="forwarded-label">Đã chuyển tiếp</p>}
+                        <div className="message-video-player-wrapper">
+                            <video src={videoUrl} controls className="message-video-content">
+                                Trình duyệt của bạn không hỗ trợ thẻ video.
+                            </video>
+                            <div className="media-actions-overlay">
+                                <a href={videoUrl} download={fullFileName} className="media-download-btn" title="Tải video xuống" onClick={(e) => e.stopPropagation()}><FaDownload /></a>
+                                {commonMenuButton}
+                            </div>
+                        </div>
+                        <p className="media-filename-display">{fullFileName}</p>
+                    </div>
+                );
+            }
+            case 'audio': {
+                const audioUrl = content;
+                const fullFileName = typeof audioUrl === 'string' ? audioUrl.split('/').pop() : (msg.fileName || "Audio.mp3");
+                return (
+                    <div className="message-media-container audio-container">
+                        {msg.replyTo && <ReplyPreviewBubble messageId={msg.replyTo} currentUserId={currentLoggedInUserId} />}
+                        {msg.isForwarded && <p className="forwarded-label">Đã chuyển tiếp</p>}
+                        <div className="message-audio-player-wrapper">
+                            <audio src={audioUrl} controls className="message-audio-content">
+                                Trình duyệt của bạn không hỗ trợ thẻ audio.
+                            </audio>
+                            <div className="audio-file-info-actions">
+                                <span className="audio-file-name">{fullFileName}</span>
+                                <a href={audioUrl} download={fullFileName} className="file-action-btn audio-download-btn" title="Tải xuống"><FaDownload /></a>
+                                {commonMenuButton}
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+            case 'file': {
+                const fileUrl = content;
+                const fullFileName = typeof fileUrl === 'string' ? fileUrl.split('/').pop() : (msg.fileName || "Tệp đính kèm");
                 const extension = typeof fullFileName === 'string' ? fullFileName.substring(fullFileName.lastIndexOf('.') + 1).toLowerCase() : '';
-                let fileIconElement; let iconClassName = "file-type-icon generic";
+                let fileIconElement;
+                let iconClassName = "file-type-icon generic";
+
                 switch (extension) {
                     case 'doc': case 'docx': fileIconElement = <FaFileWord style={{ color: '#2b579a' }} />; iconClassName = "file-type-icon word"; break;
                     case 'xls': case 'xlsx': fileIconElement = <FaFileExcel style={{ color: '#1d6f42' }} />; iconClassName = "file-type-icon excel"; break;
                     case 'ppt': case 'pptx': fileIconElement = <FaFilePowerpoint style={{ color: '#d04423' }} />; iconClassName = "file-type-icon ppt"; break;
                     case 'pdf': fileIconElement = <FaFilePdf style={{ color: '#B30B00' }} />; iconClassName = "file-type-icon pdf"; break;
                     case 'zip': case 'rar': case '7z': fileIconElement = <FaFileArchive style={{ color: '#fab005' }} />; iconClassName = "file-type-icon archive"; break;
-                    default: if (contentType === 'video') { fileIconElement = '🎬'; } else { fileIconElement = <FaFileAlt style={{ color: '#868e96' }} />; } break;
+                    default: fileIconElement = <FaFileAlt style={{ color: '#868e96' }} />; break;
                 }
-                return ( <div className="message-media-container"> {msg.replyTo && <ReplyPreviewBubble messageId={msg.replyTo} currentUserId={currentLoggedInUserId} />} {msg.isForwarded && <p className="forwarded-label">Đã chuyển tiếp</p>} <div className={`message-file ${contentType === 'video' ? 'message-video' : ''}`}> <span className={`file-icon ${iconClassName}`}>{fileIconElement}</span> <div className="file-info"><span className="file-name">{fullFileName}</span></div> <div className="file-actions-group"> <a href={content} target="_blank" rel="noopener noreferrer" download={fullFileName} className="file-action-btn" title="Tải xuống"><FaDownload /></a> {commonMenuButton} </div> </div> </div> );
+                return (
+                    <div className="message-media-container">
+                        {msg.replyTo && <ReplyPreviewBubble messageId={msg.replyTo} currentUserId={currentLoggedInUserId} />}
+                        {msg.isForwarded && <p className="forwarded-label">Đã chuyển tiếp</p>}
+                        <div className={`message-file`}>
+                            <span className={`file-icon ${iconClassName}`}>{fileIconElement}</span>
+                            <div className="file-info"><span className="file-name">{fullFileName}</span></div>
+                            <div className="file-actions-group">
+                                <a href={fileUrl} target="_blank" rel="noopener noreferrer" download={fullFileName} className="file-action-btn" title="Tải xuống"><FaDownload /></a>
+                                {commonMenuButton}
+                            </div>
+                        </div>
+                    </div>
+                );
             }
-            case 'notify': case 'system': return <div className="system-message-text">{content}</div>;
-            default: return <p className="message-text-content">{String(content) || 'Tin nhắn không xác định'}</p>;
+            case 'notify':
+            case 'system':
+                return <div className="system-message-text">{content}</div>;
+            default:
+                return <p className="message-text-content">{String(content) || 'Tin nhắn không xác định'}</p>;
         }
     };
 
     if (!localSelectedChat) {
-        const features = [ { name: 'Tin nhắn tự động', icon: '💬' }, { name: 'Nhãn dán Business', icon: '🏷️' }, { name: 'Mời cộng danh bạ', icon: '👥' }, { name: 'Mở rộng nhóm', icon: '➕' }, ];
-        return ( <div className="main-content no-chat-selected"><div className="welcome-section"><h2>Chào mừng đến với Zalo PC!</h2><p className="welcome-subtitle">Khám phá những tiện ích hỗ trợ làm việc và trò chuyện cùng<br />người thân, bạn bè được tối ưu cho máy tính của bạn.</p><div className="welcome-visual"><div className="visual-left placeholder-image">Ảnh minh họa Zalo PC<button className="upgrade-button">NÂNG CẤP NGAY</button></div><div className="visual-right">{features.map((feature) => (<div key={feature.name} className="feature-item"><span className="feature-icon">{feature.icon}</span><span className="feature-name">{feature.name}</span></div>))}</div></div></div></div>);
+        const features = [{ name: 'Tin nhắn tự động', icon: '💬' }, { name: 'Nhãn dán Business', icon: '🏷️' }, { name: 'Mời cộng danh bạ', icon: '👥' }, { name: 'Mở rộng nhóm', icon: '➕' },];
+        return (<div className="main-content no-chat-selected"><div className="welcome-section"><h2>Chào mừng đến với Zalo PC!</h2><p className="welcome-subtitle">Khám phá những tiện ích hỗ trợ làm việc và trò chuyện cùng<br />người thân, bạn bè được tối ưu cho máy tính của bạn.</p><div className="welcome-visual"><div className="visual-left placeholder-image">Ảnh minh họa Zalo PC<button className="upgrade-button">NÂNG CẤP NGAY</button></div><div className="visual-right">{features.map((feature) => (<div key={feature.name} className="feature-item"><span className="feature-icon">{feature.icon}</span><span className="feature-name">{feature.name}</span></div>))}</div></div></div></div>);
     }
 
     const getGroupMembersCount = (chat) => {
-        if (chat.type === 'group' || chat.isGroup) { // Thêm isGroup để tương thích
+        if (chat.type === 'group' || chat.isGroup) {
             if (chat.membersCount) return chat.membersCount;
             if (chat.members && chat.members.length > 0) return chat.members.length;
             return chat.name.toLowerCase().includes("nhóm") || chat.name.toLowerCase().includes("group") || chat.name.toLowerCase().includes("clb") ? 2 : 1;
@@ -583,7 +684,7 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
                         {messagesError && <div className="error-messages-container">{messagesError}</div>}
                         {!isLoadingMessages && !messagesError && messages.length > 0 ? (
                             messages.map((msg) => (
-                                <div key={msg._id || msg.id || Math.random().toString()} className={`message-item ${(msg.contentType === 'system' || msg.contentType === 'notify')? 'system' : (msg.senderId?._id === currentLoggedInUserId || msg.senderId === currentLoggedInUserId? 'sent': 'received')}`}>
+                                <div key={msg._id || msg.id || Math.random().toString()} className={`message-item ${(msg.contentType === 'system' || msg.contentType === 'notify') ? 'system' : (msg.senderId?._id === currentLoggedInUserId || msg.senderId === currentLoggedInUserId ? 'sent' : 'received')}`}>
                                     {(msg.contentType !== 'system' && msg.contentType !== 'notify' && (msg.senderId?._id !== currentLoggedInUserId && msg.senderId !== currentLoggedInUserId)) && (
                                         <div className={`avatar message-avatar ${(localSelectedChat.type === 'group' || localSelectedChat.isGroup) ? 'group-message-avatar' : 'user-message-avatar'}`}>
                                             {(localSelectedChat.type === 'group' || localSelectedChat.isGroup) ? (msg.senderId?.avatar ? <img src={msg.senderId.avatar} alt="avatar" /> : msg.senderId?.userName?.substring(0, 1).toUpperCase() || '?') : (localSelectedChat.avatar && (typeof localSelectedChat.avatar === 'string' && (localSelectedChat.avatar.startsWith('http') || localSelectedChat.avatar.startsWith('data:image'))) ? <img src={localSelectedChat.avatar} alt="avatar" /> : localSelectedChat.name?.substring(0, 1).toUpperCase())}
@@ -591,14 +692,14 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
                                     )}
                                     <div className="message-content-wrapper">
                                         {(localSelectedChat.type === 'group' || localSelectedChat.isGroup) && (msg.senderId?._id !== currentLoggedInUserId && msg.senderId !== currentLoggedInUserId) && msg.contentType !== 'system' && msg.contentType !== 'notify' && (<span className="message-sender-name">{msg.senderId?.userName || 'Không rõ'}</span>)}
-                                        <div className={`message-bubble ${(msg.contentType || msg.type)?.includes('image') ? 'image-bubble' : ''} ${(msg.contentType || msg.type) === 'file' || (msg.contentType || msg.type) === 'video' ? 'file-bubble' : ''}`}>
+                                        <div className={`message-bubble ${(msg.contentType || msg.type)?.includes('image') ? 'image-bubble' : ''} ${(msg.contentType || msg.type) === 'file' || (msg.contentType || msg.type) === 'video' || (msg.contentType || msg.type) === 'audio' ? 'file-bubble' : ''}`}>
                                             {renderMessageContent(msg)}
                                         </div>
                                         {msg.createdAt && <span className="message-time">{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}</span>}
                                     </div>
                                 </div>
                             ))
-                        ) : ( !isLoadingMessages && !messagesError && <div className="no-messages-info"><div className="no-messages-icon">💬</div><p>Chưa có tin nhắn nào.</p>{localSelectedChat && <p>Hãy bắt đầu cuộc trò chuyện với {localSelectedChat.name}!</p>}</div>)}
+                        ) : (!isLoadingMessages && !messagesError && <div className="no-messages-info"><div className="no-messages-icon">💬</div><p>Chưa có tin nhắn nào.</p>{localSelectedChat && <p>Hãy bắt đầu cuộc trò chuyện với {localSelectedChat.name}!</p>}</div>)}
                         <div ref={messagesEndRef} />
                     </div>
                     <div className="message-input-area">
@@ -607,14 +708,14 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
                                 <div className="reply-preview-bar-content">
                                     <span className="reply-bar-header">Đang trả lời <strong>{
                                         replyingToMessage.senderId?._id === currentLoggedInUserId || replyingToMessage.senderId === currentLoggedInUserId ? "chính bạn" :
-                                        (replyingToMessage.senderId?.userName || "một tin nhắn")
+                                            (replyingToMessage.senderId?.userName || "một tin nhắn")
                                     }</strong></span>
                                     <span className="reply-bar-text-snippet">
-                                        {replyingToMessage.contentType === 'text' ? String(replyingToMessage.content).substring(0, 50) + (String(replyingToMessage.content).length > 50 ? '...' : '') 
-                                        : replyingToMessage.contentType?.includes('image') ? '[Hình ảnh]' 
-                                        : replyingToMessage.contentType === 'video' ? '[Video]'
-                                        : replyingToMessage.contentType === 'file' ? `[Tệp: ${String(replyingToMessage.content).split('/').pop()}]`
-                                        : `[${replyingToMessage.contentType || 'Tin nhắn'}]`}
+                                        {replyingToMessage.contentType === 'text' ? String(replyingToMessage.content).substring(0, 50) + (String(replyingToMessage.content).length > 50 ? '...' : '')
+                                            : replyingToMessage.contentType?.includes('image') ? '[Hình ảnh]'
+                                                : replyingToMessage.contentType === 'video' ? '[Video]'
+                                                    : replyingToMessage.contentType === 'file' ? `[Tệp: ${String(replyingToMessage.content).split('/').pop()}]`
+                                                        : `[${replyingToMessage.contentType || 'Tin nhắn'}]`}
                                     </span>
                                 </div>
                                 <button onClick={() => setReplyingToMessage(null)} className="cancel-reply-bar-btn" title="Hủy trả lời">&times;</button>
@@ -629,25 +730,25 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
                                 <div className="preview-container">
                                     {selectedMedia.map((media, index) => (
                                         <div key={`${media.name}-${index}`} className="preview-item">
-                                            {media.type.startsWith('image/') ? ( <img src={URL.createObjectURL(media)} className="preview-image" alt="preview"/>
-                                            ) : ( <div className="file-preview-item"><span className="file-preview-icon">
-                                                    { media.name.endsWith('.doc') || media.name.endsWith('.docx') ? <FaFileWord className="file-type-icon word"/> :
-                                                      media.name.endsWith('.xls') || media.name.endsWith('.xlsx') ? <FaFileExcel className="file-type-icon excel"/> :
-                                                      media.name.endsWith('.ppt') || media.name.endsWith('.pptx') ? <FaFilePowerpoint className="file-type-icon ppt"/> :
-                                                      media.name.endsWith('.pdf') ? <FaFilePdf className="file-type-icon pdf"/> :
-                                                      media.name.endsWith('.zip') || media.name.endsWith('.rar') || media.name.endsWith('.7z') ? <FaFileArchive className="file-type-icon archive"/> :
-                                                      <FaFileAlt className="file-type-icon generic"/>}
-                                                </span> <span className="file-preview-name">{media.name}</span></div>)}
+                                            {media.type.startsWith('image/') ? (<img src={URL.createObjectURL(media)} className="preview-image" alt="preview" />
+                                            ) : (<div className="file-preview-item"><span className="file-preview-icon">
+                                                {media.name.endsWith('.doc') || media.name.endsWith('.docx') ? <FaFileWord className="file-type-icon word" /> :
+                                                    media.name.endsWith('.xls') || media.name.endsWith('.xlsx') ? <FaFileExcel className="file-type-icon excel" /> :
+                                                        media.name.endsWith('.ppt') || media.name.endsWith('.pptx') ? <FaFilePowerpoint className="file-type-icon ppt" /> :
+                                                            media.name.endsWith('.pdf') ? <FaFilePdf className="file-type-icon pdf" /> :
+                                                                media.name.endsWith('.zip') || media.name.endsWith('.rar') || media.name.endsWith('.7z') ? <FaFileArchive className="file-type-icon archive" /> :
+                                                                    <FaFileAlt className="file-type-icon generic" />}
+                                            </span> <span className="file-preview-name">{media.name}</span></div>)}
                                             <button className="remove-media-btn" onClick={() => setSelectedMedia(prev => prev.filter((_, i) => i !== index))}>&times;</button>
                                         </div>
                                     ))}
                                 </div>
                             )}
-                            <textarea className="message-input" placeholder="Nhập tin nhắn @, tin nhắn nhanh /" rows="1" value={inputText} onChange={handleInputChange} onKeyPress={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }}}/>
+                            <textarea className="message-input" placeholder="Nhập tin nhắn @, tin nhắn nhanh /" rows="1" value={inputText} onChange={handleInputChange} onKeyPress={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }} />
                             <div className="input-actions-right">
                                 <div style={{ position: 'relative' }} ref={emojiPickerRef}>
                                     <button className="input-action-btn emoji-button" title="Emoji" onClick={toggleEmojiPicker}><FaSmile /></button>
-                                    {showEmojiPicker && (<div className="emoji-picker-container" onClick={(e) => e.stopPropagation()}><EmojiPicker onEmojiClick={onEmojiClick} emojiStyle={EmojiStyle.NATIVE} height={350} width="100%" lazyLoadEmojis={true} searchDisabled={false} previewConfig={{ showPreview: false }}/></div>)}
+                                    {showEmojiPicker && (<div className="emoji-picker-container" onClick={(e) => e.stopPropagation()}><EmojiPicker onEmojiClick={onEmojiClick} emojiStyle={EmojiStyle.NATIVE} height={350} width="100%" lazyLoadEmojis={true} searchDisabled={false} previewConfig={{ showPreview: false }} /></div>)}
                                 </div>
                                 <button className="input-action-btn primary" title="Gửi tin nhắn" onClick={sendMessage}><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg></button>
                             </div>
@@ -661,17 +762,17 @@ function MainContent({ selectedChat, currentLoggedInUserId, onConversationDelete
                 onConfirm={confirmForward}
                 currentUserId={currentLoggedInUserId}
                 messageToForward={messages.find(m => m._id === forwardingMessageId)}
-                allConversations={allConversations || []} 
+                allConversations={allConversations || []}
             />
-            <ConversationInfoModal 
-                isOpen={isConvInfoModalOpen} 
-                onClose={closeConvInfoModal} 
-                chatData={localSelectedChat} 
-                onConversationDeleted={onConversationDeleted} 
+            <ConversationInfoModal
+                isOpen={isConvInfoModalOpen}
+                onClose={closeConvInfoModal}
+                chatData={localSelectedChat}
+                onConversationDeleted={onConversationDeleted}
                 currentUserId={currentLoggedInUserId}
-                onConversationUpdated={(updatedData) => setLocalSelectedChat(prev => ({...prev, ...updatedData}))}
+                onConversationUpdated={(updatedData) => setLocalSelectedChat(prev => ({ ...prev, ...updatedData }))}
             />
-            {activeMenu.messageId && currentActiveMessage && (<MessageContextMenu ref={menuRef} message={currentActiveMessage} position={activeMenu} onClose={handleCloseMenu} onRecall={() => handleRecallMessage(activeMenu.messageId)} onDeleteForMe={() => handleDeleteForMe(activeMenu.messageId)} onReply={() => handleReplyMessage(activeMenu.messageId)} onForward={() => handleForwardMessage(activeMenu.messageId)} currentLoggedInUserId={currentLoggedInUserId}/>)}
+            {activeMenu.messageId && currentActiveMessage && (<MessageContextMenu ref={menuRef} message={currentActiveMessage} position={activeMenu} onClose={handleCloseMenu} onRecall={() => handleRecallMessage(activeMenu.messageId)} onDeleteForMe={() => handleDeleteForMe(activeMenu.messageId)} onReply={() => handleReplyMessage(activeMenu.messageId)} onForward={() => handleForwardMessage(activeMenu.messageId)} currentLoggedInUserId={currentLoggedInUserId} />)}
             <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={onMediaSelected} multiple />
             <input type="file" ref={imageInputRef} style={{ display: 'none' }} accept="image/*" onChange={onMediaSelected} multiple />
         </>

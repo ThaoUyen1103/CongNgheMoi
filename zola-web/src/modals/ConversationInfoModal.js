@@ -112,46 +112,96 @@ function ConversationInfoModal({
     }, [isOpen, chatData]);
 
     const enrichedChatData = useMemo(() => {
-        if (liveChatData && typeof liveChatData === 'object') {
-            let generatedGroupLink;
-            const isAdmin = String(liveChatData.groupLeader) === String(currentUserId); 
-            const isDeputy = Array.isArray(liveChatData.deputyLeader) && liveChatData.deputyLeader.map(id => String(id)).includes(String(currentUserId));
-            if (liveChatData.type === "group") {
-                if (liveChatData.groupLink) {
-                    generatedGroupLink = liveChatData.groupLink;
-                } else {
-                    const idString = String(liveChatData._id || liveChatData.id || '');
-                    const slicedId = idString.slice(0, 8);
-                    generatedGroupLink = `https://zalo.me/g/${ slicedId || "testgroup123" }`;
-                }
+    if (liveChatData && typeof liveChatData === 'object') {
+        const isChatGroup = liveChatData.type === "group" || !!liveChatData.groupLeader;
+        let generatedGroupLink;
+        let targetSpecificDetails = {}; // Sẽ chứa thông tin riêng của nhóm hoặc người dùng
+
+        if (isChatGroup) {
+            // Xử lý cho group (phần này giữ nguyên logic cũ của bạn)
+            if (liveChatData.groupLink) {
+                generatedGroupLink = liveChatData.groupLink;
+            } else {
+                const idString = String(liveChatData._id || liveChatData.id || '');
+                const slicedId = idString.slice(0, 8);
+                generatedGroupLink = `https://zalo.me/g/${slicedId || "testgroup123"}`;
             }
-            const result = {
-                ...liveChatData,
-                _id: liveChatData._id || liveChatData.id || '',
-                name: liveChatData.name || liveChatData.conversationName || "Không có tên",
-                avatar: liveChatData.avatar,
-                type: liveChatData.type || (liveChatData.groupLeader ? 'group' : 'user'),
-                members: Array.isArray(liveChatData.members) ? liveChatData.members : [],
+            targetSpecificDetails = {
                 groupLeader: liveChatData.groupLeader,
                 deputyLeader: Array.isArray(liveChatData.deputyLeader) ? liveChatData.deputyLeader : [],
-                conversationName: liveChatData.conversationName || liveChatData.name || "Không có tên",
-                updatedAt: liveChatData.updatedAt,
-                currentUserIsAdmin: isAdmin,
-                currentUserIsDeputy: isDeputy,
-                coverPhotoUrl: liveChatData.coverPhotoUrl || `https://source.unsplash.com/random/400x150?sig=${liveChatData._id || liveChatData.id || "defaultCover"}`,
                 memberCount: (Array.isArray(liveChatData.members) ? liveChatData.members.length : 0),
                 groupLink: generatedGroupLink,
                 adminId: liveChatData.groupLeader,
                 deputyAdminIds: Array.isArray(liveChatData.deputyLeader) ? liveChatData.deputyLeader : [],
-                gender: liveChatData.gender,
-                dob: liveChatData.dob,
-                phone: liveChatData.phone,
-                online: liveChatData.online || false,
+                coverPhotoUrl: liveChatData.coverPhotoUrl || `https://source.unsplash.com/random/400x150?sig=${liveChatData._id || liveChatData.id || "defaultCover"}`,
             };
-            return result;
+        } else { // Chat 1-1
+            // Lấy thông tin chi tiết của người dùng kia từ liveChatData.otherMemberInfo
+            const otherUser = liveChatData.otherMemberInfo; // SỬ DỤNG otherMemberInfo TỪ ZaloPCLayout
+            if (otherUser) { // Kiểm tra otherUser tồn tại
+                targetSpecificDetails = {
+                    _id: otherUser._id, // ID của người dùng kia
+                    name: otherUser.name || otherUser.userName, // Tên người dùng kia
+                    avatar: otherUser.avatar, // Avatar người dùng kia
+                    gender: otherUser.gender,
+                    dob: otherUser.dateOfBirth , // Ưu tiên dateOfBirth, fallback về dob
+                    phone: otherUser.phoneNumber , // Ưu tiên phoneNumber
+                    online: otherUser.online || false,
+                    coverPhotoUrl: otherUser.coverImage ,
+                    online: otherUser.isOnline || false,
+                };
+                
+            } else {
+                // Fallback nếu otherMemberInfo không có (dù không nên xảy ra nếu ZaloPCLayout đúng)
+                targetSpecificDetails = {
+                    name: liveChatData.name || "Người dùng",
+                    avatar: liveChatData.avatar,
+                    gender: "Chưa cập nhật",
+                    dob: "Chưa cập nhật",
+                    phone: "Chưa cập nhật",
+                    online: false,
+                    coverPhotoUrl: `https://source.unsplash.com/random/400x150?sig=${liveChatData._id || "defaultUserCover"}`,
+                };
+            }
         }
-        return null;
-    }, [liveChatData, currentUserId]);
+        
+        const isAdmin = String(liveChatData.groupLeader) === String(currentUserId);
+        const isDeputy = Array.isArray(liveChatData.deputyLeader) && liveChatData.deputyLeader.map(id => String(id)).includes(String(currentUserId));
+
+        // Tạo object result cuối cùng
+        const result = {
+            // Các trường chung của cuộc trò chuyện (từ liveChatData)
+            _id: liveChatData._id || liveChatData.id || '', // ID cuộc trò chuyện
+            name: liveChatData.name || liveChatData.conversationName || "Không có tên", // Tên cuộc trò chuyện (cho Sidebar)
+            avatar: liveChatData.avatar, // Avatar cuộc trò chuyện (cho Sidebar)
+            type: isChatGroup ? 'group' : 'user',
+            members: Array.isArray(liveChatData.members) ? liveChatData.members : [],
+            conversationName: liveChatData.conversationName || liveChatData.name || "Không có tên",
+            updatedAt: liveChatData.updatedAt,
+            currentUserIsAdmin: isAdmin,
+            currentUserIsDeputy: isDeputy,
+            
+            // Gộp thông tin chi tiết của target (nhóm hoặc người dùng)
+            // Các trường này sẽ được TargetAccountInfoModal hoặc GroupDetailsModal sử dụng
+            ...targetSpecificDetails 
+        };
+
+        // Đối với chat 1-1, đảm bảo `name` và `avatar` ở cấp cao nhất của `result`
+        // là của người bạn đang chat cùng (để TargetAccountInfoModal hiển thị đúng)
+        if (!isChatGroup && targetSpecificDetails.name) {
+            result.name = targetSpecificDetails.name;
+            result.avatar = targetSpecificDetails.avatar;
+            // Nếu targetSpecificDetails có _id (là _id của user kia), thì gán nó cho một trường khác
+            // để không ghi đè _id của cuộc trò chuyện.
+            // TargetAccountInfoModal sẽ dùng result._id (là id của user kia), result.name, result.avatar
+            result.targetUserId = targetSpecificDetails._id; // ID của người bạn chat
+        }
+
+
+        return result;
+    }
+    return null;
+}, [liveChatData, currentUserId]);
     
     useEffect(() => {
         if (isOpen && enrichedChatData?._id) {

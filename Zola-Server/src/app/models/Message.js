@@ -16,6 +16,8 @@ const Message = new Schema(
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
     },*/
+
+        // Thêm image_gallery
         contentType: {
             type: String,
             enum: ['text', 'image', 'video', 'audio', 'file', 'notify', 'image_gallery'],

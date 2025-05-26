@@ -694,8 +694,10 @@ class UserController {
             const friendIds = user.friend.map((friend) => friend.friend_id);
             const friends = await User.find(
                 { _id: { $in: friendIds } },
-                'userName phoneNumber avatar lastName' 
+                'userName firstName lastName phoneNumber avatar gender dateOfBirth coverImage isOnline' // Đảm bảo các tên trường này khớp 100% với model User.js
             ).lean();
+
+             console.log('Data being sent from getInfoFriend:', JSON.stringify(friends, null, 2)); 
             return res.status(200).json(friends);
         } catch (error) {
             console.error('Lỗi lấy danh sách bạn bè (Mobile):', error);

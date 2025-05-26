@@ -1,7 +1,3 @@
-/* --- General Styles --- */
-
-
-
 .main-content-wrapper {
   flex-grow: 1;
   display: flex;
@@ -21,7 +17,6 @@
   overflow: hidden;
 }
 
-/* --- No Chat Selected State --- */
 .main-content.no-chat-selected {
   align-items: center;
   justify-content: center;
@@ -126,7 +121,6 @@
   font-weight: 500;
 }
 
-/* --- Chat View --- */
 .main-content.chat-view {
   padding: 0;
   display: flex;
@@ -181,7 +175,7 @@
   height: 10px;
   background-color: #4CAF50;
   border-radius: 50%;
-  position: absolute; 
+  position: absolute;
   bottom: 1px;
   right: 1px;
   border: 2px solid white;
@@ -229,7 +223,6 @@
   color: #005ae0;
 }
 
-/* --- Message Area --- */
 .message-area {
   flex-grow: 1;
   overflow-y: auto;
@@ -274,7 +267,7 @@
   height: 32px;
   font-size: 14px;
   background-color: #007bff;
-  border-radius: 50%; 
+  border-radius: 50%;
   overflow: hidden;
 }
 
@@ -307,10 +300,10 @@
   font-size: 14.5px;
   line-height: 1.45;
   word-wrap: break-word;
-  position: relative; 
+  position: relative;
   overflow: visible;
-  display: flex; 
-  flex-direction: column; 
+  display: flex;
+  flex-direction: column;
 }
 
 .message-item.sent .message-bubble {
@@ -329,21 +322,21 @@
   background-color: transparent;
   box-shadow: none;
   border-radius: 8px;
-  overflow: hidden; 
+  overflow: hidden;
 }
 .message-item.sent .message-bubble.image-bubble {
   background-color: transparent;
 }
 
 .message-image-content {
-  max-width: 250px; 
-  max-height: 200px; 
-  width: auto;       
-  height: auto;     
-  display: block;   
-  border-radius: 8px; 
-  object-fit: cover;  
-  cursor: pointer; 
+  max-width: 250px;
+  max-height: 200px;
+  width: auto;
+  height: auto;
+  display: block;
+  border-radius: 8px;
+  object-fit: cover;
+  cursor: pointer;
 }
 
 .message-text-content {
@@ -385,7 +378,7 @@
   border: 1px solid #e9ecef;
   max-width: 280px;
   cursor: default;
-  position: relative; 
+  position: relative;
 }
 .message-item.sent .message-file {
   background-color: #e0eefa;
@@ -393,7 +386,7 @@
 
 .file-icon {
   font-size: 28px;
-  display: flex; 
+  display: flex;
   align-items: center;
   justify-content: center;
   min-width: 30px;
@@ -426,7 +419,7 @@
   color: #0056b3;
 }
 
-.file-action-btn { 
+.file-action-btn {
   background: none;
   border: none;
   font-size: 18px;
@@ -434,7 +427,7 @@
   cursor: pointer;
   padding: 5px;
   border-radius: 4px;
-  line-height: 1; 
+  line-height: 1;
 }
 .file-action-btn:hover {
   background-color: #dee2e6;
@@ -469,20 +462,20 @@
 
 .message-input-area {
   display: flex;
-  flex-direction: column; 
+  flex-direction: column;
   align-items: stretch;
-  padding: 0 15px 8px 15px; 
+  padding: 0 15px 8px 15px;
   background-color: #ffffff;
   border-top: 1px solid #e9edf0;
   flex-shrink: 0;
   min-height: 52px;
   box-sizing: border-box;
 }
-.main-input-controls { 
+.main-input-controls {
     display: flex;
-    align-items: flex-end; 
+    align-items: flex-end;
     width: 100%;
-    padding-top: 8px; 
+    padding-top: 8px;
 }
 
 .input-actions-left, .input-actions-right {
@@ -527,7 +520,7 @@
   outline: none;
   padding: 8px 12px;
   font-size: 14.5px;
-  background-color: #f0f2f5; 
+  background-color: #f0f2f5;
   border-radius: 18px;
   resize: none;
   max-height: 90px;
@@ -553,7 +546,7 @@
   align-items: center;
 }
 .recalled-message {
-  color: #6c757d; 
+  color: #6c757d;
   font-style: italic;
   border-radius: 6px;
   display: inline-block;
@@ -564,13 +557,13 @@
   flex-wrap: wrap;
   gap: 8px;
   padding: 8px 0;
-  margin-bottom: 5px; 
+  margin-bottom: 5px;
 }
 
 .preview-item {
   position: relative;
-  display: flex; 
-  align-items: center; 
+  display: flex;
+  align-items: center;
 }
 
 .preview-image {
@@ -599,79 +592,78 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1; 
+  z-index: 1;
 }
 
 .message-image-wrapper {
-  position: relative; 
-  display: inline-block; 
+  position: relative;
+  display: inline-block;
 }
 
 .message-image-download-btn {
-  position: absolute; 
+  position: absolute;
   bottom: 5px;
   right: 5px;
-  background-color: rgba(0, 0, 0, 0.6); 
+  background-color: rgba(0, 0, 0, 0.6);
   color: white;
   border: none;
-  border-radius: 50%; 
-  width: 28px;       
+  border-radius: 50%;
+  width: 28px;
   height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  opacity: 0; 
-  transition: opacity 0.2s ease-in-out; 
-  text-decoration: none; 
-  z-index: 10; 
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+  text-decoration: none;
+  z-index: 10;
 }
 
 .message-image-wrapper:hover .message-image-download-btn,
-.message-image-wrapper:hover .media-item-menu-trigger { /* Hiện cả nút menu khi hover image wrapper */
+.message-image-wrapper:hover .media-item-menu-trigger {
     opacity: 1;
 }
 
 
 .message-image-download-btn svg {
-  font-size: 14px; 
+  font-size: 14px;
 }
 
 .message-image-gallery-container {
   display: flex;
-  flex-wrap: wrap; 
-  gap: 5px;        
+  flex-wrap: wrap;
+  gap: 5px;
 }
 
 .message-image-gallery-container .message-image-content {
-  max-width: 150px;  
+  max-width: 150px;
   max-height: 150px;
 }
 .message-image-gallery-container .message-image-wrapper.gallery-image-item {
-  /* Thêm position relative cho từng item trong gallery để menu con (nếu có) định vị đúng */
   position: relative;
 }
 
 
-.message-image-wrapper .message-image-content { 
-  max-width: 250px; 
+.message-image-wrapper .message-image-content {
+  max-width: 250px;
   max-height: 200px;
-  width: auto;      
-  height: auto;     
-  display: block;   
-  border-radius: 8px; 
-  object-fit: cover;  
-  cursor: pointer; 
+  width: auto;
+  height: auto;
+  display: block;
+  border-radius: 8px;
+  object-fit: cover;
+  cursor: pointer;
 }
 
-.file-icon .file-type-icon { 
-  font-size: 28px; 
+.file-icon .file-type-icon {
+  font-size: 28px;
   vertical-align: middle;
 }
 
 
 .file-preview-icon .file-type-icon.word { color: #1760cd; }
-.file-preview-icon .file-type-icon.excel { color: #23a25c; } /* Màu xanh lá cho Excel */
+.file-preview-icon .file-type-icon.excel { color: #23a25c; }
 .file-preview-icon .file-type-icon.ppt { color: #d04423; }
 .file-preview-icon .file-type-icon.pdf { color: #B30B00; }
 .file-preview-icon .file-type-icon.archive { color: #fab005; }
@@ -693,11 +685,10 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 100px; 
+  max-width: 100px;
   color: #495057;
 }
 
-/* === CSS CHO TÍNH NĂNG TRẢ LỜI TIN NHẮN === */
 .reply-preview-bar {
   display: flex;
   justify-content: space-between;
@@ -707,8 +698,8 @@
   border-top: 1px solid #d1d7e0;
   border-left: 3px solid #007bff;
   font-size: 13px;
-  margin: 0; 
-  border-radius: 6px 6px 0 0; 
+  margin: 0;
+  border-radius: 6px 6px 0 0;
 }
 .reply-preview-bar-content { display: flex; flex-direction: column; gap: 2px; overflow: hidden; padding-right: 10px; }
 .reply-bar-header { color: #5f6368; font-weight: 500; }
@@ -718,15 +709,15 @@
 .cancel-reply-bar-btn:hover { color: #333; }
 
 .reply-preview-bubble {
-  background-color: rgba(0, 0, 0, 0.03); 
+  background-color: rgba(0, 0, 0, 0.03);
   padding: 6px 10px;
   border-radius: 6px;
-  margin-bottom: 4px; 
-  border-left: 2px solid #007bff; 
+  margin-bottom: 4px;
+  border-left: 2px solid #007bff;
   font-size: 12.5px;
-  max-width: calc(100% - 20px); 
-  cursor: pointer; 
-  overflow: hidden; 
+  max-width: calc(100% - 20px);
+  cursor: pointer;
+  overflow: hidden;
 }
 .message-item.sent .reply-preview-bubble { background-color: rgba(0, 64, 133, 0.07); border-left-color: #0056b3; }
 .reply-preview-bubble.missing, .reply-preview-bubble.recalled { font-style: italic; color: #6c757d; border-left-color: #adb5bd; }
@@ -735,43 +726,40 @@
 .reply-preview-text { color: #505862; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
 .message-item.sent .reply-preview-text { color: #004a7c; }
 
-/* Wrapper cho nội dung tin nhắn text và media để chứa reply và nút menu */
 .text-message-wrapper,
 .message-media-container {
-  position: relative; /* Cho phép nút menu định vị */
+  position: relative;
   display: flex;
   flex-direction: column;
 }
 .message-item.sent .text-message-wrapper,
-.message-item.sent .message-media-container { 
-  align-items: flex-end; 
+.message-item.sent .message-media-container {
+  align-items: flex-end;
 }
 .message-item.received .text-message-wrapper,
-.message-item.received .message-media-container { 
-  align-items: flex-start; 
+.message-item.received .message-media-container {
+  align-items: flex-start;
 }
 
-/* Nút menu chung và menu cho media item */
-.message-menu-trigger-btn, 
+.message-menu-trigger-btn,
 .media-item-menu-trigger {
   background: none;
   border: none;
   color: #657786;
   cursor: pointer;
-  padding: 2px 4px; /* Giảm padding để nút nhỏ hơn */
-  font-size: 14px; /* Giữ nguyên hoặc giảm nếu muốn */
+  padding: 2px 4px;
+  font-size: 14px;
   position: absolute;
   opacity: 0;
   transition: opacity 0.15s ease-in-out, background-color 0.15s;
   border-radius: 4px;
-  z-index: 5; /* Đảm bảo nút menu trên reply preview */
+  z-index: 5;
 }
 
-/* Hiển thị nút menu khi hover vào message-item (cho text) hoặc wrapper/container (cho media) */
 .message-item:hover .message-menu-trigger-btn,
-.message-image-wrapper:hover .media-item-menu-trigger, /* Cho ảnh đơn */
-.message-media-container:hover > .media-item-menu-trigger, /* Cho gallery, file, video (nếu menu là con trực tiếp của media-container) */
-.message-file:hover .file-actions-group .media-item-menu-trigger, /* Cho file/video nếu menu trong actions-group */
+.message-image-wrapper:hover .media-item-menu-trigger,
+.message-media-container:hover > .media-item-menu-trigger,
+.message-file:hover .file-actions-group .media-item-menu-trigger,
 .message-menu-trigger-btn.active,
 .media-item-menu-trigger.active {
   opacity: 1;
@@ -783,47 +771,43 @@
   color: #333;
 }
 
-/* Menu cho tin nhắn TEXT - Đẩy ra xa hơn */
 .message-item.sent .text-message-wrapper .message-menu-trigger-btn {
-  left: -20px; /* Xa hơn */
+  left: -20px;
   top: 50%;
   transform: translateY(-50%) translateX(-100%);
 }
 .message-item.received .text-message-wrapper .message-menu-trigger-btn {
-  right: -20px; /* Xa hơn */
+  right: -20px;
   top: 50%;
   transform: translateY(-50%) translateX(100%);
 }
 
-/* Menu cho MEDIA ITEMS (ảnh đơn, gallery, file, video) - Overlay ở góc trên bên phải */
 .media-item-menu-trigger {
   top: 5px;
-  right: 5px; 
+  right: 5px;
   background-color: rgba(230, 230, 230, 0.8);
 }
-/* Nút menu cho IMAGE GALLERY (nếu là con trực tiếp của message-media-container) */
 .message-media-container > .media-item-menu-trigger {
-    top: 8px; /* Điều chỉnh cho phù hợp với padding của reply preview nếu có */
+    top: 8px;
     right: 8px;
 }
 
-/* Nút menu cho FILE/VIDEO (nếu nằm trong file-actions-group) */
 .file-actions-group {
   display: flex;
-  flex-direction: column; 
+  flex-direction: column;
   align-items: center;
-  gap: 4px; 
-  margin-left: auto; 
+  gap: 4px;
+  margin-left: auto;
   padding-left: 8px;
 }
 .message-file .file-actions-group .media-item-menu-trigger {
-  position: static; /* Nằm trong luồng bình thường của flexbox */
-  opacity: 1; /* Luôn hiện */
-  width: 24px; 
+  position: static;
+  opacity: 1;
+  width: 24px;
   height: 24px;
-  background-color: rgba(0, 0, 0, 0.05); 
+  background-color: rgba(0, 0, 0, 0.05);
   color: #657786;
-  margin-top: 4px; /* Khoảng cách với nút download */
+  margin-top: 4px;
 }
 .message-file .file-actions-group .media-item-menu-trigger:hover {
   background-color: rgba(0, 0, 0, 0.1);
@@ -832,20 +816,148 @@
   font-size: 12px;
 }
 
-
-/* Đảm bảo message-bubble không bị padding khi chứa media */
 .message-bubble:not(.image-bubble):not(.file-bubble) {
-    padding: 8px 12px; /* Chỉ áp dụng padding cho text bubble */
+    padding: 8px 12px;
 }
-/* message-bubble.image-bubble và .file-bubble đã có padding: 0 */
 
-
-/* Đảm bảo vị trí của gallery item menu trigger (nếu có, hiện tại không dùng) */
 .message-image-gallery-container .message-image-wrapper.gallery-image-item .media-item-menu-trigger {
-    /* Nếu bạn muốn menu cho từng ảnh con trong gallery, đây là chỗ style */
-    /* Ví dụ: */
-    /* top: 3px; */
-    /* right: 3px; */
-    /* width: 20px; */
-    /* height: 20px; */
 }
+
+.message-media-container.video-container,
+.message-media-container.audio-container {
+}
+
+.message-video-player-wrapper {
+    position: relative;
+    max-width: 350px;
+    border-radius: 8px;
+    overflow: hidden;
+    background-color: #000;
+    margin-bottom: 5px;
+}
+
+.message-video-content {
+    display: block;
+    width: 100%;
+    max-height: 300px;
+    border-radius: 8px;
+}
+
+.media-filename-display {
+    font-size: 0.9em;
+    color: #555;
+    padding: 2px 8px;
+    background-color: #f0f0f0;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    margin-top: -2px;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+
+.message-audio-player-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 10px;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+}
+
+.message-audio-content {
+    width: 100%;
+    margin-bottom: 8px;
+}
+.message-audio-content::-webkit-media-controls-panel {
+  background-color: #f0f2f5;
+  border-radius: 6px;
+}
+.message-audio-content::-moz-media-controls-panel {
+  background-color: #f0f2f5;
+}
+
+
+.audio-file-info-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9em;
+}
+
+.audio-file-name {
+    color: #333;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-right: 10px;
+    flex-grow: 1;
+}
+
+.audio-download-btn {
+    margin-right: 8px;
+}
+
+.message-video-player-wrapper .media-actions-overlay {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    display: flex;
+    gap: 5px;
+    background-color: rgba(0,0,0,0.3);
+    padding: 5px;
+    border-radius: 4px;
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+    z-index: 10;
+}
+
+.message-media-container.video-container:hover .message-video-player-wrapper .media-actions-overlay,
+.message-video-player-wrapper:hover .media-actions-overlay {
+    opacity: 1;
+}
+
+.message-video-player-wrapper .media-download-btn,
+.message-video-player-wrapper .media-item-menu-trigger {
+    color: white;
+    background: none;
+    border: none;
+    padding: 4px;
+    font-size: 16px;
+    cursor: pointer;
+}
+.message-video-player-wrapper .media-item-menu-trigger {
+}
+
+.loading-messages-container, .error-messages-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    font-size: 14px;
+    color: #6c757d;
+    height: 100%;
+}
+.error-messages-container {
+    color: #dc3545;
+}
+.spinner-icon {
+    margin-right: 8px;
+    animation: spin 1s linear infinite;
+}
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+.forwarded-label {
+    font-size: 0.75em;
+    color: #6c757d;
+    margin-bottom: 4px;
+    font-style: italic;
+}
+

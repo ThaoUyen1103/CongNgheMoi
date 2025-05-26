@@ -26,6 +26,7 @@ const io = new Server(server, {
     pingInterval: 25000,
 });
 
+//Anh thêm chỗ này á 
 app.post('/api/emit-to-room', (req, res) => {
     const { room, event, payload } = req.body;
 

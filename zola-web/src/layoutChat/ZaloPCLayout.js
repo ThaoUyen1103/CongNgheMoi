@@ -122,6 +122,7 @@ function ZaloPCLayout({ onLogout }) {
             const friendsData = await friendsResponse.json();
             if (friendsData && Array.isArray(friendsData)) {
                 const conversationPromises = friendsData.map(async (friend) => {
+                    console.log(`[ZaloPCLayout] Friend data from API for ${friend.userName}:`, JSON.stringify(friend)); 
                     try {
                         const convResponse = await fetch('http://localhost:3001/conversation/createConversationsWeb', {
                             method: 'POST',
@@ -144,6 +145,19 @@ function ZaloPCLayout({ onLogout }) {
                                     isGroup: false,
                                     groupLeader: null,
                                     deputyLeaders: [],
+                                    otherMemberInfo: { 
+                                        _id: friend._id,
+                                        userName: friend.userName,
+                                        name: friend.userName,  
+                                        avatar: friend.avatar,
+                                        gender: friend.gender, 
+                                        dateOfBirth: friend.dateOfBirth, // Đúng tên trường từ API (khớp model)
+                                        phoneNumber: friend.phoneNumber, // Đúng tên trường từ API (khớp model)
+                                        coverImage: friend.coverImage,   // Đúng tên trường từ API (khớp model)
+                                        isOnline: friend.isOnline || false,
+                                        
+                                    }
+                                    
                                 };
                             }
                         }
@@ -428,6 +442,7 @@ const handleReceiveMessage = (newMessageData) => {
                     isGroup: false,
                     members: data.conversation.members.map(m => typeof m === 'string' ? allConversations.flatMap(c => c.members).find(member => member._id === m) || { _id: m } : m),
                     updatedAt: data.conversation.updatedAt || data.conversation.createdAt || new Date().toISOString(),
+                    
                 };
                 setAllConversations(prev => {
                     const existingIndex = prev.findIndex(c => c._id === preparedSelectedChat._id);

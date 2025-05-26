@@ -1,77 +1,63 @@
+// File: UpdateInfoModal.js
+
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import '../styles/UpdateInfoModal.css';
 
-const UpdateInfoModal = ({ isOpen, onClose, userData }) => {
+const UpdateInfoModal = ({ isOpen, onClose, userData, onUpdate }) => { // Thêm onUpdate prop
   const [displayName, setDisplayName] = useState('');
-  const [gender, setGender] = useState('');
+  const [gender, setGender] = useState(''); // Sẽ lưu 'Nam' hoặc 'Nữ' cho UI
   const [day, setDay] = useState('');
   const [month, setMonth] = useState('');
   const [year, setYear] = useState('');
 
-  const mapGenderToUI = (value) => {
-    if (!value) return '';
-    return value.toLowerCase() === 'male' ? 'Nam' : value.toLowerCase() === 'female' ? 'Nữ' : '';
+  // Sửa hàm này để kiểm tra kiểu string trước khi toLowerCase()
+  const mapGenderToUI = (serverGenderValue) => {
+    if (typeof serverGenderValue === 'string') { // Chỉ xử lý nếu là string
+      const lowerValue = serverGenderValue.toLowerCase();
+      if (lowerValue === 'male') return 'Nam';
+      if (lowerValue === 'female') return 'Nữ';
+      // Nếu là string khác, hoặc đã là "Nam"/"Nữ" (trường hợp người dùng chọn lại)
+      if (lowerValue === 'nam' || lowerValue === 'nữ') return serverGenderValue.charAt(0).toUpperCase() + serverGenderValue.slice(1).toLowerCase();
+      return ''; // Hoặc giá trị mặc định khác nếu serverGenderValue không hợp lệ
+    }
+    return ''; // Trả về rỗng nếu không phải string hoặc null/undefined
   };
 
-  const mapGenderToServer = (value) => {
-    if (!value) return '';
-    return value === 'Nam' ? 'male' : value === 'Nữ' ? 'female' : '';
+  const mapGenderToServer = (uiGenderValue) => {
+    if (!uiGenderValue) return '';
+    return uiGenderValue === 'Nam' ? 'male' : uiGenderValue === 'Nữ' ? 'female' : '';
   };
 
+  // useEffect này để khởi tạo state từ userData prop khi modal mở hoặc userData thay đổi
   useEffect(() => {
-    if (userData) {
+    if (isOpen && userData) {
       setDisplayName(userData.userName || '');
-      setGender(mapGenderToUI(userData.gender));
-      setDay(userData.dateOfBirth?.day || '01');
-      setMonth(userData.dateOfBirth?.month || '01');
-      setYear(userData.dateOfBirth?.year || '2000');
-    }
-  }, [userData]);
-
-  useEffect(() => {
-    const storedUser = JSON.parse(localStorage.getItem('user'));
-    if (storedUser) {
-      setDisplayName(storedUser.userName || '');
-      setGender(mapGenderToUI(storedUser.gender));
-      const dob = storedUser.dateOfBirth || '01/01/2000';
-      const [d, m, y] = dob.split('/');
-      setDay(d || '01');
-      setMonth(m || '01');
-      setYear(y || '2000');
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
-    const fetchUser = async () => {
-      if (isOpen && userData?._id) {
-        try {
-          const res = await fetch('http://localhost:3001/user/findUserByUserID', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: userData._id }),
-          });
-
-          const result = await res.json();
-          const user = result.user;
-
-          if (user) {
-            setDisplayName(user.userName || '');
-            setGender(mapGenderToUI(user.gender));
-            const dob = user.dateOfBirth || '01/01/2000';
-            const [parsedDay, parsedMonth, parsedYear] = dob.split('/');
-            setDay(parsedDay || '01');
-            setMonth(parsedMonth || '01');
-            setYear(parsedYear || '2000');
-          }
-        } catch (error) {
-          console.error('Lỗi khi lấy thông tin người dùng:', error);
-        }
+      setGender(mapGenderToUI(userData.gender)); // userData.gender từ server nên là 'male'/'female'
+      
+      // Xử lý dateOfBirth từ userData nếu nó là chuỗi "dd/mm/yyyy"
+      if (userData.dateOfBirth && typeof userData.dateOfBirth === 'string') {
+        const [d, m, y] = userData.dateOfBirth.split('/');
+        setDay(d || '01');
+        setMonth(m || '01');
+        setYear(y || '2000');
+      } else if (userData.dateOfBirth && typeof userData.dateOfBirth === 'object') {
+        // Nếu dateOfBirth là object { day, month, year } (ít khả năng từ server)
+        setDay(userData.dateOfBirth.day || '01');
+        setMonth(userData.dateOfBirth.month || '01');
+        setYear(userData.dateOfBirth.year || '2000');
+      } else {
+        // Fallback nếu dateOfBirth không có hoặc không đúng định dạng
+        setDay('01');
+        setMonth('01');
+        setYear('2000');
       }
-    };
-
-    fetchUser();
+    }
   }, [isOpen, userData]);
+
+  // Bỏ useEffect thứ hai và thứ ba liên quan đến localStorage và fetchUser trực tiếp khi isOpen.
+  // Dữ liệu nên được truyền qua props userData là chính.
+  // Nếu cần fetch lại, nên có một cơ chế rõ ràng hơn thay vì fetch mỗi khi modal mở.
 
   if (!isOpen) return null;
 
@@ -81,29 +67,39 @@ const UpdateInfoModal = ({ isOpen, onClose, userData }) => {
   const years = Array.from({ length: 100 }, (_, i) => String(currentYear - i));
 
   const handleSubmit = async () => {
+    if (!userData?._id) {
+        alert('Không tìm thấy thông tin người dùng để cập nhật.');
+        return;
+    }
     try {
       const formattedDOB = `${day}/${month}/${year}`;
-      const storedUser = JSON.parse(localStorage.getItem('user'));
-      const genderServer = mapGenderToServer(gender);
+      const genderServerValue = mapGenderToServer(gender); // Chuyển 'Nam'/'Nữ' về 'male'/'female'
 
       const response = await fetch('http://localhost:3001/user/updateUserWeb', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('user_token')}` // Thêm token nếu API yêu cầu
+        },
         body: JSON.stringify({
-          user_id: storedUser._id,
+          user_id: userData._id, // Nên dùng _id từ userData prop
           userName: displayName,
-          gender: genderServer,
+          gender: genderServerValue,
           dateOfBirth: formattedDOB,
+          // Không gửi avatar ở đây trừ khi bạn có input cho nó
         }),
       });
 
       const data = await response.json();
-      if (data.message === 'Cập nhật thông tin thành công!!!') {
-        alert('Cập nhật thành công!');
-        localStorage.setItem('user', JSON.stringify(data.user));
-        onClose();
+      if (response.ok && data.user) { // Kiểm tra response.ok và sự tồn tại của data.user
+        alert('Cập nhật thông tin thành công!');
+        localStorage.setItem('user', JSON.stringify(data.user)); // Cập nhật localStorage
+        if (onUpdate) { // Gọi callback onUpdate từ ZaloPCLayout
+            onUpdate(data.user);
+        }
+        onClose(); // Đóng modal
       } else {
-        alert('Cập nhật thất bại!');
+        alert(data.message || 'Cập nhật thất bại!');
       }
     } catch (err) {
       console.error('Lỗi khi cập nhật thông tin:', err);
@@ -136,10 +132,10 @@ const UpdateInfoModal = ({ isOpen, onClose, userData }) => {
           <div className="form-group">
             <label>Giới tính</label>
             <div className="gender-options">
-              <label htmlFor="male">
+              <label htmlFor="maleRadio"> {/* Thay đổi id để không trùng với value */}
                 <input
                   type="radio"
-                  id="male"
+                  id="maleRadio"
                   name="gender"
                   value="Nam"
                   checked={gender === 'Nam'}
@@ -147,10 +143,10 @@ const UpdateInfoModal = ({ isOpen, onClose, userData }) => {
                 />
                 Nam
               </label>
-              <label htmlFor="female">
+              <label htmlFor="femaleRadio"> {/* Thay đổi id */}
                 <input
                   type="radio"
-                  id="female"
+                  id="femaleRadio"
                   name="gender"
                   value="Nữ"
                   checked={gender === 'Nữ'}
